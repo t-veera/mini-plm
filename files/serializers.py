@@ -4,6 +4,7 @@ from .models import File
 class FileSerializer(serializers.ModelSerializer):
     # Extra field for file upload
     uploaded_file = serializers.FileField(write_only=True, required=False)
+    
 
     class Meta:
         model = File
@@ -17,7 +18,8 @@ class FileSerializer(serializers.ModelSerializer):
             'uploaded_file',
         ]
         # We set some fields as read-only since we populate them in the view
-        read_only_fields = ['owner', 'upload_date', 'file_path', 'metadata']
+        read_only_fields = ['owner', 'name', 'upload_date', 'file_path', 'metadata']
+
 
     def create(self, validated_data):
         # Pop uploaded_file so it doesn't try to match a model field

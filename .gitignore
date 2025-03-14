@@ -1,6 +1,7 @@
 venv/
-__pycache__/
 node_modules/
+mpp_files/
 db.sqlite3
+__pycache__/
 *.pyc
 .env

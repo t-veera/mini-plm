@@ -21,6 +21,7 @@ from files.views import FileViewSet
 from django.conf import settings
 from django.conf.urls.static import static
 
+
 router = routers.DefaultRouter()
 router.register(r'files', FileViewSet)
 
