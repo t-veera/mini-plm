@@ -1,0 +1,51 @@
+import React from 'react';
+import { getFileType } from '../../utils/fileTypes.js.old';
+
+// Import individual preview components
+import ImagePreview from './ImagePreview';
+import PdfPreview from './PdfPreview';
+import StlViewer from './StlViewer';
+import CodePreview from './CodePreview';
+import MarkdownPreview from './MarkdownPreview';
+import CsvPreview from './CsvPreview';
+import ExcelPreview from './ExcelPreview';
+
+const PreviewContainer = ({ fileObj }) => {
+  if (!fileObj) {
+    return <p className="text-muted">No file selected</p>;
+  }
+
+  let fileUrl = '';
+  if (fileObj.revisions && fileObj.selectedRevision) {
+    fileUrl = `http://127.0.0.1:8000/media/${encodeURIComponent(fileObj.selectedRevision.physicalName || fileObj.name)}`;
+  } else {
+    fileUrl = `http://127.0.0.1:8000/media/${encodeURIComponent(fileObj.name)}`;
+  }
+
+  const fileType = getFileType(fileObj.name);
+
+  switch (fileType) {
+    case 'image':
+      return <ImagePreview fileUrl={fileUrl} fileName={fileObj.name} />;
+    case 'pdf':
+      return <PdfPreview fileUrl={fileUrl} fileName={fileObj.name} />;
+    case 'stl':
+      return <StlViewer fileUrl={fileUrl} />;
+    case 'code':
+      return <CodePreview fileUrl={fileUrl} fileName={fileObj.name} />;
+    case 'markdown':
+      return <MarkdownPreview fileUrl={fileUrl} />;
+    case 'csv':
+      return <CsvPreview fileUrl={fileUrl} />;
+    case 'excel':
+      return <ExcelPreview fileUrl={fileUrl} />;
+    default:
+      return (
+        <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+          <p className="text-muted">No preview available</p>
+        </div>
+      );
+  }
+};
+
+export default PreviewContainer;

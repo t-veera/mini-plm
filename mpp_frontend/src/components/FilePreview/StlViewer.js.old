@@ -1,0 +1,28 @@
+import React from 'react';
+import { useLoader } from '@react-three/fiber';
+import { STLLoader } from 'three-stdlib';
+import * as THREE from 'three';
+
+function StlViewer({ fileUrl }) {
+  const geometry = useLoader(STLLoader, fileUrl);
+
+  // Center geometry & compute bounding box for scaling
+  geometry.center();
+  geometry.computeBoundingBox();
+  const size = geometry.boundingBox?.getSize(new THREE.Vector3()).length() || 1;
+  const scaleFactor = 10 / size;
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      scale={[scaleFactor, scaleFactor, scaleFactor]}
+      castShadow
+      receiveShadow
+    >
+      <primitive object={geometry} attach="geometry" />
+      <meshStandardMaterial color="#ccc" roughness={0.5} metalness={0.1} />
+    </mesh>
+  );
+}
+
+export default StlViewer;

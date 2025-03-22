@@ -1,0 +1,47 @@
+import React from 'react';
+
+const StageIcons = ({ stageIcons, selectedStage, onStageClick, onStageRightClick }) => {
+  return (
+    <div className="d-flex flex-column align-items-center mt-3 gap-2">
+      {stageIcons.map((icon) => {
+        // Determine if this is a stage (S) or iteration (I)
+        const isStage = icon.startsWith('S');
+        const isSelected = selectedStage === icon;
+        
+        // Set background color based on type and selection state
+        let backgroundColor;
+        if (isStage) {
+          backgroundColor = isSelected ? '#3498db' : 'transparent';
+        } else {
+          backgroundColor = isSelected ? '#f39c12' : 'transparent';
+        }
+        
+        return (
+          <div
+            key={icon}
+            style={{
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              border: '1px solid #fff',
+              borderRadius: '4px',
+              backgroundColor,
+              color: '#fff',
+              fontWeight: 'bold',
+              margin: '5px 0'
+            }}
+            onClick={() => onStageClick(icon)}
+            onContextMenu={(e) => onStageRightClick(e, icon)}
+          >
+            {icon}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default StageIcons;

@@ -1,0 +1,82 @@
+import { 
+    FaFile, 
+    FaFilePdf, 
+    FaFileImage, 
+    FaFileWord, 
+    FaFileExcel, 
+    FaFilePowerpoint, 
+    FaFileArchive, 
+    FaFileCode, 
+    FaFileVideo, 
+    FaFileAudio,
+    FaCube
+  } from 'react-icons/fa';
+  
+  // Map file extensions to icons
+  const iconMap = {
+    // Documents
+    'pdf': FaFilePdf,
+    'doc': FaFileWord,
+    'docx': FaFileWord,
+    'xls': FaFileExcel,
+    'xlsx': FaFileExcel,
+    'ppt': FaFilePowerpoint,
+    'pptx': FaFilePowerpoint,
+    
+    // Images
+    'jpg': FaFileImage,
+    'jpeg': FaFileImage,
+    'png': FaFileImage,
+    'gif': FaFileImage,
+    'svg': FaFileImage,
+    'bmp': FaFileImage,
+    
+    // Archives
+    'zip': FaFileArchive,
+    'rar': FaFileArchive,
+    'tar': FaFileArchive,
+    'gz': FaFileArchive,
+    '7z': FaFileArchive,
+    
+    // Code
+    'html': FaFileCode,
+    'css': FaFileCode,
+    'js': FaFileCode,
+    'jsx': FaFileCode,
+    'ts': FaFileCode,
+    'tsx': FaFileCode,
+    'json': FaFileCode,
+    'xml': FaFileCode,
+    'py': FaFileCode,
+    'java': FaFileCode,
+    'c': FaFileCode,
+    'cpp': FaFileCode,
+    'cs': FaFileCode,
+    
+    // Media
+    'mp4': FaFileVideo,
+    'avi': FaFileVideo,
+    'mov': FaFileVideo,
+    'wmv': FaFileVideo,
+    'mp3': FaFileAudio,
+    'wav': FaFileAudio,
+    'ogg': FaFileAudio,
+    
+    // 3D models
+    'stl': FaCube,
+    'obj': FaCube,
+    'step': FaCube,
+    'stp': FaCube,
+    'iges': FaCube,
+    'igs': FaCube
+  };
+  
+  // Get icon for a file based on its extension
+  export const getIconForFile = (filename) => {
+    if (!filename) return FaFile;
+    
+    const extension = filename.split('.').pop().toLowerCase();
+    return iconMap[extension] || FaFile;
+  };
+  
+  export default iconMap;

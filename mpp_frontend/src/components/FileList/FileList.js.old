@@ -1,0 +1,132 @@
+import React from 'react';
+import { Table, Form } from 'react-bootstrap';
+import iconMap from '../../utils/iconMap.js.old';
+
+const FileList = ({ 
+  stageFiles, 
+  stageName, 
+  onFileClick, 
+  onFileRightClick 
+}) => {
+  if (!stageName) {
+    return <p className="text-muted">Select a Stage/Iteration on the left to see or upload files.</p>;
+  }
+
+  return (
+    <Table hover borderless className="table-dark table-sm">
+      <thead>
+        <tr style={{ borderBottom: '1px solid #555' }}>
+          <th>Name</th>
+          <th>Revision</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {stageFiles.length === 0 ? (
+          <tr>
+            <td colSpan="3" className="text-muted">
+              No files in {stageName} yet.
+            </td>
+          </tr>
+        ) : (
+          stageFiles.map((fileObj, i) => {
+            const ext = fileObj.name.split('.').pop().toLowerCase();
+            const icon = iconMap[ext] || iconMap.default;
+
+            const revisions = fileObj.revisions || [
+              {
+                revision: fileObj.revision || 1,
+                upload_date: fileObj.upload_date || new Date().toISOString(),
+                physicalName: fileObj.name
+              }
+            ];
+            const latestRevision = revisions[revisions.length - 1];
+
+            return (
+              <tr key={i}>
+                {/* Name cell => sets the preview to the LATEST revision */}
+                <td
+                  style={{
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    verticalAlign: 'middle',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => onFileClick({ ...fileObj, selectedRevision: latestRevision })}
+                  onContextMenu={(e) => onFileRightClick(e, fileObj)}
+                >
+                  {icon}
+                  {fileObj.name}
+                  {fileObj.quantity && fileObj.price ? (
+                    <span className="ms-2 text-muted small">
+                      (Qty: {fileObj.quantity}, ${fileObj.price})
+                    </span>
+                  ) : fileObj.quantity ? (
+                    <span className="ms-2 text-muted small">
+                      (Qty: {fileObj.quantity})
+                    </span>
+                  ) : fileObj.price ? (
+                    <span className="ms-2 text-muted small">
+                      (${fileObj.price})
+                    </span>
+                  ) : null}
+                </td>
+
+                {/* Revision dropdown */}
+                <td style={{ verticalAlign: 'middle' }}>
+                  <Form.Select
+                    size="sm"
+                    className="shadow-none"
+                    onChange={e => {
+                      const revNumber = parseInt(e.target.value, 10);
+                      const chosenRevision = revisions.find(r => r.revision === revNumber);
+                      onFileClick({ ...fileObj, selectedRevision: chosenRevision });
+                    }}
+                    defaultValue={latestRevision.revision}
+                    style={{
+                      backgroundColor: '#222',
+                      border: 'none',
+                      color: '#fff',
+                      boxShadow: 'none',
+                      lineHeight: 'normal',
+                      verticalAlign: 'middle',
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5z'%3E%3C/path%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 0.3rem center',
+                      backgroundSize: '14px 14px',
+                      paddingRight: '1.2rem'
+                    }}
+                  >
+                    <style>
+                      {`
+                        select::-ms-expand {
+                          display: none;
+                        }
+                      `}
+                    </style>
+
+                    {revisions.map((rev, idx) => (
+                      <option key={idx} value={rev.revision}>
+                        Rev {rev.revision}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </td>
+
+                {/* File date */}
+                <td style={{ whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                  {latestRevision.upload_date ? new Date(latestRevision.upload_date).toLocaleDateString() : '14 Mar 2025'}
+                </td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </Table>
+  );
+};
+
+export default FileList;

@@ -1,0 +1,248 @@
+import React, { useState } from 'react';
+import { Card, Tabs, Tab, Table, Badge } from 'react-bootstrap';
+import { FaFile, FaFileImage, FaFilePdf, FaFileWord, FaFileExcel, FaFileCode, FaCube } from 'react-icons/fa';
+
+const FilePreview = ({ fileObj }) => {
+  const [activeTab, setActiveTab] = useState('preview');
+  const [selectedRevision, setSelectedRevision] = useState(null);
+  
+  if (!fileObj) return null;
+
+  // Function to get the appropriate icon based on file type
+  const getFileIcon = (filename) => {
+    if (!filename) return <FaFile />;
+    
+    const extension = filename.split('.').pop().toLowerCase();
+    
+    // Map extensions to icons
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'svg':
+        return <FaFileImage className="me-2" />;
+      case 'pdf':
+        return <FaFilePdf className="me-2" />;
+      case 'doc':
+      case 'docx':
+        return <FaFileWord className="me-2" />;
+      case 'xls':
+      case 'xlsx':
+        return <FaFileExcel className="me-2" />;
+      case 'js':
+      case 'jsx':
+      case 'ts':
+      case 'tsx':
+      case 'html':
+      case 'css':
+      case 'json':
+        return <FaFileCode className="me-2" />;
+      case 'stl':
+      case 'obj':
+      case 'step':
+      case 'stp':
+        return <FaCube className="me-2" />;
+      default:
+        return <FaFile className="me-2" />;
+    }
+  };
+
+  // Determine if it's an image
+  const isImage = fileObj.type && fileObj.type.startsWith('image/');
+  
+  // Get the actual file to display (either current or selected revision)
+  const displayFile = selectedRevision || fileObj;
+  
+  // Render image preview
+  const renderImagePreview = () => {
+    return (
+      <div className="text-center p-3">
+        <img 
+          src={displayFile.dataUrl} 
+          alt={displayFile.name} 
+          style={{ maxWidth: '100%', maxHeight: '70vh' }} 
+        />
+      </div>
+    );
+  };
+  
+  // Render file info
+  const renderFileInfo = () => {
+    return (
+      <Table striped bordered hover variant="dark" className="mb-0">
+        <tbody>
+          <tr>
+            <td width="30%">Filename:</td>
+            <td>{displayFile.name}</td>
+          </tr>
+          <tr>
+            <td>Size:</td>
+            <td>{(displayFile.size / 1024).toFixed(2)} KB</td>
+          </tr>
+          <tr>
+            <td>Last Modified:</td>
+            <td>{new Date(displayFile.lastModified).toLocaleString()}</td>
+          </tr>
+          <tr>
+            <td>Type:</td>
+            <td>{displayFile.type || 'Unknown'}</td>
+          </tr>
+          {displayFile.quantity !== undefined && (
+            <tr>
+              <td>Quantity:</td>
+              <td>{displayFile.quantity}</td>
+            </tr>
+          )}
+          {displayFile.price !== undefined && (
+            <tr>
+              <td>Price:</td>
+              <td>${displayFile.price.toFixed(2)}</td>
+            </tr>
+          )}
+        </tbody>
+      </Table>
+    );
+  };
+  
+  // Render components list
+  const renderComponents = () => {
+    if (!fileObj.components || fileObj.components.length === 0) {
+      return <div className="p-3 text-center text-muted">No components added yet</div>;
+    }
+    
+    return (
+      <Table striped bordered hover variant="dark" className="mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Component Name</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fileObj.components.map((component, index) => (
+            <tr key={index}>
+              <td>{index + 1}</td>
+              <td>{component.name}</td>
+              <td>{component.quantity}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    );
+  };
+  
+  // Render revisions list
+  const renderRevisions = () => {
+    if (!fileObj.revisions || fileObj.revisions.length === 0) {
+      return <div className="p-3 text-center text-muted">No revisions yet</div>;
+    }
+    
+    // Add the current file as the latest revision for display purposes
+    const allRevisions = [...fileObj.revisions];
+    
+    return (
+      <div className="p-2">
+        <Table striped bordered hover variant="dark" className="mb-0">
+          <thead>
+            <tr>
+              <th>Rev #</th>
+              <th>Filename</th>
+              <th>Date</th>
+              <th>Size</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Current version */}
+            <tr className={!selectedRevision ? 'table-primary' : ''}>
+              <td>Current</td>
+              <td>{fileObj.name}</td>
+              <td>{new Date(fileObj.lastModified).toLocaleString()}</td>
+              <td>{(fileObj.size / 1024).toFixed(2)} KB</td>
+              <td>
+                <Badge 
+                  bg={!selectedRevision ? "primary" : "secondary"}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setSelectedRevision(null)}
+                >
+                  View
+                </Badge>
+              </td>
+            </tr>
+            
+            {/* Previous revisions */}
+            {allRevisions.map((revision, index) => (
+              <tr 
+                key={index}
+                className={selectedRevision === revision ? 'table-primary' : ''}
+              >
+                <td>{allRevisions.length - index}</td>
+                <td>{revision.name}</td>
+                <td>{new Date(revision.lastModified).toLocaleString()}</td>
+                <td>{(revision.size / 1024).toFixed(2)} KB</td>
+                <td>
+                  <Badge 
+                    bg={selectedRevision === revision ? "primary" : "secondary"}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedRevision(revision)}
+                  >
+                    View
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+    );
+  };
+
+  return (
+    <Card className="h-100 bg-dark text-light">
+      <Card.Header className="d-flex align-items-center">
+        {getFileIcon(displayFile.name)}
+        <span className="text-truncate">{displayFile.name}</span>
+        {selectedRevision && (
+          <Badge bg="info" className="ms-2">
+            Viewing Revision
+          </Badge>
+        )}
+      </Card.Header>
+      
+      <Tabs
+        activeKey={activeTab}
+        onSelect={(k) => setActiveTab(k)}
+        className="mb-0"
+        variant="pills"
+        style={{ padding: '0.5rem 0.5rem 0' }}
+      >
+        <Tab eventKey="preview" title="Preview">
+          <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}>
+            {isImage ? renderImagePreview() : renderFileInfo()}
+          </div>
+        </Tab>
+        
+        {fileObj.components && (
+          <Tab eventKey="components" title="Components">
+            <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}>
+              {renderComponents()}
+            </div>
+          </Tab>
+        )}
+        
+        {fileObj.revisions && fileObj.revisions.length > 0 && (
+          <Tab eventKey="revisions" title="Revisions">
+            <div style={{ height: 'calc(100vh - 200px)', overflow: 'auto' }}>
+              {renderRevisions()}
+            </div>
+          </Tab>
+        )}
+      </Tabs>
+    </Card>
+  );
+};
+
+export default FilePreview;

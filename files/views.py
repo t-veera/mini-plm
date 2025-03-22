@@ -1,67 +1,81 @@
-# files/views.py
-
 import os
 from django.conf import settings
 from django.contrib.auth.models import User
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .models import File
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import File, FileRevision
 from .serializers import FileSerializer
 
 class FileViewSet(viewsets.ModelViewSet):
-    """
-    A viewset for listing, creating, retrieving,
-    updating, and deleting File objects.
-    """
     queryset = File.objects.all()
     serializer_class = FileSerializer
+    parser_classes = (MultiPartParser, FormParser)
 
-    def perform_create(self, serializer):
-        # Debug: confirm the method is called
-        print("DEBUG: Entered perform_create in FileViewSet")
-
-        # Retrieve the file from request.FILES using the key 'uploaded_file'
-        uploaded_file = self.request.FILES.get('uploaded_file')
-        print("DEBUG: uploaded_file =", uploaded_file)
+    def create(self, request, *args, **kwargs):
+        """Override create method to handle file upload"""
+        uploaded_file = request.FILES.get('uploaded_file')
 
         if not uploaded_file:
-            print("DEBUG: No file found in request!")
-            raise ValueError("No file uploaded.")
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract the file's original name
         file_name = uploaded_file.name
-        print("DEBUG: file_name =", file_name)
-
-        # Define the storage directory (MEDIA_ROOT from settings.py)
         storage_dir = settings.MEDIA_ROOT
         os.makedirs(storage_dir, exist_ok=True)
-        file_path = os.path.join(storage_dir, file_name)
 
-        # Debug: confirm the path
-        print("DEBUG: file_path =", file_path)
+        revision_number = 1
+        physical_name = file_name  # Default physical name
 
-        # Write the file to disk
-        with open(file_path, 'wb') as destination:
+        # Check if this is a revision of an existing file
+        existing_file = File.objects.filter(name=file_name).first()
+        if existing_file:
+            # Get the latest revision
+            last_revision = FileRevision.objects.filter(file=existing_file).order_by('-revision_number').first()
+            if last_revision:
+                revision_number = last_revision.revision_number + 1
+            
+            physical_name = f"{file_name}_rev{revision_number}"
+            file_path = os.path.join(storage_dir, physical_name)
+        else:
+            file_path = os.path.join(storage_dir, file_name)
+
+        # Save the uploaded file
+        with open(file_path, 'wb+') as destination:
             for chunk in uploaded_file.chunks():
                 destination.write(chunk)
 
-        # Determine the owner
-        if self.request.user.is_authenticated:
-            user = self.request.user
-            print("DEBUG: request.user is authenticated =", user)
+        # Set the owner (authenticated user or first user as fallback)
+        if request.user.is_authenticated:
+            user = request.user
         else:
             user = User.objects.first()
-            print("DEBUG: Fallback user =", user)
 
-        # Just before saving, check validated_data
-        print("DEBUG: serializer.validated_data (before save):", serializer.validated_data)
+        # Create new file or use existing one
+        if not existing_file:
+            # Create new file
+            file_instance = File.objects.create(
+                owner=user,
+                name=file_name,
+                file_path=file_path
+            )
+        else:
+            file_instance = existing_file
 
-        # Now save the File record in the database
-        serializer.save(
-            owner=user,
-            name=file_name,
+        # Create a new revision
+        new_revision = FileRevision.objects.create(
+            file=file_instance,
+            revision_number=revision_number,
             file_path=file_path
         )
-
-        # Debug: confirm creation
-        print("DEBUG: File object created successfully")
+        
+        # Return appropriate response
+        return Response(
+            {
+                "id": file_instance.id,
+                "name": file_instance.name,
+                "revision": revision_number,
+                "physicalName": physical_name,
+                "upload_date": new_revision.upload_date.isoformat()
+            },
+            status=status.HTTP_201_CREATED
+        )

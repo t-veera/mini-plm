@@ -1,0 +1,32 @@
+export const isManufacturingFile = (filename) => {
+    const nameLower = filename.toLowerCase();
+    return nameLower.endsWith('.gerber') || 
+           nameLower.endsWith('.dxf') || 
+           nameLower.endsWith('.stl') || 
+           nameLower.endsWith('.stp');
+  };
+  
+  export const getFileType = (filename) => {
+    const nameLower = filename.toLowerCase();
+    
+    if (nameLower.endsWith('.png') || nameLower.endsWith('.jpg') || 
+        nameLower.endsWith('.jpeg') || nameLower.endsWith('.gif')) {
+      return 'image';
+    } else if (nameLower.endsWith('.pdf')) {
+      return 'pdf';
+    } else if (nameLower.endsWith('.stl')) {
+      return 'stl';
+    } else if (nameLower.endsWith('.js') || nameLower.endsWith('.py') || 
+               nameLower.endsWith('.cpp') || nameLower.endsWith('.java') || 
+               nameLower.endsWith('.ts') || nameLower.endsWith('.ino')) {
+      return 'code';
+    } else if (nameLower.endsWith('.md') || nameLower.endsWith('.markdown')) {
+      return 'markdown';
+    } else if (nameLower.endsWith('.csv')) {
+      return 'csv';
+    } else if (nameLower.endsWith('.xls') || nameLower.endsWith('.xlsx')) {
+      return 'excel';
+    }
+    
+    return 'other';
+  };

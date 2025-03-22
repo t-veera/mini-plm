@@ -1,0 +1,126 @@
+import React from 'react';
+import { Modal, Button, Form, Table } from 'react-bootstrap';
+
+const ComponentModal = ({ 
+  modalState, 
+  handleClose, 
+  handleAddComponent, 
+  handleRemoveComponent, 
+  handleSwitchToAdd 
+}) => {
+  const { show, file, action } = modalState;
+  
+  if (!file) return null;
+  
+  if (action === 'add') {
+    return (
+      <Modal 
+        show={show} 
+        onHide={handleClose}
+        centered
+        backdrop="static"
+        className="text-light"
+      >
+        <Modal.Header closeButton style={{background: '#333', borderBottom: '1px solid #444'}}>
+          <Modal.Title>Add Component to {file.name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{background: '#333'}}>
+          <Form onSubmit={(e) => {
+            e.preventDefault();
+            const componentName = e.target.elements.componentName.value;
+            const quantity = e.target.elements.quantity.value;
+            handleAddComponent(componentName, quantity);
+          }}>
+            <Form.Group className="mb-3">
+              <Form.Label>Component Name</Form.Label>
+              <Form.Control 
+                name="componentName"
+                type="text" 
+                placeholder="Enter component name" 
+                required
+                style={{background: '#222', border: '1px solid #444', color: '#fff'}}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Quantity</Form.Label>
+              <Form.Control 
+                name="quantity"
+                type="number" 
+                min="1"
+                defaultValue="1"
+                style={{background: '#222', border: '1px solid #444', color: '#fff'}}
+              />
+            </Form.Group>
+            <div className="d-flex justify-content-end">
+              <Button variant="secondary" className="me-2" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit">
+                Add Component
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+    );
+  } else if (action === 'view') {
+    return (
+      <Modal 
+        show={show} 
+        onHide={handleClose}
+        centered
+        size="lg"
+        className="text-light"
+      >
+        <Modal.Header closeButton style={{background: '#333', borderBottom: '1px solid #444'}}>
+          <Modal.Title>Components for {file.name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{background: '#333'}}>
+          <Table hover borderless className="table-dark">
+            <thead>
+              <tr style={{borderBottom: '1px solid #444'}}>
+                <th>Component Name</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {file.components && file.components.map((comp, index) => (
+                <tr key={index}>
+                  <td>{comp.name}</td>
+                  <td>{comp.quantity}</td>
+                  <td>${comp.price || 0}</td>
+                  <td>
+                    <Button 
+                      variant="outline-danger" 
+                      size="sm"
+                      onClick={() => handleRemoveComponent(index)}
+                    >
+                      Remove
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Modal.Body>
+        <Modal.Footer style={{background: '#333', borderTop: '1px solid #444'}}>
+          <Button variant="secondary" onClick={handleClose}>
+            Close
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleSwitchToAdd}
+          >
+            Add New Component
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    );
+  }
+  
+  return null;
+};
+
+export default ComponentModal;

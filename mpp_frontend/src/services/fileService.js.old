@@ -1,0 +1,24 @@
+import axios from 'axios';
+
+const API_URL = 'http://127.0.0.1:8000/api';
+
+const fileService = {
+  uploadFile: async (file, originalFilename = null) => {
+    const formData = new FormData();
+    formData.append('uploaded_file', file);
+    
+    if (originalFilename) {
+      formData.append('original_filename', originalFilename);
+    }
+    
+    try {
+      const response = await axios.post(`${API_URL}/files/`, formData);
+      return response.data;
+    } catch (error) {
+      console.error('File upload error:', error);
+      throw error;
+    }
+  }
+};
+
+export default fileService;

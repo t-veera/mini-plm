@@ -1,0 +1,104 @@
+import React from 'react';
+import { ListGroup, Badge } from 'react-bootstrap';
+import { FaFile, FaFileImage, FaFilePdf, FaFileWord, FaFileExcel, FaFileCode, FaCube } from 'react-icons/fa';
+
+const FileList = ({ files, onFileSelect, selectedFile, onFileRightClick }) => {
+  if (!files || files.length === 0) {
+    return (
+      <div className="text-center py-4 text-muted">
+        No files in this stage yet
+      </div>
+    );
+  }
+
+  // Function to get the appropriate icon based on file type
+  const getFileIcon = (filename) => {
+    if (!filename) return <FaFile />;
+    
+    const extension = filename.split('.').pop().toLowerCase();
+    
+    // Map extensions to icons
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'svg':
+        return <FaFileImage />;
+      case 'pdf':
+        return <FaFilePdf />;
+      case 'doc':
+      case 'docx':
+        return <FaFileWord />;
+      case 'xls':
+      case 'xlsx':
+        return <FaFileExcel />;
+      case 'js':
+      case 'jsx':
+      case 'ts':
+      case 'tsx':
+      case 'html':
+      case 'css':
+      case 'json':
+        return <FaFileCode />;
+      case 'stl':
+      case 'obj':
+      case 'step':
+      case 'stp':
+        return <FaCube />;
+      default:
+        return <FaFile />;
+    }
+  };
+
+  return (
+    <ListGroup variant="flush">
+      {files.map((file) => {
+        const revisionCount = file.revisions ? file.revisions.length : 0;
+        const uploadDate = new Date(file.lastModified).toLocaleDateString();
+        const hasQuantity = typeof file.quantity !== 'undefined';
+        const hasPrice = typeof file.price !== 'undefined';
+        
+        return (
+          <ListGroup.Item
+            key={file.id}
+            action
+            active={selectedFile && selectedFile.id === file.id}
+            className="d-flex flex-column bg-dark text-light border-bottom border-secondary"
+            style={{ cursor: 'pointer', padding: '0.5rem 0.75rem' }}
+            onClick={() => onFileSelect(file)}
+            onContextMenu={(e) => onFileRightClick(e, file)}
+          >
+            <div className="d-flex align-items-center w-100">
+              <div className="me-2" style={{ width: '20px', textAlign: 'center' }}>
+                {getFileIcon(file.name)}
+              </div>
+              <div style={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {file.name}
+              </div>
+              {revisionCount > 0 && (
+                <Badge bg="primary" className="ms-1">
+                  R{revisionCount}
+                </Badge>
+              )}
+            </div>
+            
+            <div className="d-flex justify-content-between mt-1 text-muted" style={{ fontSize: '0.75rem' }}>
+              <div>
+                {uploadDate}
+              </div>
+              <div>
+                {hasQuantity && `Qty: ${file.quantity}`}
+                {hasQuantity && hasPrice && ' | '}
+                {hasPrice && `$${file.price.toFixed(2)}`}
+              </div>
+            </div>
+          </ListGroup.Item>
+        );
+      })}
+    </ListGroup>
+  );
+};
+
+export default FileList;

@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
@@ -21,17 +22,16 @@ from files.views import FileViewSet
 from django.conf import settings
 from django.conf.urls.static import static
 
-
+# DRF router for automatically generating endpoints for FileViewSet
 router = routers.DefaultRouter()
 router.register(r'files', FileViewSet)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls')),
+    path('admin/', admin.site.urls),          # Django admin
+    path('api/', include(router.urls)),       # All routes from router => /api/files, etc.
+    path('api-auth/', include('rest_framework.urls')),  # DRF login/logout
 ]
 
-# Serve media files during development
+# Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-

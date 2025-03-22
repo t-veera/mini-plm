@@ -27,13 +27,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'rest_framework',
-    'files',
-    'corsheaders',  # For handling CORS
+    'files',         # <-- This ensures migrations for 'files' are detected
+    'corsheaders',   # For handling CORS
 ]
 
 MIDDLEWARE = [
-    # Comment out the clickjacking middleware for dev, or remove it entirely
+    # Comment out the clickjacking middleware for dev
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'corsheaders.middleware.CorsMiddleware',  # Must be near the top for CORS

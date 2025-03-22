@@ -1,10 +1,18 @@
 from rest_framework import serializers
-from .models import File
+from .models import File, FileRevision
+
+class FileRevisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FileRevision
+        fields = [
+            'revision_number',
+            'file_path',
+            'upload_date',
+        ]
 
 class FileSerializer(serializers.ModelSerializer):
-    # Extra field for file upload
     uploaded_file = serializers.FileField(write_only=True, required=False)
-    
+    revisions = FileRevisionSerializer(many=True, read_only=True)
 
     class Meta:
         model = File
@@ -16,13 +24,6 @@ class FileSerializer(serializers.ModelSerializer):
             'file_path',
             'metadata',
             'uploaded_file',
+            'revisions',
         ]
-        # We set some fields as read-only since we populate them in the view
-        read_only_fields = ['owner', 'name', 'upload_date', 'file_path', 'metadata']
-
-
-    def create(self, validated_data):
-        # Pop uploaded_file so it doesn't try to match a model field
-        file_obj = validated_data.pop('uploaded_file', None)
-        instance = super().create(validated_data)
-        return instance
+        read_only_fields = ['id', 'owner', 'upload_date', 'file_path']

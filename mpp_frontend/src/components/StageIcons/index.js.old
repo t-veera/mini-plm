@@ -1,0 +1,64 @@
+import React from 'react';
+
+const StageIcons = ({ 
+  stageIcons, 
+  selectedStage, 
+  onStageClick, 
+  onStageRightClick 
+}) => {
+  return (
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        marginTop: '0.6rem'
+      }}
+    >
+      {/* pH logo */}
+      <div
+        style={{
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          color: '#fff',
+          marginBottom: '20px'
+        }}
+        onClick={() => console.log('pH logo clicked')}
+      >
+        pH
+      </div>
+
+      {stageIcons.map((iconObj, idx) => {
+        const isSelected = selectedStage === iconObj.label;
+        const bgColor = isSelected ? iconObj.color : '#fff';
+        const textColor = '#000';
+
+        return (
+          <div
+            key={idx}
+            onClick={() => onStageClick(iconObj.label)}
+            onContextMenu={e => onStageRightClick(e, iconObj.label)}
+            style={{
+              cursor: 'pointer',
+              width: '30px',
+              height: '30px',
+              lineHeight: '30px',
+              textAlign: 'center',
+              borderRadius: '4px',
+              marginBottom: '10px',
+              fontWeight: 'bold',
+              background: bgColor,
+              color: textColor
+            }}
+          >
+            {iconObj.label}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default StageIcons;
