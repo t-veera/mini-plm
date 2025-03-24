@@ -1,9 +1,12 @@
 import os
+import mimetypes
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.http import HttpResponse, FileResponse
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
 from .models import File, FileRevision
 from .serializers import FileSerializer
 
@@ -11,6 +14,61 @@ class FileViewSet(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = (MultiPartParser, FormParser)
+    
+    @action(detail=False, methods=['get'], url_path='preview-doc')
+    def preview_doc(self, request):
+        """
+        Endpoint to preview DOC/DOCX files using Google Docs Viewer
+        """
+        file_path = request.query_params.get('file_path')
+        if not file_path:
+            return Response({"error": "No file path provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Find the file in media directory
+        media_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        
+        if not os.path.exists(media_path):
+            return Response({"error": f"File not found: {file_path}"}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Check if it's a Word document
+        mime_type, _ = mimetypes.guess_type(media_path)
+        is_word_doc = mime_type in ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+        
+        if not is_word_doc:
+            return Response({"error": "Not a Word document"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get the file URL that will be passed to Google Docs Viewer
+        file_url = request.build_absolute_uri(f'/media/{file_path}')
+        
+        # Create a simple HTML page that embeds Google Docs Viewer
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{os.path.basename(file_path)}</title>
+            <style>
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    height: 100%;
+                    overflow: hidden;
+                }}
+                iframe {{
+                    width: 100%;
+                    height: 100%;
+                    border: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <iframe src="https://docs.google.com/viewer?url={file_url}&embedded=true" frameborder="0"></iframe>
+        </body>
+        </html>
+        """
+        
+        return HttpResponse(html_content, content_type='text/html')
 
     def create(self, request, *args, **kwargs):
         """Override create method to handle file upload"""

@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    image: tveera/mini-plm:latest
+    container_name: mini-plm
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      - ./mpp_files:/app/data
+      - mini-plm-data:/app/persistent-data
+
+volumes:
+  mini-plm-data:
+    driver: local
