@@ -1,0 +1,11 @@
+FROM node:16-alpine
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY mpp_frontend/package*.json ./
+RUN npm install
+
+# Don't copy code - we'll mount it as a volume in docker-compose
+# Run the development server with hot reloading
+CMD ["npm", "start"]
