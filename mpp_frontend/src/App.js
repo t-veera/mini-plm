@@ -28,7 +28,13 @@ import {
   FaDraftingCompass,
   FaFileWord,
   FaCogs,
-  FaDownload
+  FaDownload,
+  FaEye, 
+  FaTable, 
+  FaChartLine,
+  FaSpinner,
+  FaToriiGate,
+  FaDrumSteelpan
 } from 'react-icons/fa';
 
 // React Three Fiber / Three.js
@@ -47,6 +53,60 @@ import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // Markdown
 import ReactMarkdown from 'react-markdown';
 
+// After your imports, add this complete styles object
+const styles = {
+  colors: {
+    dark: '#171B24',           // Darker slate (matches Claude's background)
+    darkAlt: '#1F2937',        // Slightly lighter slate
+    border: '#374151',         // Subtle border color like Claude's
+    transparent: 'rgba(241, 245, 244, 0.24)', 
+    
+    // Accent colors inspired by Claude's UI
+    primary: '#6B7280',        // Slate gray for primary elements
+    secondary: '#9CA3AF',      // Medium gray for secondary elements
+    warning: '#D97706',        // Amber (for warning elements)
+    success: '#059669',        // Emerald (for success elements)
+    danger: '#DC2626',         // Red (for danger elements)
+
+    iteration: 'rgb(94, 254, 194)',     // Soft lavender/purple for iterationrgb(7, 80, 254)rgb(7, 80, 254)
+    stage: '#ffc107',         // Amber for stage
+    
+    text: {
+      light: '#F3F4F6',        // Light gray text like Claude
+      muted: '#9CA3AF',        // Medium gray text
+      dark: '#1F2937'          // Dark text (for light backgrounds)
+    }
+  },
+  fonts: {
+    family: "'Roboto', 'Segoe UI', 'Arial', sans-serif",
+    size: {
+      xs: '0.75rem',
+      sm: '0.85rem',
+      md: '1rem',
+      lg: '1.25rem'
+    },
+    weight: {
+      normal: 400,
+      medium: 500,
+      bold: 700
+    }
+  },
+  spacing: {
+    xs: '0.25rem',
+    sm: '0.5rem',
+    md: '1rem',
+    lg: '1.5rem',
+    xl: '2rem'
+  },
+  borderRadius: {
+    sm: '3px',
+    md: '4px',
+    lg: '6px'
+  }
+};
+
+
+
 /* ---------------- FILE ICON MAP ---------------- */
 const iconMap = {
   pdf: <FaRegFilePdf style={{ marginRight: '4px', color: '#ff3d3d', fontSize: '1.5rem' }} />,
@@ -55,7 +115,7 @@ const iconMap = {
   jpeg: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
   gif: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
   stl: <FaCube style={{ marginRight: '4px', color: '#FFD43B', fontSize: '1.5rem' }} />,
-  dxf: <FaDraftingCompass style={{ marginRight: '4px', color: '#4FC3F7', fontSize: '1.5rem' }} />,
+  dxf: <FaDraftingCompass style={{ marginRight: '4px', color: '${styles.colors.primary}', fontSize: '1.5rem' }} />,
   stp: <FaCogs style={{ marginRight: '4px', color: '#9775FA', fontSize: '1.5rem' }} />,
   step: <FaCogs style={{ marginRight: '4px', color: '#9775FA', fontSize: '1.5rem' }} />,
   doc: <FaFileWord style={{ marginRight: '4px', color: '#2B7BF3', fontSize: '1.5rem' }} />,
@@ -220,7 +280,7 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
               roughness={0.5}
               metalness={0.1}
               // Apply contrast through emissive intensity
-              emissive="#444"
+              emissive="${styles.colors.border}"
               emissiveIntensity={contrast - 1}
               wireframe={false}
             />
@@ -253,7 +313,7 @@ function Model3DPreview({ fileUrl }) {
   const [contrast, setContrast] = useState(1.2);
   const [gridPosition, setGridPosition] = useState(-2);
   const [materialColor, setMaterialColor] = useState("#cccccc"); // Default gray color
-  const [showControls, setShowControls] = useState(true); // Show controls by default
+  const [showControls, setShowControls] = useState(false); // Show controls by default
   const [fileType, setFileType] = useState('stl'); // Default to STL
   
   // Force re-render when fileUrl changes
@@ -282,7 +342,7 @@ function Model3DPreview({ fileUrl }) {
           width: '100%',
           height: '100%',
           position: 'relative',
-          backgroundColor: '#fff',
+          backgroundColor: '${styles.colors.text.light}',
           overflow: 'hidden'
         }}>
           <iframe
@@ -366,6 +426,9 @@ function Model3DPreview({ fileUrl }) {
   );
 }
 
+
+
+
 // Separate component for 3D viewer controls (outside of Three.js context)
 function StlViewerControls({ brightness, setBrightness, contrast, setContrast, gridPosition, setGridPosition, materialColor, setMaterialColor, showControls, setShowControls }) {
   return (
@@ -397,7 +460,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
               position: 'absolute',
               top: '10px',
               right: '10px',
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backgroundColor: 'rgba(0, 0, 0, 0.36)',
               padding: '10px',
               borderRadius: '5px',
               zIndex: 20,
@@ -483,14 +546,14 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
     if (error) {
       return (
-        <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
           <p className="text-danger">Error loading code: {error}</p>
         </div>
       );
     }
   
     return (
-      <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
         {codeContent ? (
           <SyntaxHighlighter language={language} style={materialDark} showLineNumbers>
             {codeContent}
@@ -503,107 +566,116 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   }
   
   /* ---------------- MARKDOWN PREVIEW ---------------- */
-  // function MarkdownPreview({ fileUrl }) {
-  //   const [markdownContent, setMarkdownContent] = useState('');
-  //   const [error, setError] = useState(null);
-  
-  //   useEffect(() => {
-  //     async function fetchMarkdown() {
-  //       try {
-  //         const res = await fetch(fileUrl);
-  //         if (!res.ok) {
-  //           throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
-  //         }
-  //         const text = await res.text();
-  //         setMarkdownContent(text);
-  //       } catch (err) {
-  //         console.error('Error fetching markdown file:', err);
-  //         setError(err.message || 'Error loading markdown');
-  //       }
-  //     }
-      
-  //     if (fileUrl) {
-  //       fetchMarkdown();
-  //     }
-  //   }, [fileUrl]);
-  
-  //   if (error) {
-  //     return (
-  //       <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
-  //         <p className="text-danger">Error loading markdown: {error}</p>
-  //       </div>
-  //     );
-  //   }
-  
-  //   return (
-  //     <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
-  //       {markdownContent ? (
-  //         <ReactMarkdown>{markdownContent}</ReactMarkdown>
-  //       ) : (
-  //         <p className="text-muted">Loading markdown...</p>
-  //       )}
-  //     </div>
-  //   );
-  // }
   function MarkdownPreview({ fileUrl }) {
-  const [markdownContent, setMarkdownContent] = useState('');
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function fetchMarkdown() {
-      try {
-        console.log("Fetching markdown from URL:", fileUrl);
-        
-        // If it's a data URL, extract the content directly
-        if (fileUrl && fileUrl.startsWith('data:')) {
-          try {
-            const base64Content = fileUrl.split(',')[1];
-            const decodedContent = atob(base64Content);
-            setMarkdownContent(decodedContent);
-            return;
-          } catch (dataUrlError) {
-            console.error("Error processing markdown dataUrl:", dataUrlError);
-            // Continue with regular fetch if data URL processing fails
+    const [markdownContent, setMarkdownContent] = useState('');
+    const [error, setError] = useState(null);
+  
+    useEffect(() => {
+      async function fetchMarkdown() {
+        try {
+          const res = await fetch(fileUrl);
+          if (!res.ok) {
+            throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
           }
+          const text = await res.text();
+          setMarkdownContent(text);
+        } catch (err) {
+          console.error('Error fetching markdown file:', err);
+          setError(err.message || 'Error loading markdown');
         }
-        
-        // Regular fetch for server URLs
-        const res = await fetch(fileUrl);
-        if (!res.ok) {
-          throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
-        }
-        const text = await res.text();
-        setMarkdownContent(text);
-      } catch (err) {
-        console.error('Error fetching markdown file:', err);
-        setError(err.message || 'Error loading markdown');
       }
+      
+      if (fileUrl) {
+        fetchMarkdown();
+      }
+    }, [fileUrl]);
+  
+    if (error) {
+      return (
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+          <p className="text-danger">Error loading markdown: {error}</p>
+        </div>
+      );
     }
-    
-    if (fileUrl) {
-      fetchMarkdown();
-    }
-  }, [fileUrl]);
-
-  if (error) {
+  
     return (
-      <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
-        <p className="text-danger">Error loading markdown: {error}</p>
-        <p className="text-muted">Attempted to load from: {fileUrl}</p>
+      <div     style={{
+        minHeight: '600px', borderRadius: '8px',
+        border: '1px solid #888',
+        overflow: 'auto',
+        padding: '1rem',
+        fontFamily:
+          'system-ui, -apple-system, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
+      }}
+      >
+        {markdownContent ? (
+          <ReactMarkdown>{markdownContent}</ReactMarkdown>
+        ) : (
+          <p className="text-muted">Loading markdown...</p>
+        )}
       </div>
     );
   }
+  /* New Code for Markdown*/
+//   function MarkdownPreview({ fileUrl }) {
+//   const [markdownContent, setMarkdownContent] = useState('');
+//   const [error, setError] = useState(null);
 
-  return (
-    <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
-      {markdownContent ? (
-        <ReactMarkdown>{markdownContent}</ReactMarkdown>
-      ) : (
-        <p className="text-muted">Loading markdown...</p>
-      )}
-    </div>
-  );
-}
+//   useEffect(() => {
+//     async function fetchMarkdown() {
+//       try {
+//         console.log("Fetching markdown from URL:", fileUrl);
+        
+//         // If it's a data URL, extract the content directly
+//         if (fileUrl && fileUrl.startsWith('data:')) {
+//           try {
+//             const base64Content = fileUrl.split(',')[1];
+//             const decodedContent = atob(base64Content);
+//             setMarkdownContent(decodedContent);
+//             return;
+//           } catch (dataUrlError) {
+//             console.error("Error processing markdown dataUrl:", dataUrlError);
+//             // Continue with regular fetch if data URL processing fails
+//           }
+//         }
+        
+//         // Regular fetch for server URLs
+//         const res = await fetch(fileUrl);
+//         if (!res.ok) {
+//           throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
+//         }
+//         const text = await res.text();
+//         setMarkdownContent(text);
+//       } catch (err) {
+//         console.error('Error fetching markdown file:', err);
+//         setError(err.message || 'Error loading markdown');
+//       }
+//     }
+    
+//     if (fileUrl) {
+//       fetchMarkdown();
+//     }
+//   }, [fileUrl]);
+
+//   if (error) {
+//     return (
+//       <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+//         <p className="text-danger">Error loading markdown: {error}</p>
+//         <p className="text-muted">Attempted to load from: {fileUrl}</p>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
+//       {markdownContent ? (
+//         <ReactMarkdown>{markdownContent}</ReactMarkdown>
+//       ) : (
+//         <p className="text-muted">Loading markdown...</p>
+//       )}
+//     </div>
+//   );
+// }
   
   /* ---------------- CSV PREVIEW ---------------- */
   function CsvPreview({ fileUrl }) {
@@ -634,14 +706,14 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
     if (error) {
       return (
-        <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
           <p className="text-danger">Error loading CSV: {error}</p>
         </div>
       );
     }
   
     return (
-      <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading CSV data...</p>
         ) : (
@@ -693,14 +765,14 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
     if (error) {
       return (
-        <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
           <p className="text-danger">Error loading Excel: {error}</p>
         </div>
       );
     }
   
     return (
-      <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading Excel data...</p>
         ) : (
@@ -763,17 +835,17 @@ function ResizableColumn({ leftContent, rightContent }) {
     return (
       <div className="d-flex flex-grow-1" style={{ height: '100%', overflow: 'hidden', padding: 0, margin: 0, maxWidth: '80%' }}>
         {/* Left Column */}
-        <div style={{
-          width: `${leftWidth}px`,
-          flexShrink: 0,
-          height: '100%',
-          overflowY: 'auto',
-          padding: '0.75rem',
-          borderRight: '1px solid #444',
-          maxWidth: '40%'
-        }}>
-          {leftContent}
-        </div>
+          <div style={{
+            width: `${leftWidth}px`,
+            flexShrink: 0,
+            height: '100%',
+            overflowY: 'auto',
+            padding: '0.75rem',
+            borderRight: `1px solid ${styles.colors.border}`, // Changed quotes to backticks for proper interpolation
+            maxWidth: '40%'
+          }}>
+            {leftContent}
+          </div>
         
         {/* Resizer */}
         <div
@@ -792,7 +864,7 @@ function ResizableColumn({ leftContent, rightContent }) {
             bottom: 0,
             left: 0,
             width: '4px',
-            background: isResizing ? '#4FC3F7' : 'transparent',
+            background: isResizing ? '${styles.colors.primary}' : 'transparent',
             transition: isResizing ? 'none' : 'background 0.2s'
           }}></div>
         </div>
@@ -832,7 +904,7 @@ function ResizableColumn({ leftContent, rightContent }) {
                   if (Array.isArray(updatedProduct.filesByStage[stage])) {
                     updatedProduct.filesByStage[stage] = updatedProduct.filesByStage[stage].map(file => {
                       const updatedFile = {...file};
-                      delete updatedFile.quantity;
+                      //delete updatedFile.quantity;
                       
                       // Remove dataURL to save space
                       delete updatedFile.dataUrl;
@@ -1029,68 +1101,275 @@ function ResizableColumn({ leftContent, rightContent }) {
     setSelectedFileObj(null); // clear preview
   }
 
-  /* ADD STAGE => S1 => Amber (#FFC107) */
+  /* ADD STAGE => S1 => Amber (${styles.colors.warning}) */
+  // function handleAddStage() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+    
+  //   const sCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'S')
+  //     .length;
+    
+  //   const newLabel = `S${sCount + 1}`;
+  //   const color = styles.colors.stage; // Amber
+  //   const newIcon = { type: 'S', label: newLabel, color };
+
+  //   // Create new arrays/objects to ensure React detects the changes
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = {...updatedProduct.filesByStage};
+  //   updatedProduct.filesByStage[newLabel] = [];
+  //   updatedProduct.selectedStage = newLabel; // auto-select
+    
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+
+  // /* ADD ITERATION => i1 => #4FC3F7 */
+  // function handleAddIteration() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+    
+  //   const iCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'I')
+  //     .length;
+      
+  //   const newLabel = `i${iCount + 1}`;
+  //   const color = styles.colors.iteration;
+  //   const newIcon = { type: 'I', label: newLabel, color };
+
+  //   // Create new arrays/objects to ensure React detects the changes
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = {...updatedProduct.filesByStage};
+  //   updatedProduct.filesByStage[newLabel] = [];
+  //   updatedProduct.selectedStage = newLabel; // auto-select
+    
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+  // function handleAddStage() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+  
+  //   // Count existing stage icons (type 'S')
+  //   const sCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'S').length;
+  //   const newNumber = sCount + 1; // numeric part
+  //   const newLabel = `S${newNumber}`; // full label for file mapping, etc.
+  //   const color = styles.colors.stage; // e.g., Amber
+  //   // Create a new icon object that stores both the full label and numeric value
+  //   const newIcon = { type: 'S', label: newLabel, number: newNumber, color };
+  
+  //   // Update the product with the new stage icon
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage };
+  //   updatedProduct.filesByStage[newLabel] = [];
+  //   updatedProduct.selectedStage = newLabel; // auto-select the new stage
+  
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+  
+  // function handleAddIteration() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+  
+  //   // Count existing iteration icons (type 'I')
+  //   const iCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'I').length;
+  //   const newNumber = iCount + 1; // numeric part
+  //   const newLabel = `i${newNumber}`; // full label for file mapping, etc.
+  //   const color = styles.colors.iteration;
+  //   // Create a new icon object that stores both the full label and numeric value
+  //   const newIcon = { type: 'I', label: newLabel, number: newNumber, color };
+  
+  //   // Update the product with the new iteration icon
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage };
+  //   updatedProduct.filesByStage[newLabel] = [];
+  //   updatedProduct.selectedStage = newLabel; // auto-select the new iteration
+  
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+  
+
+  // /* STAGE ICON LEFT-CLICK => SELECT THAT STAGE */
+  // function handleStageIconClick(label) {
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+    
+  //   updatedProduct.selectedStage = label;
+    
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+
+  // function handleAddStage() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+  
+  //   // Count existing stage icons (type 'S')
+  //   const sCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'S').length;
+  //   const newNumber = sCount + 1; // numeric part
+  //   const newLabel = `S${newNumber}`; // full label for file mapping, etc.
+  //   const color = styles.colors.stage; // e.g., Amber
+  
+  //   // Create a new icon object that stores both the full label and numeric value
+  //   const newIcon = { type: 'S', label: newLabel, number: newNumber, color };
+  
+  //   // Update the product with the new stage icon and initialize its file group
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
+  //   updatedProduct.selectedStage = newLabel; // auto-select the new stage
+  
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+  
+  // function handleAddIteration() {
+  //   // Create deep copies to ensure proper React state updates
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+  
+  //   // Count existing iteration icons (type 'I')
+  //   const iCount = (updatedProduct.stageIcons || [])
+  //     .filter(icon => icon.type === 'I').length;
+  //   const newNumber = iCount + 1; // numeric part
+  //   const newLabel = `i${newNumber}`; // full label for file mapping, etc.
+  //   const color = styles.colors.iteration;
+  
+  //   // Create a new icon object that stores both the full label and numeric value
+  //   const newIcon = { type: 'I', label: newLabel, number: newNumber, color };
+  
+  //   // Update the product with the new iteration icon and initialize its file group
+  //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
+  //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
+  //   updatedProduct.selectedStage = newLabel; // auto-select the new iteration
+  
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
+  
+  // /* STAGE ICON LEFT-CLICK => SELECT THAT STAGE */
+  // function handleStageIconClick(label) {
+  //   const updatedProducts = [...products];
+  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+  //   updatedProducts[selectedProductIndex] = updatedProduct;
+    
+  //   updatedProduct.selectedStage = label;
+    
+  //   setProducts(updatedProducts);
+  //   setSelectedFileObj(null);
+  // }
   function handleAddStage() {
     // Create deep copies to ensure proper React state updates
     const updatedProducts = [...products];
-    const updatedProduct = {...updatedProducts[selectedProductIndex]};
+    const updatedProduct = { ...updatedProducts[selectedProductIndex] };
     updatedProducts[selectedProductIndex] = updatedProduct;
-    
-    const sCount = (updatedProduct.stageIcons || [])
-      .filter(icon => icon.type === 'S')
-      .length;
-    
-    const newLabel = `S${sCount + 1}`;
-    const color = '#FFC107'; // Amber
-    const newIcon = { type: 'S', label: newLabel, color };
-
-    // Create new arrays/objects to ensure React detects the changes
+  
+    // Count existing stage icons (type 'S')
+    const sCount = (updatedProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
+    const newNumber = sCount + 1; // numeric part
+    const newLabel = `S${newNumber}`; // full label for file mapping, etc.
+    const color = styles.colors.stage; // e.g., Amber
+  
+    // Create a new icon object that stores both the full label and numeric value
+    const newIcon = { type: 'S', label: newLabel, number: newNumber, color };
+  
+    // Update the product with the new stage icon and initialize its file group
     updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
-    updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-    updatedProduct.filesByStage[newLabel] = [];
-    updatedProduct.selectedStage = newLabel; // auto-select
-    
+    updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
+    updatedProduct.selectedStage = newLabel; // auto-select the new stage
+  
     setProducts(updatedProducts);
     setSelectedFileObj(null);
   }
-
-  /* ADD ITERATION => i1 => #4FC3F7 */
+  
   function handleAddIteration() {
     // Create deep copies to ensure proper React state updates
     const updatedProducts = [...products];
-    const updatedProduct = {...updatedProducts[selectedProductIndex]};
+    const updatedProduct = { ...updatedProducts[selectedProductIndex] };
     updatedProducts[selectedProductIndex] = updatedProduct;
-    
-    const iCount = (updatedProduct.stageIcons || [])
-      .filter(icon => icon.type === 'I')
-      .length;
-      
-    const newLabel = `i${iCount + 1}`;
-    const color = '#4FC3F7';
-    const newIcon = { type: 'I', label: newLabel, color };
-
-    // Create new arrays/objects to ensure React detects the changes
+  
+    // Count existing iteration icons (type 'I')
+    const iCount = (updatedProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
+    const newNumber = iCount + 1; // numeric part
+    const newLabel = `i${newNumber}`; // full label for file mapping, etc.
+    const color = styles.colors.iteration;
+  
+    // Create a new icon object that stores both the full label and numeric value
+    const newIcon = { type: 'I', label: newLabel, number: newNumber, color };
+  
+    // Update the product with the new iteration icon and initialize its file group
     updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
-    updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-    updatedProduct.filesByStage[newLabel] = [];
-    updatedProduct.selectedStage = newLabel; // auto-select
-    
+    updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
+    updatedProduct.selectedStage = newLabel; // auto-select the new iteration
+  
     setProducts(updatedProducts);
     setSelectedFileObj(null);
   }
-
+  
   /* STAGE ICON LEFT-CLICK => SELECT THAT STAGE */
   function handleStageIconClick(label) {
     const updatedProducts = [...products];
-    const updatedProduct = {...updatedProducts[selectedProductIndex]};
+    const updatedProduct = { ...updatedProducts[selectedProductIndex] };
     updatedProducts[selectedProductIndex] = updatedProduct;
-    
+  
     updatedProduct.selectedStage = label;
-    
+  
     setProducts(updatedProducts);
     setSelectedFileObj(null);
   }
-
+  
+  
+  /* STAGE ICON RIGHT-CLICK => DELETE IF EMPTY */
+  function handleStageIconRightClick(e, label) {
+    e.preventDefault(); // Prevent default context menu
+    
+    const updatedProducts = [...products];
+    const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+    updatedProducts[selectedProductIndex] = updatedProduct;
+  
+    // Check if this stage/iteration has files
+    const fileList = updatedProduct.filesByStage[label] || [];
+    if (fileList.length > 0) {
+      // has files => show alert
+      setToastMsg('Cannot delete a stage/iteration with files!');
+      return;
+    }
+  
+    // Confirm deletion
+    const confirmDel = window.confirm(`Delete ${label}? It's empty and will be removed.`);
+    if (!confirmDel) return;
+  
+    // Remove the icon from stageIcons
+    updatedProduct.stageIcons = updatedProduct.stageIcons.filter(icon => icon.label !== label);
+    
+    // Remove its file group
+    updatedProduct.filesByStage = { ...updatedProduct.filesByStage };
+    delete updatedProduct.filesByStage[label];
+  
+    // If the user is currently selected that stage, reset selectedStage
+    if (updatedProduct.selectedStage === label) {
+      updatedProduct.selectedStage = null;
+    }
+  
+    setProducts(updatedProducts);
+  }
+  
   /* STAGE ICON RIGHT-CLICK => DELETE IF EMPTY */
   function handleStageIconRightClick(e, label) {
     e.preventDefault(); // no default context menu
@@ -1721,6 +2000,7 @@ function handleRemoveOption() {
         childFiles: [], // Initialize empty array to track child files
         status: 'In-Work', // Default status
         price: '', // Empty price by default
+        quantity: 1, 
         current_revision: 1 // Initialize with revision 1
       };
 
@@ -2309,15 +2589,16 @@ function handleRemoveOption() {
     // Always show revision information, even for files with only one revision
     const revisionSelector = (
       <div className="mb-3 d-flex align-items-center">
-        <label className="me-2" style={{ minWidth: '100px', fontSize: '0.9rem' }}>Revision:</label>
+        <label className="me-2" style={{ minWidth: 'auto', fontSize: '0.9rem' }}>Revision:</label>
         <div className="d-flex align-items-center">
           <Form.Select
             size="sm"
             style={{
               width: '90px',
-              backgroundColor: '#212529',
-              color: '#fff',
-              border: '1px solid #444',
+              marginRight: '10px',
+              backgroundColor: '${styles.colors.dark}',
+              color: '${styles.colors.text.light}',
+              border: '1px solid ${styles.colors.border}',
               fontSize: '0.8rem',
               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
             }}
@@ -2344,7 +2625,7 @@ function handleRemoveOption() {
             )}
           </Form.Select>
           {selectedRevision.changeDescription && (
-            <span className="ms-3 text-light" style={{ fontSize: '0.9rem' }}>
+            <span className="ms-3 text-light" style={{ fontSize: '0.9rem', borderRadius: '8px', backgroundColor: `${styles.colors.primary}26`, padding: '5px 10px' }}>
               {selectedRevision.changeDescription}
             </span>
           )}
@@ -2371,7 +2652,7 @@ function handleRemoveOption() {
       nameLower.endsWith('.gif')
     ) {
       return previewContainer(
-        <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
           <img
             src={fileUrl}
             alt={fileObj.name}
@@ -2383,7 +2664,7 @@ function handleRemoveOption() {
     // PDF
     else if (nameLower.endsWith('.pdf')) {
       return previewContainer(
-        <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
           <iframe
             src={fileUrl}
             style={{
@@ -2430,7 +2711,7 @@ function handleRemoveOption() {
           const decodedContent = atob(base64Content);
           
           return previewContainer(
-            <div style={{ minHeight: '600px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
+            <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
               <ReactMarkdown>{decodedContent}</ReactMarkdown>
             </div>
           );
@@ -2456,10 +2737,10 @@ function handleRemoveOption() {
     else if (nameLower.endsWith('.doc') || nameLower.endsWith('.docx')) {
       return previewContainer(
         <div style={{
-          minHeight: '600px',
+          minHeight: '600px', borderRadius: '8px',
           border: '1px solid #888',
           overflow: 'hidden',
-          backgroundColor: '#fff',
+          backgroundColor: '${styles.colors.text.light}',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -2494,7 +2775,7 @@ function handleRemoveOption() {
     // Fallback
     else {
       return previewContainer(
-        <div style={{ minHeight: '600px', border: '1px solid #888', padding: '1rem' }}>
+        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
           <p className="text-muted">No preview available for {fileObj.name}</p>
           <p>File type: {fileObj.type || "Unknown"}</p>
           <p>Size: {(fileObj.size / 1024).toFixed(2)} KB</p>
@@ -2522,10 +2803,10 @@ function renderFileList(prod) {
           style={{ cursor: 'pointer', fontSize: '0.85rem' }}
         >
           <thead>
-            <tr style={{ borderBottom: '1px solid #555' }}>
-              <th>Name</th>
-              <th>Date</th>
-              <th>Rev</th>
+            <tr style={{ borderBottom: '1px solid #555'}}>
+              <th style={{ fontWeight:'200'}}>Name</th>
+              <th style={{ fontWeight:'200'}}>Date</th>
+              <th style={{ fontWeight:'200'}}>Rev</th>
             </tr>
           </thead>
           <tbody>
@@ -2565,7 +2846,7 @@ function renderFileList(prod) {
                           <div 
                             className="ms-1"
                             onClick={(e) => handleAddChildClick(e, fileObj)}
-                            style={{ cursor: 'pointer', color: '#FF4081' }}
+                            style={{ cursor: 'pointer', color: '${styles.colors.secondary}' }}
                           >
                             <FaPlus size={10} />
                           </div>
@@ -2598,12 +2879,15 @@ function renderFileList(prod) {
                         <Form.Select 
                           size="sm"
                           style={{ 
-                            width: '80px',
-                            backgroundColor: '#212529',
-                            color: '#fff',
-                            border: '1px solid #444',
-                            fontSize: '0.8rem',
-                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+                            width: '80px', 
+                            backgroundColor: styles.colors.darkAlt,
+                            color: styles.colors.text.light,
+                            border: `1px solid ${styles.colors.border}`,
+                            fontSize: styles.fonts.size.sm,
+                            borderRadius: styles.borderRadius.sm,
+                            padding: '0.25rem 0.5rem',
+                            textAlign: 'center',
+                            cursor: 'pointer'
                           }}
                           value={fileObj.current_revision || 1}
                           onClick={e => e.stopPropagation()}
@@ -2687,9 +2971,9 @@ function renderFileList(prod) {
                               size="sm"
                               style={{ 
                                 width: '80px',
-                                backgroundColor: '#212529',
-                                color: '#fff',
-                                border: '1px solid #444',
+                                backgroundColor: '${styles.colors.dark}',
+                                color: '${styles.colors.text.light}',
+                                border: '1px solid ${styles.colors.border}',
                                 fontSize: '0.8rem',
                                 backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
                               }}
@@ -2733,8 +3017,8 @@ function renderFileList(prod) {
               position: 'fixed',
               top: contextMenu.y,
               left: contextMenu.x,
-              backgroundColor: '#212529',
-              border: '1px solid #444',
+              backgroundColor: '${styles.colors.dark}',
+              border: '1px solid ${styles.colors.border}',
               borderRadius: '4px',
               padding: '0.5rem 0',
               zIndex: 1000,
@@ -2747,12 +3031,12 @@ function renderFileList(prod) {
               style={{
                 padding: '0.375rem 1rem',
                 cursor: 'pointer',
-                color: '#fff',
+                color: '${styles.colors.text.light}',
                 fontWeight: 'normal'
               }}
               className="context-menu-item"
               onClick={handleContextMenuUpload}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#343a40'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
               onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
             >
               Upload Revision
@@ -2761,12 +3045,12 @@ function renderFileList(prod) {
               style={{
                 padding: '0.375rem 1rem',
                 cursor: 'pointer',
-                color: '#fff',
+                color: '${styles.colors.text.light}',
                 fontWeight: 'normal'
               }}
               className="context-menu-item"
               onClick={handleQuantityOption}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#343a40'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
               onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
             >
               Set Quantity
@@ -2775,12 +3059,12 @@ function renderFileList(prod) {
               style={{
                 padding: '0.375rem 1rem',
                 cursor: 'pointer',
-                color: '#fff',
+                color: '${styles.colors.text.light}',
                 fontWeight: 'normal'
               }}
               className="context-menu-item"
               onClick={handlePriceOption}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#343a40'}
+              onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
               onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
             >
               Set Price
@@ -2790,12 +3074,12 @@ function renderFileList(prod) {
       style={{
         padding: '0.375rem 1rem',
         cursor: 'pointer',
-        color: '#fff',
+        color: '${styles.colors.text.light}',
         fontWeight: 'normal'
       }}
       className="context-menu-item"
       onClick={handleMoveOption}
-      onMouseOver={(e) => e.target.style.backgroundColor = '#343a40'}
+      onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
       onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
     >
       Move
@@ -2805,7 +3089,7 @@ function renderFileList(prod) {
       style={{
         padding: '0.375rem 1rem',
         cursor: 'pointer',
-        color: '#fff',
+        color: '${styles.colors.text.light}',
         fontWeight: 'normal',
         backgroundColor: '#dc3545'
       }}
@@ -2852,8 +3136,8 @@ function renderFileList(prod) {
           >
             <div 
               style={{
-                backgroundColor: '#212529',
-                border: '1px solid #444',
+                backgroundColor: '${styles.colors.dark}',
+                border: '1px solid ${styles.colors.border}',
                 borderRadius: '4px',
                 padding: '1.5rem',
                 width: '400px',
@@ -2875,9 +3159,9 @@ function renderFileList(prod) {
                     placeholder="Enter quantity"
                     defaultValue={currentFileForModal?.quantity || ''}
                     style={{
-                      backgroundColor: '#343a40',
-                      color: '#fff',
-                      border: '1px solid #444',
+                      backgroundColor: '${styles.colors.darkAlt}',
+                      color: '${styles.colors.text.light}',
+                      border: '1px solid ${styles.colors.border}',
                       fontSize: '0.9rem'
                     }}
                   />
@@ -2920,8 +3204,8 @@ function renderFileList(prod) {
           >
             <div
               style={{
-                backgroundColor: '#212529',
-                border: '1px solid #444',
+                backgroundColor: '${styles.colors.dark}',
+                border: '1px solid ${styles.colors.border}',
                 borderRadius: '4px',
                 padding: '1.5rem',
                 width: '400px',
@@ -2944,9 +3228,9 @@ function renderFileList(prod) {
                     placeholder="Enter price in INR"
                     defaultValue={currentFileForModal?.price || ''}
                     style={{
-                      backgroundColor: '#343a40',
-                      color: '#fff',
-                      border: '1px solid #444',
+                      backgroundColor: '${styles.colors.darkAlt}',
+                      color: '${styles.colors.text.light}',
+                      border: '1px solid ${styles.colors.border}',
                       fontSize: '0.9rem'
                     }}
                   />
@@ -2989,8 +3273,8 @@ function renderFileList(prod) {
           >
             <div
               style={{
-                backgroundColor: '#212529',
-                border: '1px solid #444',
+                backgroundColor: '${styles.colors.dark}',
+                border: '1px solid ${styles.colors.border}',
                 borderRadius: '4px',
                 padding: '1.5rem',
                 width: '500px',
@@ -3011,9 +3295,9 @@ function renderFileList(prod) {
                     value={tempChangeDescription}
                     onChange={(e) => setTempChangeDescription(e.target.value)}
                     style={{
-                      backgroundColor: '#ffff',
+                      backgroundColor: '${styles.colors.text.light}f',
                       color: '#00000',
-                      border: '1px solid #444',
+                      border: '1px solid ${styles.colors.border}',
                       fontSize: '0.9rem'
                     }}
                   />
@@ -3049,21 +3333,487 @@ function renderFileList(prod) {
   }
   const prod = products[selectedProductIndex];
 
-  // Render product dropdown, add buttons, file table, etc.
-  const renderFileBrowser = () => (
+  // // Render product dropdown, add buttons, file table, etc.
+
+
+// const renderFileBrowser = () => {
+//   const currentProduct = products[selectedProductIndex] || {};
+//   const iterationCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
+//   const stageCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
+
+//   return (
+//     <>
+//       {/* Top Row: Product dropdown, add product, old icons (iteration, stage, file upload) and new view mode icons */}
+//       <div className="d-flex justify-content-between align-items-center mb-2">
+//         {/* Left Side: Product Dropdown + Add Product */}
+//         <div className="d-flex align-items-center gap-2">
+//           <Form.Select
+//             size="sm"
+//             value={selectedProductIndex}
+//             onChange={handleSelectProduct}
+//             style={{
+//               width: '150px',
+//               backgroundColor: `${styles.colors.dark}`,
+//               color: `${styles.colors.text.light}`,
+//               border: `1px solid ${styles.colors.border}`,
+//               fontSize: '0.85rem',
+//               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+//             }}
+//             className="shadow-none"
+//           >
+//             {products.map((p, idx) => (
+//               <option key={idx} value={idx}>
+//                 {p.name.toUpperCase()}
+//               </option>
+//             ))}
+//           </Form.Select>
+//           {/* Plus sign for adding a new product */}
+//           <div
+//             style={{
+//               cursor: 'pointer',
+//               color: `${styles.colors.text.light}`,
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               width: '24px',
+//               height: '24px'
+//             }}
+//             onClick={handleCreateProduct}
+//           >
+//             <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
+//           </div>
+//         </div>
+
+//         {/* Right Side: Old Icons (Iteration, Stage, File Upload) + New View Mode Icons */}
+//         <div className="d-flex align-items-center gap-2">
+//           {/* Iteration Icon with Badge (using FaSpinner) */}
+//           <div style={{ position: 'relative', cursor: 'pointer' }} onClick={handleAddIteration}>
+//             <FaSpinner size={20} color={styles.colors.iteration} />
+//             <span
+//               style={{
+//                 position: 'absolute',
+//                 top: '-4px',
+//                 right: '-4px',
+//                 background: styles.colors.iteration,
+//                 color: '#fff',
+//                 borderRadius: '50%',
+//                 padding: '0 4px',
+//                 fontSize: '10px'
+//               }}
+//             >
+//               {iterationCount}
+//             </span>
+//           </div>
+
+//           {/* Stage Icon with Badge (using FaToriiGate) */}
+//           <div style={{ position: 'relative', cursor: 'pointer' }} onClick={handleAddStage}>
+//             <FaToriiGate size={20} color={styles.colors.stage} />
+//             <span
+//               style={{
+//                 position: 'absolute',
+//                 top: '-4px',
+//                 right: '-4px',
+//                 background: styles.colors.stage,
+//                 color: '#fff',
+//                 borderRadius: '50%',
+//                 padding: '0 4px',
+//                 fontSize: '10px'
+//               }}
+//             >
+//               {stageCount}
+//             </span>
+//           </div>
+
+//           {/* File Upload Icon - border removed, color set to white */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handlePlusClick}
+//           >
+//             <FaUpload size={20} />
+//           </div>
+
+//           {/* New View Mode Icons */}
+//           {/* Preview Icon (FaEye) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             //onClick={handleViewChange}
+//           >
+//             <FaEye size={20} />
+//           </div>
+
+//           {/* BOM Icon (FaTable) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//            // onClick={handleShowBOM}
+//           >
+//             <FaTable size={20} />
+//           </div>
+
+//           {/* Chart Icon (FaChartLine) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//            // onClick={handleShowChart}
+//           >
+//             <FaChartLine size={20} />
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Render the file list/table */}
+//       {renderFileList(prod)}
+//     </>
+//   );
+// };
+// const renderFileBrowser = () => {
+//   const currentProduct = products[selectedProductIndex] || {};
+//   // These counts are computed but not used here—they may be used in your left-side ribbon component.
+//   const iterationCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
+//   const stageCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
+
+//   return (
+//     <>
+//       {/* Top Row: Product dropdown, add product, and header icons (all icons only, no badges) */}
+//       <div className="d-flex justify-content-between align-items-center mb-2">
+//         {/* Left Side: Product Dropdown + Add Product */}
+//         <div className="d-flex align-items-center gap-2">
+//           <Form.Select
+//             size="sm"
+//             value={selectedProductIndex}
+//             onChange={handleSelectProduct}
+//             style={{
+//               width: '150px',
+//               backgroundColor: `${styles.colors.dark}`,
+//               color: `${styles.colors.text.light}`,
+//               border: `1px solid ${styles.colors.border}`,
+//               fontSize: '0.85rem',
+//               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+//             }}
+//             className="shadow-none"
+//           >
+//             {products.map((p, idx) => (
+//               <option key={idx} value={idx}>
+//                 {p.name.toUpperCase()}
+//               </option>
+//             ))}
+//           </Form.Select>
+//           {/* Plus sign for adding a new product */}
+//           <div
+//             style={{
+//               cursor: 'pointer',
+//               color: `${styles.colors.text.light}`,
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               width: '24px',
+//               height: '24px'
+//             }}
+//             onClick={handleCreateProduct}
+//           >
+//             <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
+//           </div>
+//         </div>
+
+//         {/* Right Side: Old Icons (Iteration, Stage, File Upload) and New View Mode Icons (plain icons, no badges) */}
+//         <div className="d-flex align-items-center gap-2">
+//           {/* Iteration Icon (plain icon only) */}
+//           <div
+//             style={{
+//               cursor: 'pointer'
+//             }}
+//             onClick={handleAddIteration}
+//           >
+//             <FaSpinner size={20} color={styles.colors.iteration} />
+//           </div>
+
+//           {/* Stage Icon (plain icon only) */}
+//           <div
+//             style={{
+//               cursor: 'pointer'
+//             }}
+//             onClick={handleAddStage}
+//           >
+//             <FaToriiGate size={20} color={styles.colors.stage} />
+//           </div>
+
+//           {/* File Upload Icon - border removed, color set to white */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handlePlusClick}
+//           >
+//             <FaUpload size={20} />
+//           </div>
+
+//           {/* New View Mode Icons */}
+//           {/* Preview Icon (FaEye) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handleViewChange}
+//           >
+//             <FaEye size={20} />
+//           </div>
+
+//           {/* BOM Icon (FaTable) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handleShowBOM}
+//           >
+//             <FaTable size={20} />
+//           </div>
+
+//           {/* Chart Icon (FaChartLine) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handleShowChart}
+//           >
+//             <FaChartLine size={20} />
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Render the file list/table */}
+//       {renderFileList(prod)}
+//     </>
+//   );
+// };
+// const renderFileBrowser = () => {
+//   // We no longer need to compute counts here since the header shows only plain icons.
+//   return (
+//     <>
+//       {/* Top Row: Product dropdown, add product, and header icons (plain icons, no badges) */}
+//       <div className="d-flex justify-content-between align-items-center mb-2">
+//         {/* Left Side: Product Dropdown + Add Product */}
+//         <div className="d-flex align-items-center gap-2">
+//           <Form.Select
+//             size="sm"
+//             value={selectedProductIndex}
+//             onChange={handleSelectProduct}
+//             style={{
+//               width: 'fit-content',
+//               backgroundColor: styles.colors.dark,
+//               color: styles.colors.text.light,
+//               border: `1px solid ${styles.colors.border}`,
+//               fontSize: '0.85rem',
+//               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+//             }}
+//             className="shadow-none"
+//           >
+//             {products.map((p, idx) => (
+//               <option key={idx} value={idx}>
+//                 {p.name.toUpperCase()}
+//               </option>
+//             ))}
+//           </Form.Select>
+//           {/* Plus sign for adding a new product */}
+//           <div
+//             style={{
+//               cursor: 'pointer',
+//               color: styles.colors.text.light,
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               width: '24px',
+//               height: '24px'
+//             }}
+//             onClick={handleCreateProduct}
+//           >
+//             <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
+//           </div>
+//         </div>
+
+//         {/* Right Side: Old Icons (Iteration, Stage, File Upload) and New View Mode Icons (plain icons, no badges) */}
+//         <div className="d-flex align-items-center gap-2">
+//           {/* Iteration Icon (plain icon only) */}
+//           <div style={{ cursor: 'pointer' }} onClick={handleAddIteration}>
+//             <FaSpinner size={20} color={styles.colors.iteration} />
+//           </div>
+
+//           {/* Stage Icon (plain icon only) */}
+//           <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
+//             <FaToriiGate size={20} color={styles.colors.stage} />
+//           </div>
+
+//           {/* File Upload Icon - border removed, color set to white */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//             onClick={handlePlusClick}
+//           >
+//             <FaUpload size={20} />
+//           </div>
+
+//           {/* New View Mode Icons */}
+//           {/* Preview Icon (FaEye) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//            // onClick={handleViewChange}
+//           >
+//             <FaEye size={20} />
+//           </div>
+
+//           {/* BOM Icon (FaTable) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//            // onClick={handleShowBOM}
+//           >
+//             <FaTable size={20} />
+//           </div>
+
+//           {/* Chart Icon (FaChartLine) */}
+//           <div
+//             style={{
+//               width: '24px',
+//               height: '24px',
+//               display: 'flex',
+//               alignItems: 'center',
+//               justifyContent: 'center',
+//               background: 'transparent',
+//               color: '#ffffff',
+//               cursor: 'pointer',
+//               borderRadius: '4px'
+//             }}
+//            // onClick={handleShowChart}
+//           >
+//             <FaChartLine size={20} />
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Render the file list/table */}
+//       {renderFileList(prod)}
+//     </>
+//   );
+// };
+
+const renderFileBrowser = () => {
+  const currentProduct = products[selectedProductIndex] || {};
+  // These counts are computed but not used here—they may be used in your left-side ribbon component.
+  const iterationCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
+  const stageCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
+
+  return (
     <>
-      {/* Product dropdown + add product */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      {/* Top Row: Product dropdown, add product, and header icons (plain icons, no badges) */}
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        {/* Left Side: Product Dropdown + Add Product */}
         <div className="d-flex align-items-center gap-2">
           <Form.Select
             size="sm"
             value={selectedProductIndex}
             onChange={handleSelectProduct}
             style={{
-              width: '150px',
-              backgroundColor: '#212529',
-              color: '#fff',
-              border: '1px solid #444',
+              width: 'fit-content',
+              backgroundColor: styles.colors.dark,
+              color: styles.colors.text.light,
+              border: `1px solid ${styles.colors.border}`,
               fontSize: '0.85rem',
               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
             }}
@@ -3075,11 +3825,11 @@ function renderFileList(prod) {
               </option>
             ))}
           </Form.Select>
-          {/* plus sign => same style as file list plus */}
+          {/* Plus sign for adding a new product */}
           <div
             style={{
               cursor: 'pointer',
-              color: '#fff',
+              color: styles.colors.text.light,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -3088,54 +3838,23 @@ function renderFileList(prod) {
             }}
             onClick={handleCreateProduct}
           >
-            <FaPlus size={14} style={{ transform: 'scale(0.9)' }} />
+            <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
           </div>
         </div>
 
-        <div className="d-flex gap-2">
-          {/* Iteration => #4FC3F7, outlined */}
-          <div
-            style={{
-              width: '24px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid #4FC3F7',
-              background: 'transparent',
-              color: '#4FC3F7',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-            onClick={handleAddIteration}
-          >
-            i
+        {/* Right Side: Old Icons (Iteration, Stage, File Upload) and New View Mode Icons (plain icons, no badges) */}
+        <div className="d-flex align-items-center gap-2">
+          {/* Iteration Icon (plain icon only) */}
+          <div style={{ cursor: 'pointer' }} onClick={handleAddIteration}>
+            <FaDrumSteelpan size={20} color={styles.colors.iteration} />
           </div>
 
-          {/* Stage => #FFC107, outlined */}
-          <div
-            style={{
-              width: '24px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid #FFC107',
-              background: 'transparent',
-              color: '#FFC107',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-            onClick={handleAddStage}
-          >
-            S
+          {/* Stage Icon (plain icon only) */}
+          <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
+            <FaToriiGate size={20} color={styles.colors.stage} />
           </div>
 
-          {/* Upload icon instead of F */}
+          {/* File Upload Icon - border removed, color set to white */}
           <div
             style={{
               width: '24px',
@@ -3143,177 +3862,752 @@ function renderFileList(prod) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid #FF4081',
               background: 'transparent',
-              color: '#FF4081',
+              color: '#ffffff',
               cursor: 'pointer',
               borderRadius: '4px'
             }}
             onClick={handlePlusClick}
           >
-            <FaUpload size={12} />
+            <FaUpload size={20} />
           </div>
-          {isLoading && (
-            <Spinner
-              as="span"
-              animation="border"
-              size="sm"
-              role="status"
-              aria-hidden="true"
-              style={{ marginLeft: '5px' }}
-            />
-          )}
-          <input
-            type="file"
-            ref={hiddenFileInput}
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
+
+          {/* New View Mode Icons */}
+          {/* Preview Icon (FaEye) */}
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              color: '#ffffff',
+              cursor: 'pointer',
+              borderRadius: '4px'
+            }}
+           // onClick={handleViewChange}
+          >
+            <FaEye size={20} />
+          </div>
+
+          {/* BOM Icon (FaTable) */}
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              color: '#ffffff',
+              cursor: 'pointer',
+              borderRadius: '4px'
+            }}
+           // onClick={handleShowBOM}
+          >
+            <FaTable size={20} />
+          </div>
+
+          {/* Chart Icon (FaChartLine) */}
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              color: '#ffffff',
+              cursor: 'pointer',
+              borderRadius: '4px'
+            }}
+           // onClick={handleShowChart}
+          >
+            <FaChartLine size={20} />
+          </div>
         </div>
       </div>
 
-      {/* Render the table with headings always visible */}
+      {/* Render the file list/table */}
       {renderFileList(prod)}
+
+      {/* Hidden file input for uploads */}
+      <input
+        type="file"
+        ref={hiddenFileInput}
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
     </>
   );
+};
 
-  // Add a style tag to enforce max-width on all elements
-  useEffect(() => {
-    const styleTag = document.createElement('style');
-    styleTag.innerHTML = `
-      * {
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        box-sizing: border-box !important;
-      }
-      
-      body, html {
-        overflow-x: hidden !important;
-        width: 100% !important;
-        max-width: 100vw !important;
-      }
-      
-      .container-fluid {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        width: 100% !important;
-        max-width: 100vw !important;
-      }
-      
-      iframe {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-    `;
-    document.head.appendChild(styleTag);
+
+
+useEffect(() => {
+  const styleTag = document.createElement('style');
+  styleTag.innerHTML = `
+    * {
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      box-sizing: border-box !important;
+      font-family: ${styles.fonts.family} !important;
+    }
     
-    return () => {
-      document.head.removeChild(styleTag);
-    };
-  }, []);
+    body, html {
+      overflow-x: hidden !important;
+      width: 100% !important;
+      max-width: 100vw !important;
+      background-color: ${styles.colors.dark} !important;
+      color: ${styles.colors.text.light} !important;
+    }
+    
+    /* Container styles */
+    .container-fluid {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      width: 100% !important;
+      max-width: 100vw !important;
+    }
+    
+    /* Table styles */
+    .table {
+      font-size: ${styles.fonts.size.sm} !important;
+      cursor: pointer !important;
+      margin-bottom: ${styles.spacing.md} !important;
+      background-color: ${styles.colors.dark} !important;
+      color: ${styles.colors.text.light} !important;
+    }
+    
+    .table th {
+      border-bottom: 1px solid ${styles.colors.border} !important;
+      padding: ${styles.spacing.sm} ${styles.spacing.md} !important;
+      background-color: ${styles.colors.dark} !important;
+      border-color: ${styles.colors.border} !important;
+    }
+    
+    .table td {
+      padding: ${styles.spacing.sm} ${styles.spacing.md} !important;
+      vertical-align: middle !important;
+      background-color: ${styles.colors.dark} !important;
+      border-color: ${styles.colors.border} !important;
+    }
+    
+    /* Form control styles */
+    .form-control, .form-select {
+      background-color: ${styles.colors.darkAlt} !important;
+      color: ${styles.colors.text.light} !important;
+      border: 1px solid ${styles.colors.border} !important;
+      font-size: ${styles.fonts.size.sm} !important;
+      border-radius: ${styles.borderRadius.sm} !important;
+    }
+    
+    /* Button styles */
+    .btn {
+      font-size: ${styles.fonts.size.sm} !important;
+      padding: ${styles.spacing.xs} ${styles.spacing.md} !important;
+      border-radius: ${styles.borderRadius.sm} !important;
+    }
+    
+    /* Badge styles */
+    .badge {
+      font-size: ${styles.fonts.size.xs} !important;
+      font-weight: ${styles.fonts.weight.normal} !important;
+      padding: ${styles.spacing.xs} ${styles.spacing.sm} !important;
+      vertical-align: middle !important;
+    }
+    
+    /* Other elements */
+    iframe {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    
+    .selected-file-row {
+      background-color: ${styles.colors.primary}26 !important; /* Adding 26 hex = 15% opacity */
+    }
+    
+    /* Context menu styling */
+    .context-menu-item:hover {
+      background-color: ${styles.colors.darkAlt} !important;
+    }
+    
+    /* Toast styling */
+    .toast {
+      background-color: ${styles.colors.dark} !important;
+      border: 1px solid ${styles.colors.border} !important;
+      border-radius: ${styles.borderRadius.sm} !important;
+    }
+    
+    /* Modal styling */
+    .modal-content {
+      background-color: ${styles.colors.dark} !important;
+      border: 1px solid ${styles.colors.border} !important;
+    }
+    
+    /* Bootstrap class overrides */
+    .bg-dark {
+      background-color: ${styles.colors.dark} !important;
+    }
+    
+    .bg-warning {
+      background-color: ${styles.colors.warning} !important;
+    }
+    
+    .bg-success {
+      background-color: ${styles.colors.success} !important;
+    }
+    
+    .bg-danger {
+      background-color: ${styles.colors.danger} !important;
+    }
+    
+    .text-light {
+      color: ${styles.colors.text.light} !important;
+    }
+    
+    .text-muted {
+      color: ${styles.colors.text.muted} !important;
+    }
+    
+    .btn-primary {
+      background-color: ${styles.colors.primary} !important;
+      border-color: ${styles.colors.primary} !important;
+    }
+    
+    .btn-secondary {
+      background-color: ${styles.colors.darkAlt} !important;
+      border-color: ${styles.colors.border} !important;
+    }
+    
+    .btn-success {
+      background-color: ${styles.colors.success} !important;
+      border-color: ${styles.colors.success} !important;
+    }
+    
+    .btn-warning {
+      background-color: ${styles.colors.warning} !important;
+      border-color: ${styles.colors.warning} !important;
+    }
+    
+    .btn-danger {
+      background-color: ${styles.colors.danger} !important;
+      border-color: ${styles.colors.danger} !important;
+    }
+    
+    /* Table theme overrides */
+    .table-dark {
+      background-color: ${styles.colors.dark} !important;
+      color: ${styles.colors.text.light} !important;
+    }
+    
+    /* Fix for file row selection highlight */
+    tr.selected-file-row td {
+      background-color: ${styles.colors.primary}26 !important;
+    }
+    
+    /* Remove scroll buttons from ribbon icons */
+    select.form-select {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: none !important;
+    }
+    
+    /* Prevent scroll buttons from appearing on hover */
+    select.form-select:hover, 
+    select.form-select:focus {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      //background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23aaaaaa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    }
 
-  return (
-    <Container
-      fluid
-      style={{
-        height: '100vh',
-        overflow: 'hidden',
-        maxWidth: '100vw',
-        width: '100%',
-        padding: 0,
-        margin: 0,
-        boxSizing: 'border-box'
-      }}
-      className="bg-dark text-light p-0"
-    >
-      {/* Center-aligned Toast message at top-center */}
-      <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
-        <Toast
-          bg="dark"
-          onClose={() => setToastMsg('')}
-          show={!!toastMsg}
-          delay={3000}
-          autohide
+    /* Custom dropdown arrow that's more subtle */
+    .form-select {
+     // background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23606060' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+      background-position: right 0.5rem center !important;
+      background-size: 12px !important;
+      background-repeat: no-repeat !important;
+    }
+    
+    /* Make dropdown arrow visible for product selector */
+    .form-select.shadow-none {
+      //background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23aaaaaa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+      background-position: right 0.5rem center !important;
+      background-size: 12px !important;
+      background-repeat: no-repeat !important;
+      padding-right: 2rem !important;
+    }
+    
+    /* Stronger override for select elements */
+    select.form-select, 
+    select.form-select:hover, 
+    select.form-select:focus, 
+    select.form-select:active {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: none !important;
+    }
+
+    /* Target the specific select elements in the table */
+    .table td select.form-select {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: none !important;
+      padding-right: 0.5rem !important;
+    }
+
+    /* Catch all to ensure no select shows default browser styling */
+    select {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: none !important;
+    }
+
+    /* Handle hover state for icons in the ribbon bar */
+    .form-select:hover,
+    .form-select:active,
+    .form-select:focus,
+    div.form-select,
+    div:hover .form-select,
+    select:hover,
+    .table tr:hover .form-select,
+    .table tr:hover td .form-select {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: none !important;
+    }
+
+    /* Ensure absolutely no dropdown arrows appear */
+    // .form-select {
+    //   background: none !important;
+    // }
+  `;
+  document.head.appendChild(styleTag);
+  
+  return () => {
+    document.head.removeChild(styleTag);
+  };
+}, []);
+
+//   return (
+//     <Container
+//       fluid
+//       style={{
+//         height: '100vh',
+//         overflow: 'hidden',
+//         maxWidth: '100vw',
+//         width: '100%',
+//         padding: 0,
+//         margin: 0,
+//         boxSizing: 'border-box'
+//       }}
+//       className="bg-dark text-light p-0"
+//     >
+//       {/* Center-aligned Toast message at top-center */}
+//       <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
+//         <Toast
+//           bg="dark"
+//           onClose={() => setToastMsg('')}
+//           show={!!toastMsg}
+//           delay={3000}
+//           autohide
+//         >
+//           <Toast.Body className="text-light" style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+//             {toastMsg}
+//           </Toast.Body>
+//         </Toast>
+//       </ToastContainer>
+
+//       <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
+//         {/* Left Ribbon => pH at top, stage icons below */}
+// <Col xs="auto" style={{ width: '50px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
+//   <div
+//     style={{
+//       height: '100%',
+//       width: '100%',
+//       display: 'flex',
+//       flexDirection: 'column',
+//       alignItems: 'center',
+//       paddingTop: '0.6rem'
+//     }}
+//   >
+//     {/* pH logo */}
+//     <div
+//       style={{
+//         cursor: 'pointer',
+//         fontWeight: '500', // Medium weight instead of bold
+//         color: styles.colors.text.light, // Remove quotes and ${} syntax
+//         marginBottom: '20px',
+//         fontSize: '0.9rem'
+//       }}
+//       onClick={() => console.log('pH logo clicked')}
+//     >
+//       pH
+//     </div>
+
+//     {/* Stage/iteration icons with right-click delete if empty */}
+//     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+//       {prod.stageIcons && prod.stageIcons.map((iconObj, idx) => {
+//         const isSelected = prod.selectedStage === iconObj.label;
+//         const bgColor = isSelected ? iconObj.color : 'transparent';
+//         const textColor = isSelected ? styles.colors.dark : styles.colors.text.light; // Remove quotes and ${} syntax
+//         const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
+
+//         return (
+//           <div
+//             key={idx}
+//             onClick={() => {
+//               handleStageIconClick(iconObj.label);
+//             }}
+//             onContextMenu={e => handleStageIconRightClick(e, iconObj.label)}
+//             style={{
+//               cursor: 'pointer',
+//               width: '32px',
+//               height: '32px',
+//               lineHeight: '30px',
+//               textAlign: 'center',
+//               borderRadius: '4px',
+//               marginBottom: '8px',
+//               fontWeight: '400', // Medium weight instead of bold
+//               fontSize: '0.85rem',
+//               background: bgColor,
+//               color: textColor,
+//               border: borderColor,
+              
+//             }}
+//           >
+//             {iconObj.label}
+//           </div>
+//         );
+//       })}
+//     </div>
+//   </div>
+// </Col>
+
+//         {/* Main Content Area with Resizable Columns */}
+//         <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 50px)'  }}>
+//           <ResizableColumn 
+//             leftContent={renderFileBrowser()}
+//             rightContent={renderPreview(selectedFileObj)}
+//           />
+//         </Col>
+//       </Row>
+//     </Container>
+//   );
+// return (
+//   <Container
+//     fluid
+//     style={{
+//       height: '100vh',
+//       overflow: 'hidden',
+//       maxWidth: '100vw',
+//       width: '100%',
+//       padding: 0,
+//       margin: 0,
+//       boxSizing: 'border-box'
+//     }}
+//     className="bg-dark text-light p-0"
+//   >
+//     {/* Center-aligned Toast message at top-center */}
+//     <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
+//       <Toast
+//         bg="dark"
+//         onClose={() => setToastMsg('')}
+//         show={!!toastMsg}
+//         delay={3000}
+//         autohide
+//       >
+//         <Toast.Body
+//           className="text-light"
+//           style={{ textAlign: 'center', fontSize: '0.85rem' }}
+//         >
+//           {toastMsg}
+//         </Toast.Body>
+//       </Toast>
+//     </ToastContainer>
+
+//     <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
+//       {/* Left Ribbon => pH at top, stage/iteration icons (icon + badge) below */}
+//       <Col
+//         xs="auto"
+//         style={{
+//           width: '50px',
+//           background: styles.colors.dark,
+//           padding: 0,
+//           borderRight: `1px solid ${styles.colors.border}`
+//         }}
+//       >
+//         <div
+//           style={{
+//             height: '100%',
+//             width: '100%',
+//             display: 'flex',
+//             flexDirection: 'column',
+//             alignItems: 'center',
+//             paddingTop: '0.6rem'
+//           }}
+//         >
+//           {/* pH logo */}
+//           <div
+//             style={{
+//               cursor: 'pointer',
+//               fontWeight: '500',
+//               color: styles.colors.text.light,
+//               marginBottom: '20px',
+//               fontSize: '0.9rem'
+//             }}
+//             onClick={() => console.log('pH logo clicked')}
+//           >
+//             pH
+//           </div>
+
+//           {/* Stage/iteration icons with icon+badge (using FaSpinner for I and FaToriiGate for S) */}
+//           <div
+//             style={{
+//               display: 'flex',
+//               flexDirection: 'column',
+//               alignItems: 'center',
+//               width: '100%'
+//             }}
+//           >
+//             {prod.stageIcons &&
+//               prod.stageIcons.map((iconObj, idx) => {
+//                 const isSelected = prod.selectedStage === iconObj.label;
+//                 const bgColor = isSelected ? iconObj.color : 'transparent';
+//                 const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
+
+//                 return (
+//                   <div
+//                     key={idx}
+//                     onClick={() => handleStageIconClick(iconObj.label)}
+//                     onContextMenu={(e) => handleStageIconRightClick(e, iconObj.label)}
+//                     style={{
+//                       cursor: 'pointer',
+//                       width: '32px',
+//                       height: '32px',
+//                       position: 'relative',
+//                       borderRadius: '4px',
+//                       marginBottom: '8px',
+//                       fontSize: '0.85rem',
+//                       background: bgColor,
+//                       border: borderColor,
+//                       display: 'flex',
+//                       alignItems: 'center',
+//                       justifyContent: 'center'
+//                     }}
+//                   >
+//                     {iconObj.type === 'I' ? (
+//                       <FaSpinner size={20} color={styles.colors.iteration} />
+//                     ) : (
+//                       <FaToriiGate size={20} color={styles.colors.stage} />
+//                     )}
+//                     <span
+//                       style={{
+//                         position: 'absolute',
+//                         top: '-4px',
+//                         right: '-4px',
+//                         background: isSelected
+//                           ? iconObj.color
+//                           : iconObj.type === 'I'
+//                           ? styles.colors.iteration
+//                           : styles.colors.stage,
+//                         color: '#fff',
+//                         borderRadius: '50%',
+//                         padding: '0 4px',
+//                         fontSize: '10px'
+//                       }}
+//                     >
+//                       {iconObj.number}
+//                     </span>
+//                   </div>
+//                 );
+//               })}
+//           </div>
+//         </div>
+//       </Col>
+
+//       {/* Main Content Area with Resizable Columns */}
+//       <Col
+//         className="p-0 m-0"
+//         style={{
+//           height: '100%',
+//           overflow: 'hidden',
+//           maxWidth: 'calc(100vw - 50px)'
+//         }}
+//       >
+//         <ResizableColumn
+//           leftContent={renderFileBrowser()}
+//           rightContent={renderPreview(selectedFileObj)}
+//         />
+//       </Col>
+//     </Row>
+//   </Container>
+// );
+
+return (
+  <Container
+    fluid
+    style={{
+      height: '100vh',
+      overflow: 'hidden',
+      maxWidth: '100vw',
+      width: '100%',
+      padding: 0,
+      margin: 0,
+      boxSizing: 'border-box'
+    }}
+    className="bg-dark text-light p-0"
+  >
+    {/* Center-aligned Toast message at top-center */}
+    <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
+      <Toast
+        bg="dark"
+        onClose={() => setToastMsg('')}
+        show={!!toastMsg}
+        delay={3000}
+        autohide
+      >
+        <Toast.Body
+          className="text-light"
+          style={{ textAlign: 'center', fontSize: '0.85rem' }}
         >
-          <Toast.Body className="text-light" style={{ textAlign: 'center', fontSize: '0.85rem' }}>
-            {toastMsg}
-          </Toast.Body>
-        </Toast>
-      </ToastContainer>
+          {toastMsg}
+        </Toast.Body>
+      </Toast>
+    </ToastContainer>
 
-      <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
-        {/* Left Ribbon => pH at top, stage icons below */}
-        <Col xs="auto" style={{ width: '50px', background: '#222', padding: 0 }}>
+    <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
+      {/* Left Ribbon => pH at top, stage/iteration icons (icon + badge) below */}
+      <Col
+        xs="auto"
+        style={{
+          width: '50px',
+          background: styles.colors.dark,
+          padding: 0,
+          borderRight: `1px solid ${styles.colors.border}`
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop: '0.6rem'
+          }}
+        >
+          {/* pH logo */}
           <div
             style={{
-              height: '100%',
-              width: '100%',
+              cursor: 'pointer',
+              fontWeight: '500',
+              color: styles.colors.text.light,
+              marginBottom: '20px',
+              fontSize: '0.9rem'
+            }}
+            onClick={() => console.log('pH logo clicked')}
+          >
+            pH
+          </div>
+
+          {/* Stage/iteration icons with icon+badge (using FaSpinner for I and FaToriiGate for S) */}
+          <div
+            style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              paddingTop: '0.6rem'
+              width: '100%'
             }}
           >
-            {/* pH logo */}
-            <div
-              style={{
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                color: '#fff',
-                marginBottom: '20px',
-                fontSize: '0.9rem'
-              }}
-              onClick={() => console.log('pH logo clicked')}
-            >
-              pH
-            </div>
-
-            {/* Stage/iteration icons with right-click delete if empty */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-              {prod.stageIcons && prod.stageIcons.map((iconObj, idx) => {
+            {prod.stageIcons &&
+              prod.stageIcons.map((iconObj, idx) => {
                 const isSelected = prod.selectedStage === iconObj.label;
-                const bgColor = isSelected ? iconObj.color : 'transparent';
-                const textColor = isSelected ? '#000' : '#fff';
-                const borderColor = isSelected ? iconObj.color : iconObj.color;
+                //const bgColor = isSelected ? iconObj.color : 'transparent';
+                const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
+                const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
 
                 return (
                   <div
                     key={idx}
-                    onClick={() => {
-                      handleStageIconClick(iconObj.label);
-                    }}
-                    onContextMenu={e => handleStageIconRightClick(e, iconObj.label)}
+                    onClick={() => handleStageIconClick(iconObj.label)}
+                    onContextMenu={(e) => handleStageIconRightClick(e, iconObj.label)}
                     style={{
                       cursor: 'pointer',
-                      width: '30px',
-                      height: '30px',
-                      lineHeight: '30px',
-                      textAlign: 'center',
+                      width: '32px',
+                      height: '32px',
+                      position: 'relative',
                       borderRadius: '4px',
                       marginBottom: '8px',
-                      fontWeight: 'bold',
                       fontSize: '0.85rem',
                       background: bgColor,
-                      color: textColor,
-                      border: 'none'
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                   >
-                    {iconObj.label}
+                    {iconObj.type === 'I' ? (
+                      <FaDrumSteelpan size={20} color={styles.colors.iteration} />
+                    ) : (
+                      <FaToriiGate size={20} color={styles.colors.stage} />
+                    )}
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        background: isSelected
+                          ? styles.colors.dark 
+                          : iconObj.type === 'I'
+                          ? styles.colors.dark      
+                          : styles.colors.dark,
+                        color: '#fff',
+                        borderRadius: '50%',
+                        padding: '0 4px',
+                        fontSize: '16px'
+                      }}
+                    >
+                      {iconObj.number}
+                    </span>
                   </div>
                 );
               })}
-            </div>
           </div>
-        </Col>
+        </div>
+      </Col>
 
-        {/* Main Content Area with Resizable Columns */}
-        <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 50px)'  }}>
-          <ResizableColumn 
-            leftContent={renderFileBrowser()}
-            rightContent={renderPreview(selectedFileObj)}
-          />
-        </Col>
-      </Row>
-    </Container>
-  );
+      {/* Main Content Area with Resizable Columns */}
+      <Col
+        className="p-0 m-0"
+        style={{
+          height: '100%',
+          overflow: 'hidden',
+          maxWidth: 'calc(100vw - 50px)'
+        }}
+      >
+        <ResizableColumn
+          leftContent={renderFileBrowser()}
+          rightContent={renderPreview(selectedFileObj)}
+        />
+      </Col>
+    </Row>
+
+    {/* Hidden file input for uploads */}
+    <input
+      type="file"
+      ref={hiddenFileInput}
+      onChange={handleFileChange}
+      style={{ display: 'none' }}
+    />
+  </Container>
+);
+
+
 }

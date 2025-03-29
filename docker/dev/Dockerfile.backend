@@ -6,11 +6,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
-COPY . .
-
 # Create directory for uploaded files
 RUN mkdir -p mpp_files
 
-# Run migrations and collect static files when container starts
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+# We'll mount the code as a volume, so no need to copy it here
+# Run Django's development server
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

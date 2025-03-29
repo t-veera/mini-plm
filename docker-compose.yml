@@ -1,17 +1,31 @@
-version: '3'
+version: '3.8'
 
 services:
-  app:
-    build: .
-    image: tveera/mini-plm:latest
-    container_name: mini-plm
+  backend:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.backend
+    volumes:
+      - ./:/app
+      - ./mpp_files:/app/mpp_files
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.frontend
+    volumes:
+      - ./mpp_frontend:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
     restart: unless-stopped
-    volumes:
-      - ./mpp_files:/app/data
-      - mini-plm-data:/app/persistent-data
-
-volumes:
-  mini-plm-data:
-    driver: local

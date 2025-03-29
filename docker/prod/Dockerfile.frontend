@@ -1,0 +1,21 @@
+FROM node:16-alpine as build
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY mpp_frontend/package*.json ./
+RUN npm ci --silent
+
+# Copy the frontend code
+COPY mpp_frontend/ .
+
+# Build for production
+ENV REACT_APP_API_URL=/api
+RUN npm run build
+
+# The final image just needs to copy the build files
+FROM node:16-alpine
+WORKDIR /app
+COPY --from=build /app/build ./build
+# Just keep the container running
+CMD ["tail", "-f", "/dev/null"]
