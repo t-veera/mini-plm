@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Button from 'react-bootstrap/Button';
 import {
   Container,
   Row,
@@ -34,7 +35,8 @@ import {
   FaChartLine,
   FaSpinner,
   FaToriiGate,
-  FaDrumSteelpan
+  FaDrumSteelpan,
+  FaFilter
 } from 'react-icons/fa';
 
 // React Three Fiber / Three.js
@@ -604,8 +606,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         border: '1px solid #888',
         overflow: 'auto',
         padding: '1rem',
-        fontFamily:
-          'system-ui, -apple-system, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
+        fontFamily: 'system-ui, -apple-system, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
       }}
       >
         {markdownContent ? (
@@ -884,9 +885,10 @@ function ResizableColumn({ leftContent, rightContent }) {
       </div>
     );
   }
-  
+
   /* ---------------- MAIN APP ---------------- */
   export default function App() {
+    const [viewMode, setViewMode] = useState('normal'); // Options: 'normal', 'bom'
     /* 1) Load from localStorage on mount (persist products) with data validation */
     const [products, setProducts] = useState(() => {
       try {
@@ -3278,6 +3280,7 @@ function renderFileList(prod) {
                 borderRadius: '4px',
                 padding: '1.5rem',
                 width: '500px',
+                //width: '622px',
                 maxWidth: '90%',
                 fontSize: '0.9rem'
               }}
@@ -3793,6 +3796,723 @@ function renderFileList(prod) {
 //   );
 // };
 
+// const renderFileBrowser = () => {
+//   const currentProduct = products[selectedProductIndex] || {};
+//   // These counts are computed but not used here—they may be used in your left-side ribbon component.
+//   const iterationCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
+//   const stageCount = (currentProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
+
+// //   return (
+// //     <>
+// //       {/* Top Row: Product dropdown, add product, and header icons (plain icons, no badges) */}
+// //       <div className="d-flex justify-content-between align-items-center mb-2">
+// //         {/* Left Side: Product Dropdown + Add Product */}
+// //         <div className="d-flex align-items-center gap-2">
+// //           <Form.Select
+// //             size="sm"
+// //             value={selectedProductIndex}
+// //             onChange={handleSelectProduct}
+// //             style={{
+// //               width: 'fit-content',
+// //               backgroundColor: styles.colors.dark,
+// //               color: styles.colors.text.light,
+// //               border: `1px solid ${styles.colors.border}`,
+// //               fontSize: '0.85rem',
+// //               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+// //             }}
+// //             className="shadow-none"
+// //           >
+// //             {products.map((p, idx) => (
+// //               <option key={idx} value={idx}>
+// //                 {p.name.toUpperCase()}
+// //               </option>
+// //             ))}
+// //           </Form.Select>
+// //           {/* Plus sign for adding a new product */}
+// //           <div
+// //             style={{
+// //               cursor: 'pointer',
+// //               color: styles.colors.text.light,
+// //               display: 'flex',
+// //               alignItems: 'center',
+// //               justifyContent: 'center',
+// //               width: '24px',
+// //               height: '24px'
+// //             }}
+// //             onClick={handleCreateProduct}
+// //           >
+// //             <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
+// //           </div>
+// //         </div>
+
+// //         {/* Right Side: Old Icons (Iteration, Stage, File Upload) and New View Mode Icons (plain icons, no badges) */}
+// //         <div className="d-flex align-items-center gap-2">
+// //           {/* Iteration Icon (plain icon only) */}
+// //           <div style={{ cursor: 'pointer' }} onClick={handleAddIteration}>
+// //             <FaDrumSteelpan size={20} color={styles.colors.iteration} />
+// //           </div>
+
+// //           {/* Stage Icon (plain icon only) */}
+// //           <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
+// //             <FaToriiGate size={20} color={styles.colors.stage} />
+// //           </div>
+
+// //           {/* File Upload Icon - border removed, color set to white */}
+// //           <div
+// //             style={{
+// //               width: '24px',
+// //               height: '24px',
+// //               display: 'flex',
+// //               alignItems: 'center',
+// //               justifyContent: 'center',
+// //               background: 'transparent',
+// //               color: '#ffffff',
+// //               cursor: 'pointer',
+// //               borderRadius: '4px'
+// //             }}
+// //             onClick={handlePlusClick}
+// //           >
+// //             <FaUpload size={20} />
+// //           </div>
+
+// //           {/* New View Mode Icons */}
+// //           {/* Preview Icon (FaEye) */}
+// //           <div
+// //             style={{
+// //               width: '24px',
+// //               height: '24px',
+// //               display: 'flex',
+// //               alignItems: 'center',
+// //               justifyContent: 'center',
+// //               background: 'transparent',
+// //               color: '#ffffff',
+// //               cursor: 'pointer',
+// //               borderRadius: '4px'
+// //             }}
+// //             onClick={handleViewChange}
+// //           >
+// //             <FaEye size={20} />
+// //           </div>
+
+// //           {/* BOM Icon (FaTable) */}
+// //           <div
+// //             style={{
+// //               width: '24px',
+// //               height: '24px',
+// //               display: 'flex',
+// //               alignItems: 'center',
+// //               justifyContent: 'center',
+// //               background: 'transparent',
+// //               color: '#ffffff',
+// //               cursor: 'pointer',
+// //               borderRadius: '4px'
+// //             }}
+// //             onClick={handleShowBOM}
+// //           >
+// //             <FaTable size={20} />
+// //           </div>
+
+// //           {/* Chart Icon (FaChartLine) */}
+// //           <div
+// //             style={{
+// //               width: '24px',
+// //               height: '24px',
+// //               display: 'flex',
+// //               alignItems: 'center',
+// //               justifyContent: 'center',
+// //               background: 'transparent',
+// //               color: '#ffffff',
+// //               cursor: 'pointer',
+// //               borderRadius: '4px'
+// //             }}
+// //            // onClick={handleShowChart}
+// //           >
+// //             <FaChartLine size={20} />
+// //           </div>
+// //         </div>
+// //       </div>
+
+// //       {/* Render the file list/table */}
+// //       {renderFileList(prod)}
+
+// //       {/* Hidden file input for uploads */}
+// //       <input
+// //         type="file"
+// //         ref={hiddenFileInput}
+// //         onChange={handleFileChange}
+// //         style={{ display: 'none' }}
+// //       />
+// //     </>
+// //   );
+// // };
+// return (
+//   <>
+//     {/* Top Row: Product dropdown, add product, and header icons (plain icons, no badges) */}
+//     <div className="d-flex justify-content-between align-items-center mb-2">
+//       {/* Left Side: Product Dropdown + Add Product */}
+//       <div className="d-flex align-items-center gap-2">
+//         <Form.Select
+//           size="sm"
+//           value={selectedProductIndex}
+//           onChange={handleSelectProduct}
+//           style={{
+//             width: 'fit-content',
+//             backgroundColor: styles.colors.dark,
+//             color: styles.colors.text.light,
+//             border: `1px solid ${styles.colors.border}`,
+//             fontSize: '0.85rem',
+//             backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
+//           }}
+//           className="shadow-none"
+//         >
+//           {products.map((p, idx) => (
+//             <option key={idx} value={idx}>
+//               {p.name.toUpperCase()}
+//             </option>
+//           ))}
+//         </Form.Select>
+//         {/* Plus sign for adding a new product */}
+//         <div
+//           style={{
+//             cursor: 'pointer',
+//             color: styles.colors.text.light,
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             width: '24px',
+//             height: '24px'
+//           }}
+//           onClick={handleCreateProduct}
+//         >
+//           <FaPlus size={20} style={{ transform: 'scale(0.9)' }} />
+//         </div>
+//       </div>
+
+//       {/* Right Side: Old Icons (Iteration, Stage, File Upload) and New View Mode Icons (plain icons, no badges) */}
+//       <div className="d-flex align-items-center gap-2">
+//         {/* Iteration Icon (plain icon only) */}
+//         <div style={{ cursor: 'pointer' }} onClick={handleAddIteration}>
+//           <FaDrumSteelpan size={20} color={styles.colors.iteration} />
+//         </div>
+
+//         {/* Stage Icon (plain icon only) */}
+//         <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
+//           <FaToriiGate size={20} color={styles.colors.stage} />
+//         </div>
+
+//         {/* File Upload Icon - border removed, color set to white */}
+//         <div
+//           style={{
+//             width: '24px',
+//             height: '24px',
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             background: 'transparent',
+//             color: '#ffffff',
+//             cursor: 'pointer',
+//             borderRadius: '4px'
+//           }}
+//           onClick={handlePlusClick}
+//         >
+//           <FaUpload size={20} />
+//         </div>
+
+//         {/* New View Mode Icons */}
+//         {/* Preview Icon (FaEye) */}
+//         <div
+//           style={{
+//             width: '24px',
+//             height: '24px',
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             background: 'transparent',
+//             color: viewMode === 'normal' ? '#ffffff' : styles.colors.primary,
+//             cursor: 'pointer',
+//             borderRadius: '4px'
+//           }}
+//           onClick={handleViewChange}
+//         >
+//           <FaEye size={20} />
+//         </div>
+
+//         {/* BOM Icon (FaTable) */}
+//         <div
+//           style={{
+//             width: '24px',
+//             height: '24px',
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             background: 'transparent',
+//             color: viewMode === 'bom' ? styles.colors.primary : '#ffffff',
+//             cursor: 'pointer',
+//             borderRadius: '4px'
+//           }}
+//           onClick={handleShowBOM}
+//         >
+//           <FaTable size={20} />
+//         </div>
+
+//         {/* Chart Icon (FaChartLine) */}
+//         <div
+//           style={{
+//             width: '24px',
+//             height: '24px',
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             background: 'transparent',
+//             color: '#ffffff',
+//             cursor: 'pointer',
+//             borderRadius: '4px'
+//           }}
+//          // onClick={handleShowChart}
+//         >
+//           <FaChartLine size={20} />
+//         </div>
+//       </div>
+//     </div>
+
+//     {/* Conditional rendering based on viewMode */}
+//     {viewMode === 'normal' ? (
+//       /* Render the normal file list/table */
+//       renderFileList(prod)
+//     ) : (
+//       /* Render the BOM view */
+//       <BOMView prod={prod} updateFile={updateFile} />
+//     )}
+
+//     {/* Hidden file input for uploads */}
+//     <input
+//       type="file"
+//       ref={hiddenFileInput}
+//       onChange={handleFileChange}
+//       style={{ display: 'none' }}
+//     />
+//   </>
+// );
+
+
+// useEffect(() => {
+//   const styleTag = document.createElement('style');
+//   styleTag.innerHTML = `
+//     * {
+//       max-width: 100% !important;
+//       overflow-x: hidden !important;
+//       box-sizing: border-box !important;
+//       font-family: ${styles.fonts.family} !important;
+//     }
+    
+//     body, html {
+//       overflow-x: hidden !important;
+//       width: 100% !important;
+//       max-width: 100vw !important;
+//       background-color: ${styles.colors.dark} !important;
+//       color: ${styles.colors.text.light} !important;
+//     }
+    
+//     /* Container styles */
+//     .container-fluid {
+//       padding-left: 0 !important;
+//       padding-right: 0 !important;
+//       width: 100% !important;
+//       max-width: 100vw !important;
+//     }
+    
+//     /* Table styles */
+//     .table {
+//       font-size: ${styles.fonts.size.sm} !important;
+//       cursor: pointer !important;
+//       margin-bottom: ${styles.spacing.md} !important;
+//       background-color: ${styles.colors.dark} !important;
+//       color: ${styles.colors.text.light} !important;
+//     }
+    
+//     .table th {
+//       border-bottom: 1px solid ${styles.colors.border} !important;
+//       padding: ${styles.spacing.sm} ${styles.spacing.md} !important;
+//       background-color: ${styles.colors.dark} !important;
+//       border-color: ${styles.colors.border} !important;
+//     }
+    
+//     .table td {
+//       padding: ${styles.spacing.sm} ${styles.spacing.md} !important;
+//       vertical-align: middle !important;
+//       background-color: ${styles.colors.dark} !important;
+//       border-color: ${styles.colors.border} !important;
+//     }
+    
+//     /* Form control styles */
+//     .form-control, .form-select {
+//       background-color: ${styles.colors.darkAlt} !important;
+//       color: ${styles.colors.text.light} !important;
+//       border: 1px solid ${styles.colors.border} !important;
+//       font-size: ${styles.fonts.size.sm} !important;
+//       border-radius: ${styles.borderRadius.sm} !important;
+//     }
+    
+//     /* Button styles */
+//     .btn {
+//       font-size: ${styles.fonts.size.sm} !important;
+//       padding: ${styles.spacing.xs} ${styles.spacing.md} !important;
+//       border-radius: ${styles.borderRadius.sm} !important;
+//     }
+    
+//     /* Badge styles */
+//     .badge {
+//       font-size: ${styles.fonts.size.xs} !important;
+//       font-weight: ${styles.fonts.weight.normal} !important;
+//       padding: ${styles.spacing.xs} ${styles.spacing.sm} !important;
+//       vertical-align: middle !important;
+//     }
+    
+//     /* Other elements */
+//     iframe {
+//       width: 100% !important;
+//       max-width: 100% !important;
+//     }
+    
+//     .selected-file-row {
+//       background-color: ${styles.colors.primary}26 !important; /* Adding 26 hex = 15% opacity */
+//     }
+    
+//     /* Context menu styling */
+//     .context-menu-item:hover {
+//       background-color: ${styles.colors.darkAlt} !important;
+//     }
+    
+//     /* Toast styling */
+//     .toast {
+//       background-color: ${styles.colors.dark} !important;
+//       border: 1px solid ${styles.colors.border} !important;
+//       border-radius: ${styles.borderRadius.sm} !important;
+//     }
+    
+//     /* Modal styling */
+//     .modal-content {
+//       background-color: ${styles.colors.dark} !important;
+//       border: 1px solid ${styles.colors.border} !important;
+//     }
+    
+//     /* Bootstrap class overrides */
+//     .bg-dark {
+//       background-color: ${styles.colors.dark} !important;
+//     }
+    
+//     .bg-warning {
+//       background-color: ${styles.colors.warning} !important;
+//     }
+    
+//     .bg-success {
+//       background-color: ${styles.colors.success} !important;
+//     }
+    
+//     .bg-danger {
+//       background-color: ${styles.colors.danger} !important;
+//     }
+    
+//     .text-light {
+//       color: ${styles.colors.text.light} !important;
+//     }
+    
+//     .text-muted {
+//       color: ${styles.colors.text.muted} !important;
+//     }
+    
+//     .btn-primary {
+//       background-color: ${styles.colors.primary} !important;
+//       border-color: ${styles.colors.primary} !important;
+//     }
+    
+//     .btn-secondary {
+//       background-color: ${styles.colors.darkAlt} !important;
+//       border-color: ${styles.colors.border} !important;
+//     }
+    
+//     .btn-success {
+//       background-color: ${styles.colors.success} !important;
+//       border-color: ${styles.colors.success} !important;
+//     }
+    
+//     .btn-warning {
+//       background-color: ${styles.colors.warning} !important;
+//       border-color: ${styles.colors.warning} !important;
+//     }
+    
+//     .btn-danger {
+//       background-color: ${styles.colors.danger} !important;
+//       border-color: ${styles.colors.danger} !important;
+//     }
+    
+//     /* Table theme overrides */
+//     .table-dark {
+//       background-color: ${styles.colors.dark} !important;
+//       color: ${styles.colors.text.light} !important;
+//     }
+    
+//     /* Fix for file row selection highlight */
+//     tr.selected-file-row td {
+//       background-color: ${styles.colors.primary}26 !important;
+//     }
+    
+//     /* Remove scroll buttons from ribbon icons */
+//     select.form-select {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       background-image: none !important;
+//     }
+    
+//     /* Prevent scroll buttons from appearing on hover */
+//     select.form-select:hover, 
+//     select.form-select:focus {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       //background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23aaaaaa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+//     }
+
+//     /* Custom dropdown arrow that's more subtle */
+//     .form-select {
+//      // background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23606060' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+//       background-position: right 0.5rem center !important;
+//       background-size: 12px !important;
+//       background-repeat: no-repeat !important;
+//     }
+    
+//     /* Make dropdown arrow visible for product selector */
+//     .form-select.shadow-none {
+//       //background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23aaaaaa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+//       background-position: right 0.5rem center !important;
+//       background-size: 12px !important;
+//       background-repeat: no-repeat !important;
+//       padding-right: 2rem !important;
+//     }
+    
+//     /* Stronger override for select elements */
+//     select.form-select, 
+//     select.form-select:hover, 
+//     select.form-select:focus, 
+//     select.form-select:active {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       background-image: none !important;
+//     }
+
+//     /* Target the specific select elements in the table */
+//     .table td select.form-select {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       background-image: none !important;
+//       padding-right: 0.5rem !important;
+//     }
+
+//     /* Catch all to ensure no select shows default browser styling */
+//     select {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       background-image: none !important;
+//     }
+
+//     /* Handle hover state for icons in the ribbon bar */
+//     .form-select:hover,
+//     .form-select:active,
+//     .form-select:focus,
+//     div.form-select,
+//     div:hover .form-select,
+//     select:hover,
+//     .table tr:hover .form-select,
+//     .table tr:hover td .form-select {
+//       appearance: none !important;
+//       -webkit-appearance: none !important;
+//       -moz-appearance: none !important;
+//       background-image: none !important;
+//     }
+
+//     /* Ensure absolutely no dropdown arrows appear */
+//     // .form-select {
+//     //   background: none !important;
+//     // }
+//   `;
+//   document.head.appendChild(styleTag);
+  
+//   return () => {
+//     document.head.removeChild(styleTag);
+//   };
+// }, []);
+
+// return (
+//   <Container
+//     fluid
+//     style={{
+//       height: '100vh',
+//       overflow: 'hidden',
+//       maxWidth: '100vw',
+//       width: '100%',
+//       padding: 0,
+//       margin: 0,
+//       boxSizing: 'border-box'
+//     }}
+//     className="bg-dark text-light p-0"
+//   >
+//     {/* Center-aligned Toast message at top-center */}
+//     <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
+//       <Toast
+//         bg="dark"
+//         onClose={() => setToastMsg('')}
+//         show={!!toastMsg}
+//         delay={3000}
+//         autohide
+//       >
+//         <Toast.Body
+//           className="text-light"
+//           style={{ textAlign: 'center', fontSize: '0.85rem' }}
+//         >
+//           {toastMsg}
+//         </Toast.Body>
+//       </Toast>
+//     </ToastContainer>
+
+//     <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
+//       {/* Left Ribbon => pH at top, stage/iteration icons (icon + badge) below */}
+//       <Col
+//         xs="auto"
+//         style={{
+//           width: '50px',
+//           background: styles.colors.dark,
+//           padding: 0,
+//           borderRight: `1px solid ${styles.colors.border}`
+//         }}
+//       >
+//         <div
+//           style={{
+//             height: '100%',
+//             width: '100%',
+//             display: 'flex',
+//             flexDirection: 'column',
+//             alignItems: 'center',
+//             paddingTop: '0.6rem'
+//           }}
+//         >
+//           {/* pH logo */}
+//           <div
+//             style={{
+//               cursor: 'pointer',
+//               fontWeight: '500',
+//               color: styles.colors.text.light,
+//               marginBottom: '20px',
+//               fontSize: '0.9rem'
+//             }}
+//             onClick={() => console.log('pH logo clicked')}
+//           >
+//             pH
+//           </div>
+
+//           {/* Stage/iteration icons with icon+badge (using FaSpinner for I and FaToriiGate for S) */}
+//           <div
+//             style={{
+//               display: 'flex',
+//               flexDirection: 'column',
+//               alignItems: 'center',
+//               width: '100%'
+//             }}
+//           >
+//             {prod.stageIcons &&
+//               prod.stageIcons.map((iconObj, idx) => {
+//                 const isSelected = prod.selectedStage === iconObj.label;
+//                 //const bgColor = isSelected ? iconObj.color : 'transparent';
+//                 const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
+//                 const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
+
+//                 return (
+//                   <div
+//                     key={idx}
+//                     onClick={() => handleStageIconClick(iconObj.label)}
+//                     onContextMenu={(e) => handleStageIconRightClick(e, iconObj.label)}
+//                     style={{
+//                       cursor: 'pointer',
+//                       width: '32px',
+//                       height: '32px',
+//                       position: 'relative',
+//                       borderRadius: '4px',
+//                       marginBottom: '8px',
+//                       fontSize: '0.85rem',
+//                       background: bgColor,
+//                       display: 'flex',
+//                       alignItems: 'center',
+//                       justifyContent: 'center'
+//                     }}
+//                   >
+//                     {iconObj.type === 'I' ? (
+//                       <FaDrumSteelpan size={20} color={styles.colors.iteration} />
+//                     ) : (
+//                       <FaToriiGate size={20} color={styles.colors.stage} />
+//                     )}
+//                     <span
+//                       style={{
+//                         position: 'absolute',
+//                         top: '-4px',
+//                         right: '-4px',
+//                         background: isSelected
+//                           ? styles.colors.dark 
+//                           : iconObj.type === 'I'
+//                           ? styles.colors.dark      
+//                           : styles.colors.dark,
+//                         color: '#fff',
+//                         borderRadius: '50%',
+//                         padding: '0 4px',
+//                         fontSize: '16px'
+//                       }}
+//                     >
+//                       {iconObj.number}
+//                     </span>
+//                   </div>
+//                 );
+//               })}
+//           </div>
+//         </div>
+//       </Col>
+
+//       {/* Main Content Area with Resizable Columns */}
+//       <Col
+//         className="p-0 m-0"
+//         style={{
+//           height: '100%',
+//           overflow: 'hidden',
+//           maxWidth: 'calc(100vw - 50px)'
+//         }}
+//       >
+//         <ResizableColumn
+//           leftContent={renderFileBrowser()}
+//           rightContent={renderPreview(selectedFileObj)}
+//         />
+//         {/* {viewMode === 'normal' ? (
+//         <ResizableColumn
+//             leftContent={renderFileBrowser()}
+//             rightContent={renderPreview(selectedFileObj)}
+//           />
+//         ) : (
+//           <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>
+//             <BOMView prod={prod} />
+//           </div>
+//         )} */}
+//       </Col>
+//     </Row>
+
+//     {/* Hidden file input for uploads */}
+//     <input
+//       type="file"
+//       ref={hiddenFileInput}
+//       onChange={handleFileChange}
+//       style={{ display: 'none' }}
+//     />
+//   </Container>
+// );
 const renderFileBrowser = () => {
   const currentProduct = products[selectedProductIndex] || {};
   // These counts are computed but not used here—they may be used in your left-side ribbon component.
@@ -3882,11 +4602,12 @@ const renderFileBrowser = () => {
               alignItems: 'center',
               justifyContent: 'center',
               background: 'transparent',
-              color: '#ffffff',
+              //color: viewMode === 'normal' ? '#ffffff' : styles.colors.primary,
+              color: '#fffff',
               cursor: 'pointer',
               borderRadius: '4px'
             }}
-           // onClick={handleViewChange}
+            onClick={handleViewChange}
           >
             <FaEye size={20} />
           </div>
@@ -3900,11 +4621,12 @@ const renderFileBrowser = () => {
               alignItems: 'center',
               justifyContent: 'center',
               background: 'transparent',
+             // color: viewMode === 'bom' ? styles.colors.primary : '#ffffff',
               color: '#ffffff',
               cursor: 'pointer',
               borderRadius: '4px'
             }}
-           // onClick={handleShowBOM}
+            onClick={handleShowBOM}
           >
             <FaTable size={20} />
           </div>
@@ -3929,8 +4651,12 @@ const renderFileBrowser = () => {
         </div>
       </div>
 
-      {/* Render the file list/table */}
-      {renderFileList(prod)}
+      {/* Render content based on viewMode */}
+      {viewMode === 'normal' ? (
+        renderFileList(prod)
+      ) : (
+        <BOMView prod={prod} updateFile={updateFile} />
+      )}
 
       {/* Hidden file input for uploads */}
       <input
@@ -3945,6 +4671,3176 @@ const renderFileBrowser = () => {
 
 
 
+// Add these functions to your App component at an appropriate location
+// (near your other handler functions)
+function handleViewChange() {
+  setViewMode('normal');
+}
+
+function handleShowBOM() {
+  setViewMode('bom');
+}
+
+// Add the updateFile function
+function updateFile(fileId, updates) {
+  const updatedProducts = [...products];
+  const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  updatedProducts[selectedProductIndex] = updatedProduct;
+  
+  const stage = updatedProduct.selectedStage;
+  updatedProduct.filesByStage = {...updatedProduct.filesByStage};
+  updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
+  
+  // Find the file
+  const fileIndex = updatedProduct.filesByStage[stage].findIndex(f => f.id === fileId);
+  if (fileIndex === -1) return;
+  
+  // Update the file with the provided updates
+  const updatedFile = {...updatedProduct.filesByStage[stage][fileIndex], ...updates};
+  updatedProduct.filesByStage[stage][fileIndex] = updatedFile;
+  
+  // If the file has revisions, update the current revision too
+  if (updatedFile.revisions && updatedFile.current_revision) {
+    updatedFile.revisions = [...updatedFile.revisions]; // Create new array
+    const revIndex = updatedFile.revisions.findIndex(
+      rev => rev.rev_number === updatedFile.current_revision
+    );
+    if (revIndex !== -1) {
+      updatedFile.revisions[revIndex] = {
+        ...updatedFile.revisions[revIndex],
+        ...updates
+      };
+    }
+  }
+  
+  // Update selected_revision_obj if it exists
+  if (updatedFile.selected_revision_obj) {
+    updatedFile.selected_revision_obj = {
+      ...updatedFile.selected_revision_obj,
+      ...updates
+    };
+  }
+  
+  // Update state
+  setProducts(updatedProducts);
+  
+  // If this is the selected file, update it
+  if (selectedFileObj && selectedFileObj.id === fileId) {
+    setSelectedFileObj(updatedFile);
+  }
+}
+
+// Add the BOMView component (place this outside of your App component)
+// function BOMView({ prod, updateFile }) {
+//   if (!prod.selectedStage) {
+//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
+//   }
+  
+//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
+  
+//   // Helper function to get the latest version of each file
+//   const getLatestVersionFiles = () => {
+//     return stageFiles.map(file => {
+//       if (file.revisions && file.selected_revision_obj) {
+//         return {...file, ...file.selected_revision_obj};
+//       }
+//       return file;
+//     });
+//   };
+  
+//   const latestFiles = getLatestVersionFiles();
+  
+//   // Group files by type
+//   const fileGroups = {};
+  
+//   // First, group non-child files by extension
+//   latestFiles.forEach(file => {
+//     if (file.isChildFile) return; // Skip child files for now
+    
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     if (!fileGroups[ext]) {
+//       fileGroups[ext] = [];
+//     }
+//     fileGroups[ext].push(file);
+//   });
+  
+//   // Then, group child files by parent file's extension
+//   latestFiles.forEach(file => {
+//     if (!file.isChildFile) return; // Skip non-child files
+    
+//     // Find parent file
+//     const parentFile = latestFiles.find(f => f.id === file.parentId);
+//     if (!parentFile) return; // Skip if parent not found
+    
+//     const parentExt = parentFile.name.split('.').pop().toLowerCase();
+//     const ext = file.name.split('.').pop().toLowerCase();
+    
+//     // Create a group for child files if it doesn't exist
+//     const groupName = `${parentExt}_children`;
+//     if (!fileGroups[groupName]) {
+//       fileGroups[groupName] = [];
+//     }
+    
+//     fileGroups[groupName].push({...file, parentName: parentFile.name});
+//   });
+  
+//   // Special handling for spreadsheet files (treat as their own category)
+//   const spreadsheetFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return ext === 'xls' || ext === 'xlsx' || ext === 'csv';
+//   });
+  
+//   if (spreadsheetFiles.length > 0) {
+//     fileGroups['spreadsheets'] = spreadsheetFiles;
+//   }
+  
+//   // Calculate grand total across all tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+    
+//     latestFiles.forEach(file => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       total += quantity * price;
+//     });
+    
+//     return total.toFixed(2);
+//   };
+  
+//   // Function to calculate total for a group of files
+//   const calculateGroupTotal = (files) => {
+//     return files.reduce((sum, file) => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       return sum + (quantity * price);
+//     }, 0).toFixed(2);
+//   };
+  
+//   // Function to handle label changes
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+  
+//   // Function to handle quantity changes
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity) || 1;
+//     updateFile(fileId, { quantity: quantity });
+//   };
+  
+//   // Function to handle price changes
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price: price });
+//   };
+  
+//   return (
+//     <div className="p-3">
+//       <h4>Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
+      
+//       {Object.entries(fileGroups).map(([groupKey, files]) => {
+//         if (files.length === 0) return null;
+        
+//         // Format the group title
+//         let groupTitle;
+//         if (groupKey.includes('_children')) {
+//           const parentExt = groupKey.split('_')[0].toUpperCase();
+//           groupTitle = `${parentExt} Child Components`;
+//         } else if (groupKey === 'spreadsheets') {
+//           groupTitle = 'Spreadsheets';
+//         } else {
+//           groupTitle = `${groupKey.toUpperCase()} Components`;
+//         }
+        
+//         return (
+//           <div key={groupKey} className="mb-4">
+//             <h5>{groupTitle}</h5>
+//             <Table striped bordered hover variant="dark" className="mb-2">
+//               <thead>
+//                 <tr>
+//                   <th>Component</th>
+//                   <th>Label</th>
+//                   <th>Qty</th>
+//                   <th>Price (₹)</th>
+//                   <th>Total (₹)</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {files.map(file => {
+//                   const quantity = file.quantity || 1;
+//                   const price = parseFloat(file.price) || 0;
+//                   const total = quantity * price;
+                  
+//                   return (
+//                     <tr key={file.id}>
+//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+//                         {file.isChildFile && file.parentName && (
+//                           <span style={{ opacity: 0.7, marginRight: '5px' }}>
+//                             ↳ {file.parentName} / 
+//                           </span>
+//                         )}
+//                         {file.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={file.label || ''}
+//                           onBlur={(e) => handleLabelChange(file.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="1"
+//                           value={quantity}
+//                           onChange={(e) => handleQuantityChange(file.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '60px'
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={file.price === '' ? '' : price}
+//                           onChange={(e) => handlePriceChange(file.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '80px'
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: '80px' }}>{total.toFixed(2)}</td>
+//                     </tr>
+//                   );
+//                 })}
+//               </tbody>
+//               <tfoot>
+//                 <tr>
+//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                   <td><strong>{calculateGroupTotal(files)}</strong></td>
+//                 </tr>
+//               </tfoot>
+//             </Table>
+//           </div>
+//         );
+//       })}
+      
+//       {/* Grand Total */}
+//       <div className="mt-4 p-3" style={{ backgroundColor: styles.colors.darkAlt, borderRadius: '4px' }}>
+//         <h5>Grand Total: ₹ {calculateGrandTotal()}</h5>
+//       </div>
+//     </div>
+//   );
+// }
+// function BOMView({ prod, updateFile }) {
+//   const [showFilters, setShowFilters] = useState(false);
+//   const [visibleGroups, setVisibleGroups] = useState({});
+  
+//   if (!prod.selectedStage) {
+//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
+//   }
+  
+//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
+  
+//   // Helper function to get the latest version of each file
+//   const getLatestVersionFiles = () => {
+//     return stageFiles.map(file => {
+//       if (file.revisions && file.selected_revision_obj) {
+//         return {...file, ...file.selected_revision_obj};
+//       }
+//       return file;
+//     });
+//   };
+  
+//   const latestFiles = getLatestVersionFiles();
+  
+//   // Group files by parent for DXF files
+//   const parentFileMap = {};
+//   const dxfParentFiles = [];
+//   const spreadsheetFiles = [];
+  
+//   // First, identify all DXF parent files and spreadsheets
+//   latestFiles.forEach(file => {
+//     if (file.isChildFile) return;
+    
+//     const ext = file.name.split('.').pop().toLowerCase();
+    
+//     if (ext === 'dxf') {
+//       dxfParentFiles.push(file);
+//       // Initialize child array
+//       parentFileMap[file.id] = [];
+//     } else if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
+//       spreadsheetFiles.push(file);
+//     }
+//   });
+  
+//   // Then, group child files by their parent
+//   latestFiles.forEach(file => {
+//     if (!file.isChildFile) return;
+    
+//     // Only process child files whose parent is in our parent map
+//     if (parentFileMap.hasOwnProperty(file.parentId)) {
+//       parentFileMap[file.parentId].push(file);
+//     }
+//   });
+  
+//   // Initialize visible groups if first render
+//   useEffect(() => {
+//     if (Object.keys(visibleGroups).length === 0) {
+//       const initialGroups = {};
+      
+//       // Set all DXF parent files to visible
+//       dxfParentFiles.forEach(file => {
+//         initialGroups[file.id] = true;
+//       });
+      
+//       // Set spreadsheet group to visible
+//       initialGroups['spreadsheets'] = true;
+      
+//       setVisibleGroups(initialGroups);
+//     }
+//   }, [dxfParentFiles]);
+  
+//   // Function to toggle group visibility
+//   const toggleGroupVisibility = (groupId) => {
+//     setVisibleGroups(prev => ({
+//       ...prev,
+//       [groupId]: !prev[groupId]
+//     }));
+//   };
+  
+//   // Function to toggle all groups
+//   const toggleAllGroups = (value) => {
+//     const updatedGroups = {};
+//     dxfParentFiles.forEach(file => {
+//       updatedGroups[file.id] = value;
+//     });
+//     updatedGroups['spreadsheets'] = value;
+//     setVisibleGroups(updatedGroups);
+//   };
+  
+//   // Calculate grand total across all tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+    
+//     // Add up totals from DXF parent files
+//     dxfParentFiles.forEach(file => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       total += quantity * price;
+      
+//       // Add child files if parent is in our map
+//       if (parentFileMap[file.id]) {
+//         parentFileMap[file.id].forEach(childFile => {
+//           const childQuantity = childFile.quantity || 1;
+//           const childPrice = parseFloat(childFile.price) || 0;
+//           total += childQuantity * childPrice;
+//         });
+//       }
+//     });
+    
+//     // Add spreadsheet files
+//     spreadsheetFiles.forEach(file => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       total += quantity * price;
+//     });
+    
+//     return total.toFixed(2);
+//   };
+  
+//   // Function to calculate total for a parent and its children
+//   const calculateGroupTotal = (parentFile) => {
+//     let total = 0;
+    
+//     // Add parent file
+//     const parentQuantity = parentFile.quantity || 1;
+//     const parentPrice = parseFloat(parentFile.price) || 0;
+//     total += parentQuantity * parentPrice;
+    
+//     // Add child files
+//     if (parentFileMap[parentFile.id]) {
+//       parentFileMap[parentFile.id].forEach(childFile => {
+//         const childQuantity = childFile.quantity || 1;
+//         const childPrice = parseFloat(childFile.price) || 0;
+//         total += childQuantity * childPrice;
+//       });
+//     }
+    
+//     return total.toFixed(2);
+//   };
+  
+//   // Function to calculate total for spreadsheets
+//   const calculateSpreadsheetTotal = () => {
+//     return spreadsheetFiles.reduce((sum, file) => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       return sum + (quantity * price);
+//     }, 0).toFixed(2);
+//   };
+  
+//   // Function handlers
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+  
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity) || 1;
+//     updateFile(fileId, { quantity: quantity });
+//   };
+  
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price: price });
+//   };
+  
+//   return (
+//     <div className="p-3">
+//       <div className="d-flex justify-content-between align-items-center mb-3">
+//         <h4 className="mb-0">Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
+        
+//         <div className="d-flex align-items-center">
+//           <Button 
+//             variant="outline-secondary" 
+//             size="sm" 
+//             className="me-2" 
+//             onClick={() => setShowFilters(!showFilters)}
+//           >
+//             <FaFilter className="me-1" /> Filters
+//           </Button>
+//         </div>
+//       </div>
+      
+//       {/* Filters Panel */}
+//       {showFilters && (
+//         <div className="mb-3 p-3" style={{ backgroundColor: `${styles.colors.darkAlt}44`, borderRadius: '4px' }}>
+//           <h6>Toggle Visibility:</h6>
+//           <div className="d-flex flex-wrap gap-2 mt-2">
+//             <Button 
+//               variant="outline-secondary" 
+//               size="sm"
+//               onClick={() => toggleAllGroups(true)}
+//             >
+//               Show All
+//             </Button>
+//             <Button 
+//               variant="outline-secondary" 
+//               size="sm"
+//               onClick={() => toggleAllGroups(false)}
+//             >
+//               Hide All
+//             </Button>
+            
+//             {dxfParentFiles.map(file => (
+//               <Button
+//                 key={file.id} 
+//                 variant={visibleGroups[file.id] ? "outline-success" : "outline-danger"}
+//                 size="sm"
+//                 onClick={() => toggleGroupVisibility(file.id)}
+//               >
+//                 {file.name.split('.')[0]}
+//               </Button>
+//             ))}
+            
+//             {spreadsheetFiles.length > 0 && (
+//               <Button
+//                 variant={visibleGroups['spreadsheets'] ? "outline-success" : "outline-danger"}
+//                 size="sm"
+//                 onClick={() => toggleGroupVisibility('spreadsheets')}
+//               >
+//                 Spreadsheets
+//               </Button>
+//             )}
+//           </div>
+//         </div>
+//       )}
+      
+//       {/* DXF Parent Files and their children */}
+//       {dxfParentFiles.map(parentFile => {
+//         // Skip if not visible
+//         if (!visibleGroups[parentFile.id]) return null;
+        
+//         // Get parent name without extension for the header
+//         const parentName = parentFile.name.split('.')[0];
+//         const childFiles = parentFileMap[parentFile.id] || [];
+        
+//         return (
+//           <div key={parentFile.id} className="mb-4">
+//             <h5 style={{ 
+//               backgroundColor: styles.colors.darkAlt, 
+//               padding: '10px 15px', 
+//               borderRadius: '4px 4px 0 0', 
+//               marginBottom: 0,
+//               borderBottom: `1px solid ${styles.colors.border}`
+//             }}>
+//               {parentName}
+//             </h5>
+//             <Table 
+//               striped 
+//               bordered 
+//               hover 
+//               variant="dark" 
+//               className="mb-0"
+//               style={{ 
+//                 borderCollapse: 'collapse',
+//                 borderRadius: '0 0 4px 4px',
+//                 overflow: 'hidden',
+//                 border: `1px solid ${styles.colors.border}`
+//               }}
+//             >
+//               <thead>
+//                 <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
+//                   <th style={{ width: '40%' }}>Component</th>
+//                   <th style={{ width: '25%' }}>Label</th>
+//                   <th style={{ width: '10%' }}>Qty</th>
+//                   <th style={{ width: '12%' }}>Price (₹)</th>
+//                   <th style={{ width: '13%' }}>Total (₹)</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {/* Parent file row */}
+//                 <tr key={parentFile.id}>
+//                   <td style={{ 
+//                     whiteSpace: 'normal', 
+//                     wordBreak: 'break-word',
+//                     fontWeight: '500'
+//                   }}>
+//                     {parentFile.name}
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="text"
+//                       placeholder="Add label"
+//                       defaultValue={parentFile.label || ''}
+//                       onBlur={(e) => handleLabelChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`,
+//                       }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="1"
+//                       value={parentFile.quantity || 1}
+//                       onChange={(e) => handleQuantityChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`,
+//                         width: '100%'
+//                       }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="0"
+//                       step="0.01"
+//                       value={parentFile.price === '' ? '' : (parseFloat(parentFile.price) || 0)}
+//                       onChange={(e) => handlePriceChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`,
+//                         width: '100%'
+//                       }}
+//                     />
+//                   </td>
+//                   <td style={{ 
+//                     minWidth: '80px',
+//                     textAlign: 'right'
+//                   }}>
+//                     {((parentFile.quantity || 1) * (parseFloat(parentFile.price) || 0)).toFixed(2)}
+//                   </td>
+//                 </tr>
+                
+//                 {/* Child file rows */}
+//                 {childFiles.map(childFile => {
+//                   const quantity = childFile.quantity || 1;
+//                   const price = parseFloat(childFile.price) || 0;
+//                   const total = quantity * price;
+                  
+//                   return (
+//                     <tr 
+//                       key={childFile.id}
+//                       style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}
+//                     >
+//                       <td style={{ 
+//                         whiteSpace: 'normal', 
+//                         wordBreak: 'break-word',
+//                         paddingLeft: '25px'
+//                       }}>
+//                         <span style={{ opacity: 0.8 }}>↳</span> {childFile.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={childFile.label || ''}
+//                           onBlur={(e) => handleLabelChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="1"
+//                           value={quantity}
+//                           onChange={(e) => handleQuantityChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '100%'
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={childFile.price === '' ? '' : price}
+//                           onChange={(e) => handlePriceChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '100%'
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ 
+//                         minWidth: '80px',
+//                         textAlign: 'right'
+//                       }}>
+//                         {total.toFixed(2)}
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+//               </tbody>
+//               <tfoot>
+//                 <tr style={{ backgroundColor: styles.colors.darkAlt }}>
+//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                   <td style={{ textAlign: 'right' }}>
+//                     <strong>{calculateGroupTotal(parentFile)}</strong>
+//                   </td>
+//                 </tr>
+//               </tfoot>
+//             </Table>
+//           </div>
+//         );
+//       })}
+      
+//       {/* Spreadsheet Files */}
+//       {spreadsheetFiles.length > 0 && visibleGroups['spreadsheets'] && (
+//         <div className="mb-4">
+//           <h5 style={{ 
+//             backgroundColor: styles.colors.darkAlt, 
+//             padding: '10px 15px', 
+//             borderRadius: '4px 4px 0 0', 
+//             marginBottom: 0,
+//             borderBottom: `1px solid ${styles.colors.border}`
+//           }}>
+//             Spreadsheets
+//           </h5>
+//           <Table 
+//             striped 
+//             bordered 
+//             hover 
+//             variant="dark" 
+//             className="mb-0"
+//             style={{ 
+//               borderCollapse: 'collapse',
+//               borderRadius: '0 0 4px 4px',
+//               overflow: 'hidden',
+//               border: `1px solid ${styles.colors.border}`
+//             }}
+//           >
+//             <thead>
+//               <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
+//                 <th style={{ width: '40%' }}>Component</th>
+//                 <th style={{ width: '25%' }}>Label</th>
+//                 <th style={{ width: '10%' }}>Qty</th>
+//                 <th style={{ width: '12%' }}>Price (₹)</th>
+//                 <th style={{ width: '13%' }}>Total (₹)</th>
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {spreadsheetFiles.map(file => {
+//                 const quantity = file.quantity || 1;
+//                 const price = parseFloat(file.price) || 0;
+//                 const total = quantity * price;
+                
+//                 return (
+//                   <tr key={file.id}>
+//                     <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+//                       {file.name}
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="text"
+//                         placeholder="Add label"
+//                         defaultValue={file.label || ''}
+//                         onBlur={(e) => handleLabelChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`,
+//                         }}
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="number"
+//                         min="1"
+//                         value={quantity}
+//                         onChange={(e) => handleQuantityChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`,
+//                           width: '100%'
+//                         }}
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="number"
+//                         min="0"
+//                         step="0.01"
+//                         value={file.price === '' ? '' : price}
+//                         onChange={(e) => handlePriceChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`,
+//                           width: '100%'
+//                         }}
+//                       />
+//                     </td>
+//                     <td style={{ 
+//                       minWidth: '80px',
+//                       textAlign: 'right'
+//                     }}>
+//                       {total.toFixed(2)}
+//                     </td>
+//                   </tr>
+//                 );
+//               })}
+//             </tbody>
+//             <tfoot>
+//               <tr style={{ backgroundColor: styles.colors.darkAlt }}>
+//                 <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                 <td style={{ textAlign: 'right' }}>
+//                   <strong>{calculateSpreadsheetTotal()}</strong>
+//                 </td>
+//               </tr>
+//             </tfoot>
+//           </Table>
+//         </div>
+//       )}
+      
+//       {/* Grand Total */}
+//       <div 
+//         className="mt-4 p-3" 
+//         style={{ 
+//           backgroundColor: styles.colors.darkAlt, 
+//           borderRadius: '4px', 
+//           borderLeft: `4px solid ${styles.colors.success}`
+//         }}
+//       >
+//         <div className="d-flex justify-content-between align-items-center">
+//           <h5 className="mb-0">Grand Total</h5>
+//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+// function BOMView({ prod, updateFile }) {
+//   const [showFilters, setShowFilters] = useState(false);
+//   const [visibleGroups, setVisibleGroups] = useState({});
+
+//   // Calculate stageFiles even if prod.selectedStage is false.
+//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
+
+//   // Helper function to get the latest version of each file
+//   const getLatestVersionFiles = () => {
+//     return stageFiles.map(file => {
+//       if (file.revisions && file.selected_revision_obj) {
+//         return { ...file, ...file.selected_revision_obj };
+//       }
+//       return file;
+//     });
+//   };
+
+//   const latestFiles = getLatestVersionFiles();
+
+//   // Group files by parent for DXF files
+//   const parentFileMap = {};
+//   const dxfParentFiles = [];
+//   const spreadsheetFiles = [];
+
+//   // Identify DXF parent files and spreadsheets
+//   latestFiles.forEach(file => {
+//     if (file.isChildFile) return;
+//     const ext = file.name.split('.').pop().toLowerCase();
+
+//     if (ext === 'dxf') {
+//       dxfParentFiles.push(file);
+//       parentFileMap[file.id] = [];
+//     } else if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
+//       spreadsheetFiles.push(file);
+//     }
+//   });
+
+//   // Group child files by their parent
+//   latestFiles.forEach(file => {
+//     if (!file.isChildFile) return;
+//     if (parentFileMap.hasOwnProperty(file.parentId)) {
+//       parentFileMap[file.parentId].push(file);
+//     }
+//   });
+
+//   // Initialize visible groups if not set, called unconditionally
+//   useEffect(() => {
+//     if (Object.keys(visibleGroups).length === 0) {
+//       const initialGroups = {};
+//       // Set all DXF parent files to visible
+//       dxfParentFiles.forEach(file => {
+//         initialGroups[file.id] = true;
+//       });
+//       // Set spreadsheet group to visible
+//       initialGroups['spreadsheets'] = true;
+//       setVisibleGroups(initialGroups);
+//     }
+//   }, [dxfParentFiles, visibleGroups]);
+
+//   // Early return if no stage is selected AFTER hooks have been called
+//   if (!prod.selectedStage) {
+//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
+//   }
+
+//   // Function to toggle group visibility
+//   const toggleGroupVisibility = (groupId) => {
+//     setVisibleGroups(prev => ({
+//       ...prev,
+//       [groupId]: !prev[groupId]
+//     }));
+//   };
+
+//   // Function to toggle all groups
+//   const toggleAllGroups = (value) => {
+//     const updatedGroups = {};
+//     dxfParentFiles.forEach(file => {
+//       updatedGroups[file.id] = value;
+//     });
+//     updatedGroups['spreadsheets'] = value;
+//     setVisibleGroups(updatedGroups);
+//   };
+
+//   // Calculate grand total across all tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+//     dxfParentFiles.forEach(file => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       total += quantity * price;
+//       if (parentFileMap[file.id]) {
+//         parentFileMap[file.id].forEach(childFile => {
+//           const childQuantity = childFile.quantity || 1;
+//           const childPrice = parseFloat(childFile.price) || 0;
+//           total += childQuantity * childPrice;
+//         });
+//       }
+//     });
+//     spreadsheetFiles.forEach(file => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       total += quantity * price;
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // Function to calculate total for a parent and its children
+//   const calculateGroupTotal = (parentFile) => {
+//     let total = 0;
+//     const parentQuantity = parentFile.quantity || 1;
+//     const parentPrice = parseFloat(parentFile.price) || 0;
+//     total += parentQuantity * parentPrice;
+//     if (parentFileMap[parentFile.id]) {
+//       parentFileMap[parentFile.id].forEach(childFile => {
+//         const childQuantity = childFile.quantity || 1;
+//         const childPrice = parseFloat(childFile.price) || 0;
+//         total += childQuantity * childPrice;
+//       });
+//     }
+//     return total.toFixed(2);
+//   };
+
+//   // Function to calculate total for spreadsheets
+//   const calculateSpreadsheetTotal = () => {
+//     return spreadsheetFiles.reduce((sum, file) => {
+//       const quantity = file.quantity || 1;
+//       const price = parseFloat(file.price) || 0;
+//       return sum + (quantity * price);
+//     }, 0).toFixed(2);
+//   };
+
+//   // Function handlers
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity) || 1;
+//     updateFile(fileId, { quantity: quantity });
+//   };
+
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price: price });
+//   };
+
+//   return (
+//     <div className="p-3">
+//       <div className="d-flex justify-content-between align-items-center mb-3">
+//         <h4 className="mb-0">Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
+//         <div className="d-flex align-items-center">
+//           <Button 
+//             variant="outline-secondary" 
+//             size="sm" 
+//             className="me-2" 
+//             onClick={() => setShowFilters(!showFilters)}
+//           >
+//             <FaFilter className="me-1" /> Filters
+//           </Button>
+//         </div>
+//       </div>
+
+//       {/* Filters Panel */}
+//       {showFilters && (
+//         <div className="mb-3 p-3" style={{ backgroundColor: `${styles.colors.darkAlt}44`, borderRadius: '4px' }}>
+//           <h6>Toggle Visibility:</h6>
+//           <div className="d-flex flex-wrap gap-2 mt-2">
+//             <Button 
+//               variant="outline-secondary" 
+//               size="sm"
+//               onClick={() => toggleAllGroups(true)}
+//             >
+//               Show All
+//             </Button>
+//             <Button 
+//               variant="outline-secondary" 
+//               size="sm"
+//               onClick={() => toggleAllGroups(false)}
+//             >
+//               Hide All
+//             </Button>
+//             {dxfParentFiles.map(file => (
+//               <Button
+//                 key={file.id} 
+//                 variant={visibleGroups[file.id] ? "outline-success" : "outline-danger"}
+//                 size="sm"
+//                 onClick={() => toggleGroupVisibility(file.id)}
+//               >
+//                 {file.name.split('.')[0]}
+//               </Button>
+//             ))}
+//             {spreadsheetFiles.length > 0 && (
+//               <Button
+//                 variant={visibleGroups['spreadsheets'] ? "outline-success" : "outline-danger"}
+//                 size="sm"
+//                 onClick={() => toggleGroupVisibility('spreadsheets')}
+//               >
+//                 Spreadsheets
+//               </Button>
+//             )}
+//           </div>
+//         </div>
+//       )}
+
+//       {/* DXF Parent Files and their children */}
+//       {dxfParentFiles.map(parentFile => {
+//         if (!visibleGroups[parentFile.id]) return null;
+//         const parentName = parentFile.name.split('.')[0];
+//         const childFiles = parentFileMap[parentFile.id] || [];
+//         return (
+//           <div key={parentFile.id} className="mb-4">
+//             <h5 style={{ 
+//               backgroundColor: styles.colors.darkAlt, 
+//               padding: '10px 15px', 
+//               borderRadius: '4px 4px 0 0', 
+//               marginBottom: 0,
+//               borderBottom: `1px solid ${styles.colors.border}`
+//             }}>
+//               {parentName}
+//             </h5>
+//             <Table 
+//               striped 
+//               bordered 
+//               hover 
+//               variant="dark" 
+//               className="mb-0"
+//               style={{ 
+//                 borderCollapse: 'collapse',
+//                 borderRadius: '0 0 4px 4px',
+//                 overflow: 'hidden',
+//                 border: `1px solid ${styles.colors.border}`
+//               }}
+//             >
+//               <thead>
+//                 <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
+//                   <th style={{ width: '40%' }}>Component</th>
+//                   <th style={{ width: '25%' }}>Label</th>
+//                   <th style={{ width: '10%' }}>Qty</th>
+//                   <th style={{ width: '12%' }}>Price (₹)</th>
+//                   <th style={{ width: '13%' }}>Total (₹)</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {/* Parent file row */}
+//                 <tr key={parentFile.id}>
+//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
+//                     {parentFile.name}
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="text"
+//                       placeholder="Add label"
+//                       defaultValue={parentFile.label || ''}
+//                       onBlur={(e) => handleLabelChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`
+//                       }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="1"
+//                       value={parentFile.quantity || 1}
+//                       onChange={(e) => handleQuantityChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`,
+//                         width: '100%'
+//                       }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="0"
+//                       step="0.01"
+//                       value={parentFile.price === '' ? '' : (parseFloat(parentFile.price) || 0)}
+//                       onChange={(e) => handlePriceChange(parentFile.id, e.target.value)}
+//                       style={{
+//                         backgroundColor: styles.colors.darkAlt,
+//                         color: styles.colors.text.light,
+//                         border: `1px solid ${styles.colors.border}`,
+//                         width: '100%'
+//                       }}
+//                     />
+//                   </td>
+//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                     {((parentFile.quantity || 1) * (parseFloat(parentFile.price) || 0)).toFixed(2)}
+//                   </td>
+//                 </tr>
+//                 {/* Child file rows */}
+//                 {childFiles.map(childFile => {
+//                   const quantity = childFile.quantity || 1;
+//                   const price = parseFloat(childFile.price) || 0;
+//                   const total = quantity * price;
+//                   return (
+//                     <tr 
+//                       key={childFile.id}
+//                       style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}
+//                     >
+//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: '25px' }}>
+//                         <span style={{ opacity: 0.8 }}>↳</span> {childFile.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={childFile.label || ''}
+//                           onBlur={(e) => handleLabelChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="1"
+//                           value={quantity}
+//                           onChange={(e) => handleQuantityChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '100%'
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={childFile.price === '' ? '' : price}
+//                           onChange={(e) => handlePriceChange(childFile.id, e.target.value)}
+//                           style={{
+//                             backgroundColor: styles.colors.darkAlt,
+//                             color: styles.colors.text.light,
+//                             border: `1px solid ${styles.colors.border}`,
+//                             width: '100%'
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                         {total.toFixed(2)}
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+//               </tbody>
+//               <tfoot>
+//                 <tr style={{ backgroundColor: styles.colors.darkAlt }}>
+//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                   <td style={{ textAlign: 'right' }}>
+//                     <strong>{calculateGroupTotal(parentFile)}</strong>
+//                   </td>
+//                 </tr>
+//               </tfoot>
+//             </Table>
+//           </div>
+//         );
+//       })}
+
+//       {/* Spreadsheet Files */}
+//       {spreadsheetFiles.length > 0 && visibleGroups['spreadsheets'] && (
+//         <div className="mb-4">
+//           <h5 style={{ 
+//             backgroundColor: styles.colors.darkAlt, 
+//             padding: '10px 15px', 
+//             borderRadius: '4px 4px 0 0', 
+//             marginBottom: 0,
+//             borderBottom: `1px solid ${styles.colors.border}`
+//           }}>
+//             Spreadsheets
+//           </h5>
+//           <Table 
+//             striped 
+//             bordered 
+//             hover 
+//             variant="dark" 
+//             className="mb-0"
+//             style={{ 
+//               borderCollapse: 'collapse',
+//               borderRadius: '0 0 4px 4px',
+//               overflow: 'hidden',
+//               border: `1px solid ${styles.colors.border}`
+//             }}
+//           >
+//             <thead>
+//               <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
+//                 <th style={{ width: '40%' }}>Component</th>
+//                 <th style={{ width: '25%' }}>Label</th>
+//                 <th style={{ width: '10%' }}>Qty</th>
+//                 <th style={{ width: '12%' }}>Price (₹)</th>
+//                 <th style={{ width: '13%' }}>Total (₹)</th>
+//               </tr>
+//             </thead>
+//             <tbody>
+//               {spreadsheetFiles.map(file => {
+//                 const quantity = file.quantity || 1;
+//                 const price = parseFloat(file.price) || 0;
+//                 const total = quantity * price;
+//                 return (
+//                   <tr key={file.id}>
+//                     <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+//                       {file.name}
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="text"
+//                         placeholder="Add label"
+//                         defaultValue={file.label || ''}
+//                         onBlur={(e) => handleLabelChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`
+//                         }}
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="number"
+//                         min="1"
+//                         value={quantity}
+//                         onChange={(e) => handleQuantityChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`,
+//                           width: '100%'
+//                         }}
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control 
+//                         size="sm" 
+//                         type="number"
+//                         min="0"
+//                         step="0.01"
+//                         value={file.price === '' ? '' : price}
+//                         onChange={(e) => handlePriceChange(file.id, e.target.value)}
+//                         style={{
+//                           backgroundColor: styles.colors.darkAlt,
+//                           color: styles.colors.text.light,
+//                           border: `1px solid ${styles.colors.border}`,
+//                           width: '100%'
+//                         }}
+//                       />
+//                     </td>
+//                     <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                       {total.toFixed(2)}
+//                     </td>
+//                   </tr>
+//                 );
+//               })}
+//             </tbody>
+//             <tfoot>
+//               <tr style={{ backgroundColor: styles.colors.darkAlt }}>
+//                 <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                 <td style={{ textAlign: 'right' }}>
+//                   <strong>{calculateSpreadsheetTotal()}</strong>
+//                 </td>
+//               </tr>
+//             </tfoot>
+//           </Table>
+//         </div>
+//       )}
+
+//       {/* Grand Total */}
+//       <div 
+//         className="mt-4 p-3" 
+//         style={{ 
+//           backgroundColor: styles.colors.darkAlt, 
+//           borderRadius: '4px', 
+//           borderLeft: `4px solid ${styles.colors.success}`
+//         }}
+//       >
+//         <div className="d-flex justify-content-between align-items-center">
+//           <h5 className="mb-0">Grand Total</h5>
+//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+// function BOMView({ prod, updateFile }) {
+//   // Early return if no stage is selected
+//   if (!prod.selectedStage) {
+//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
+//   }
+
+//   // Get files for the selected stage and update to latest versions
+//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
+//   const latestFiles = stageFiles.map(file => {
+//     if (file.revisions && file.selected_revision_obj) {
+//       return { ...file, ...file.selected_revision_obj };
+//     }
+//     return file;
+//   });
+
+//   // --------------------------
+//   // DXF Files Processing
+//   // --------------------------
+//   // Filter DXF parent files (non-child files with extension 'dxf')
+//   const dxfParentFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return !file.isChildFile && ext === 'dxf';
+//   });
+
+//   // Group child files by their DXF parent's id
+//   const parentFileMap = {};
+//   dxfParentFiles.forEach(parent => {
+//     parentFileMap[parent.id] = [];
+//   });
+//   latestFiles.forEach(file => {
+//     if (!file.isChildFile) return;
+//     if (parentFileMap.hasOwnProperty(file.parentId)) {
+//       parentFileMap[file.parentId].push(file);
+//     }
+//   });
+
+//   // --------------------------
+//   // Spreadsheet Files Processing
+//   // --------------------------
+//   // Filter spreadsheet files (extensions 'xls', 'xlsx', or 'csv')
+//   const spreadsheetFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return ext === 'xls' || ext === 'xlsx' || ext === 'csv';
+//   });
+
+//   // --------------------------
+//   // Handlers for field updates
+//   // --------------------------
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity, 10) || 1;
+//     updateFile(fileId, { quantity });
+//   };
+
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price });
+//   };
+
+//   // --------------------------
+//   // Calculation functions
+//   // --------------------------
+//   // Calculate total for a DXF parent and its children
+//   const calculateGroupTotal = (parent) => {
+//     let total = 0;
+//     const parentQuantity = parent.quantity || 1;
+//     const parentPrice = parseFloat(parent.price) || 0;
+//     total += parentQuantity * parentPrice;
+//     (parentFileMap[parent.id] || []).forEach(child => {
+//       const childQuantity = child.quantity || 1;
+//       const childPrice = parseFloat(child.price) || 0;
+//       total += childQuantity * childPrice;
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // Calculate total for a single spreadsheet file
+//   const calculateSpreadsheetTotal = (file) => {
+//     const quantity = file.quantity || 1;
+//     const price = parseFloat(file.price) || 0;
+//     return (quantity * price).toFixed(2);
+//   };
+
+//   // Calculate the grand total from all DXF tables and all spreadsheet tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+//     // Sum DXF totals
+//     dxfParentFiles.forEach(parent => {
+//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
+//       let childrenTotal = 0;
+//       (parentFileMap[parent.id] || []).forEach(child => {
+//         childrenTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
+//       });
+//       total += parentTotal + childrenTotal;
+//     });
+//     // Sum spreadsheet totals
+//     spreadsheetFiles.forEach(file => {
+//       total += (file.quantity || 1) * (parseFloat(file.price) || 0);
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // --------------------------
+//   // Rendering
+//   // --------------------------
+//   return (
+//     <div className="p-3">
+//       <h4>Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
+
+//       {/* DXF Files Tables */}
+//       {dxfParentFiles.map(parent => {
+//         // Parent table header shows the name without its extension
+//         const parentName = parent.name.split('.')[0];
+//         const childFiles = parentFileMap[parent.id] || [];
+//         return (
+//           <div key={parent.id} className="mb-4">
+//             <h5 style={{ backgroundColor: '#1F2937', padding: '10px 15px', borderRadius: '4px 4px 0 0', marginBottom: 0, borderBottom: '1px solid #374151' }}>
+//               {parentName}
+//             </h5>
+//             <Table striped bordered hover variant="dark" className="mb-0" style={{ borderCollapse: 'collapse', borderRadius: '0 0 4px 4px', overflow: 'hidden', border: '1px solid #374151' }}>
+//               <thead>
+//                 <tr style={{ backgroundColor: '#1F2937' }}>
+//                   <th style={{ width: '40%' }}>Component</th>
+//                   <th style={{ width: '25%' }}>Label</th>
+//                   <th style={{ width: '10%' }}>Qty</th>
+//                   <th style={{ width: '12%' }}>Price (₹)</th>
+//                   <th style={{ width: '13%' }}>Total (₹)</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {/* Parent file row */}
+//                 <tr key={parent.id}>
+//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
+//                     {parent.name}
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="text"
+//                       placeholder="Add label"
+//                       defaultValue={parent.label || ''}
+//                       onBlur={(e) => handleLabelChange(parent.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="1"
+//                       value={parent.quantity || 1}
+//                       onChange={(e) => handleQuantityChange(parent.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="0"
+//                       step="0.01"
+//                       value={parent.price === '' ? '' : (parseFloat(parent.price) || 0)}
+//                       onChange={(e) => handlePriceChange(parent.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                     />
+//                   </td>
+//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                     {((parent.quantity || 1) * (parseFloat(parent.price) || 0)).toFixed(2)}
+//                   </td>
+//                 </tr>
+//                 {/* Child file rows */}
+//                 {childFiles.map(child => {
+//                   const quantity = child.quantity || 1;
+//                   const price = parseFloat(child.price) || 0;
+//                   const total = (quantity * price).toFixed(2);
+//                   return (
+//                     <tr key={child.id} style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}>
+//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: '25px' }}>
+//                         <span style={{ opacity: 0.8 }}>↳</span> {child.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={child.label || ''}
+//                           onBlur={(e) => handleLabelChange(child.id, e.target.value)}
+//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="1"
+//                           value={quantity}
+//                           onChange={(e) => handleQuantityChange(child.id, e.target.value)}
+//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control 
+//                           size="sm" 
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={child.price === '' ? '' : price}
+//                           onChange={(e) => handlePriceChange(child.id, e.target.value)}
+//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                         {total}
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+//               </tbody>
+//               <tfoot>
+//                 <tr style={{ backgroundColor: '#1F2937' }}>
+//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                   <td style={{ textAlign: 'right' }}>
+//                     <strong>{calculateGroupTotal(parent)}</strong>
+//                   </td>
+//                 </tr>
+//               </tfoot>
+//             </Table>
+//           </div>
+//         );
+//       })}
+
+//       {/* Spreadsheets Tables: Each spreadsheet file renders its own table */}
+//       {spreadsheetFiles.map(file => {
+//         const quantity = file.quantity || 1;
+//         const price = parseFloat(file.price) || 0;
+//         const total = (quantity * price).toFixed(2);
+//         return (
+//           <div key={file.id} className="mb-4">
+//             <h5 style={{ backgroundColor: '#1F2937', padding: '10px 15px', borderRadius: '4px 4px 0 0', marginBottom: 0, borderBottom: '1px solid #374151' }}>
+//               {file.name}
+//             </h5>
+//             <Table striped bordered hover variant="dark" className="mb-0" style={{ borderCollapse: 'collapse', borderRadius: '0 0 4px 4px', overflow: 'hidden', border: '1px solid #374151' }}>
+//               <thead>
+//                 <tr style={{ backgroundColor: '#1F2937' }}>
+//                   <th style={{ width: '40%' }}>Component</th>
+//                   <th style={{ width: '25%' }}>Label</th>
+//                   <th style={{ width: '10%' }}>Qty</th>
+//                   <th style={{ width: '12%' }}>Price (₹)</th>
+//                   <th style={{ width: '13%' }}>Total (₹)</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 <tr key={file.id}>
+//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
+//                     {file.name}
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="text"
+//                       placeholder="Add label"
+//                       defaultValue={file.label || ''}
+//                       onBlur={(e) => handleLabelChange(file.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="1"
+//                       value={file.quantity || 1}
+//                       onChange={(e) => handleQuantityChange(file.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                     />
+//                   </td>
+//                   <td>
+//                     <Form.Control 
+//                       size="sm" 
+//                       type="number"
+//                       min="0"
+//                       step="0.01"
+//                       value={file.price === '' ? '' : (parseFloat(file.price) || 0)}
+//                       onChange={(e) => handlePriceChange(file.id, e.target.value)}
+//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
+//                     />
+//                   </td>
+//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
+//                     {total}
+//                   </td>
+//                 </tr>
+//               </tbody>
+//               <tfoot>
+//                 <tr style={{ backgroundColor: '#1F2937' }}>
+//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                   <td style={{ textAlign: 'right' }}>
+//                     <strong>{total}</strong>
+//                   </td>
+//                 </tr>
+//               </tfoot>
+//             </Table>
+//           </div>
+//         );
+//       })}
+
+//       {/* Grand Total */}
+//       <div className="mt-4 p-3" style={{ backgroundColor: '#1F2937', borderRadius: '4px', borderLeft: '4px solid #059669' }}>
+//         <div className="d-flex justify-content-between align-items-center">
+//           <h5 className="mb-0">Grand Total</h5>
+//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+//CHECKPOINT
+// function BOMView({ prod, updateFile }) {
+//   // Retrieve files for the selected stage; if no stage is selected, stageFiles will be an empty array
+//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
+//   // Update each file to its latest version if available
+//   const latestFiles = stageFiles.map(file => {
+//     if (file.revisions && file.selected_revision_obj) {
+//       return { ...file, ...file.selected_revision_obj };
+//     }
+//     return file;
+//   });
+
+//   // --------------------------
+//   // DXF Files Processing
+//   // --------------------------
+//   // Filter for DXF parent files (non-child files with extension "dxf")
+//   const dxfParentFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return !file.isChildFile && ext === "dxf";
+//   });
+//   // Group child files by their DXF parent's id
+//   const parentFileMap = {};
+//   dxfParentFiles.forEach(parent => {
+//     parentFileMap[parent.id] = [];
+//   });
+//   latestFiles.forEach(file => {
+//     if (file.isChildFile && parentFileMap.hasOwnProperty(file.parentId)) {
+//       parentFileMap[file.parentId].push(file);
+//     }
+//   });
+
+//   // --------------------------
+//   // Spreadsheet Files Processing
+//   // --------------------------
+//   // Filter for spreadsheet files (extensions "xls", "xlsx", or "csv")
+//   const spreadsheetFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return ext === "xls" || ext === "xlsx" || ext === "csv";
+//   });
+
+//   // --------------------------
+//   // Field Update Handlers
+//   // --------------------------
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity, 10) || 1;
+//     updateFile(fileId, { quantity });
+//   };
+
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price });
+//   };
+
+//   // --------------------------
+//   // Calculation Functions
+//   // --------------------------
+//   // Calculate total for a DXF parent and its children
+//   const calculateGroupTotal = (parent) => {
+//     let total = 0;
+//     const parentQty = parent.quantity || 1;
+//     const parentPrice = parseFloat(parent.price) || 0;
+//     total += parentQty * parentPrice;
+//     (parentFileMap[parent.id] || []).forEach(child => {
+//       const childQty = child.quantity || 1;
+//       const childPrice = parseFloat(child.price) || 0;
+//       total += childQty * childPrice;
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // Calculate total for a single spreadsheet file
+//   const calculateSpreadsheetTotal = (file) => {
+//     const qty = file.quantity || 1;
+//     const price = parseFloat(file.price) || 0;
+//     return (qty * price).toFixed(2);
+//   };
+
+//   // Calculate the grand total across all DXF tables and spreadsheet tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+//     dxfParentFiles.forEach(parent => {
+//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
+//       let childTotal = 0;
+//       (parentFileMap[parent.id] || []).forEach(child => {
+//         childTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
+//       });
+//       total += parentTotal + childTotal;
+//     });
+//     spreadsheetFiles.forEach(file => {
+//       total += (file.quantity || 1) * (parseFloat(file.price) || 0);
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // --------------------------
+//   // Rendering
+//   // --------------------------
+//   return (
+//     <div className="p-3">
+//       <h4>
+//         Bill of Materials: {prod.name} - {prod.selectedStage || "No Stage Selected"}
+//       </h4>
+//       {/* If no stage is selected, show a message but still render BOM view structure */}
+//       {!prod.selectedStage ? (
+//         <p className="text-muted">Select a Stage/Iteration to view BOM.</p>
+//       ) : (
+//         <>
+//           {/* DXF Files: Render each DXF parent and its children as a table */}
+//           {dxfParentFiles.map(parent => {
+//             const headerName = parent.name.split('.')[0]; // Remove extension for header
+//             const children = parentFileMap[parent.id] || [];
+//             return (
+//               <div key={parent.id} className="mb-4">
+//                 <h5
+//                   style={{
+//                     backgroundColor: "#1F2937",
+//                     padding: "10px 15px",
+//                     borderRadius: "4px 4px 0 0",
+//                     marginBottom: 0,
+//                     borderBottom: "1px solid #374151"
+//                   }}
+//                 >
+//                   {headerName}
+//                 </h5>
+//                 <Table
+//                   striped
+//                   bordered
+//                   hover
+//                   variant="dark"
+//                   className="mb-0"
+//                   style={{
+//                     borderCollapse: "collapse",
+//                     borderRadius: "0 0 4px 4px",
+//                     overflow: "hidden",
+//                     border: "1px solid #374151"
+//                   }}
+//                 >
+//                   <thead>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <th style={{ width: "40%" }}>Component</th>
+//                       <th style={{ width: "25%" }}>Label</th>
+//                       <th style={{ width: "10%" }}>Qty</th>
+//                       <th style={{ width: "12%" }}>Price (₹)</th>
+//                       <th style={{ width: "13%" }}>Total (₹)</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     {/* Parent file row */}
+//                     <tr key={parent.id}>
+//                       <td
+//                         style={{
+//                           whiteSpace: "normal",
+//                           wordBreak: "break-word",
+//                           fontWeight: "500"
+//                         }}
+//                       >
+//                         {parent.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={parent.label || ""}
+//                           onBlur={(e) =>
+//                             handleLabelChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="1"
+//                           value={parent.quantity || 1}
+//                           onChange={(e) =>
+//                             handleQuantityChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={
+//                             parent.price === ""
+//                               ? ""
+//                               : (parseFloat(parent.price) || 0)
+//                           }
+//                           onChange={(e) =>
+//                             handlePriceChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                         {((parent.quantity || 1) *
+//                           (parseFloat(parent.price) || 0)).toFixed(2)}
+//                       </td>
+//                     </tr>
+//                     {/* Render child files */}
+//                     {children.map(child => {
+//                       const qty = child.quantity || 1;
+//                       const price = parseFloat(child.price) || 0;
+//                       const total = (qty * price).toFixed(2);
+//                       return (
+//                         <tr
+//                           key={child.id}
+//                           style={{ backgroundColor: "rgba(40,45,50,0.8)" }}
+//                         >
+//                           <td
+//                             style={{
+//                               whiteSpace: "normal",
+//                               wordBreak: "break-word",
+//                               paddingLeft: "25px"
+//                             }}
+//                           >
+//                             <span style={{ opacity: 0.8 }}>↳</span> {child.name}
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="text"
+//                               placeholder="Add label"
+//                               defaultValue={child.label || ""}
+//                               onBlur={(e) =>
+//                                 handleLabelChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="1"
+//                               value={qty}
+//                               onChange={(e) =>
+//                                 handleQuantityChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="0"
+//                               step="0.01"
+//                               value={
+//                                 child.price === "" ? "" : price
+//                               }
+//                               onChange={(e) =>
+//                                 handlePriceChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                             {total}
+//                           </td>
+//                         </tr>
+//                       );
+//                     })}
+//                   </tbody>
+//                   <tfoot>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <td colSpan="4" className="text-end">
+//                         <strong>Total</strong>
+//                       </td>
+//                       <td style={{ textAlign: "right" }}>
+//                         <strong>{calculateGroupTotal(parent)}</strong>
+//                       </td>
+//                     </tr>
+//                   </tfoot>
+//                 </Table>
+//               </div>
+//             );
+//           })}
+
+//           {/* Render each spreadsheet file as its own table */}
+//           {spreadsheetFiles.map(file => {
+//             const qty = file.quantity || 1;
+//             const price = parseFloat(file.price) || 0;
+//             const total = (qty * price).toFixed(2);
+//             return (
+//               <div key={file.id} className="mb-4">
+//                 <h5
+//                   style={{
+//                     backgroundColor: "#1F2937",
+//                     padding: "10px 15px",
+//                     borderRadius: "4px 4px 0 0",
+//                     marginBottom: 0,
+//                     borderBottom: "1px solid #374151"
+//                   }}
+//                 >
+//                   {file.name}
+//                 </h5>
+//                 <Table
+//                   striped
+//                   bordered
+//                   hover
+//                   variant="dark"
+//                   className="mb-0"
+//                   style={{
+//                     borderCollapse: "collapse",
+//                     borderRadius: "0 0 4px 4px",
+//                     overflow: "hidden",
+//                     border: "1px solid #374151"
+//                   }}
+//                 >
+//                   <thead>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <th style={{ width: "40%" }}>Component</th>
+//                       <th style={{ width: "25%" }}>Label</th>
+//                       <th style={{ width: "10%" }}>Qty</th>
+//                       <th style={{ width: "12%" }}>Price (₹)</th>
+//                       <th style={{ width: "13%" }}>Total (₹)</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     <tr key={file.id}>
+//                       <td
+//                         style={{
+//                           whiteSpace: "normal",
+//                           wordBreak: "break-word",
+//                           fontWeight: "500"
+//                         }}
+//                       >
+//                         {file.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={file.label || ""}
+//                           onBlur={(e) =>
+//                             handleLabelChange(file.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="1"
+//                           value={file.quantity || 1}
+//                           onChange={(e) =>
+//                             handleQuantityChange(file.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={
+//                             file.price === ""
+//                               ? ""
+//                               : (parseFloat(file.price) || 0)
+//                           }
+//                           onChange={(e) =>
+//                             handlePriceChange(file.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                         {total}
+//                       </td>
+//                     </tr>
+//                   </tbody>
+//                   <tfoot>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <td colSpan="4" className="text-end">
+//                         <strong>Total</strong>
+//                       </td>
+//                       <td style={{ textAlign: "right" }}>
+//                         <strong>{total}</strong>
+//                       </td>
+//                     </tr>
+//                   </tfoot>
+//                 </Table>
+//               </div>
+//             );
+//           })}
+
+//           {/* Grand Total */}
+//           <div
+//             className="mt-4 p-3"
+//             style={{
+//               backgroundColor: "#1F2937",
+//               borderRadius: "4px",
+//               borderLeft: "4px solid #059669"
+//             }}
+//           >
+//             <div className="d-flex justify-content-between align-items-center">
+//               <h5 className="mb-0">Grand Total</h5>
+//               <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+//             </div>
+//           </div>
+//         </>
+//       )}
+//     </div>
+//   );
+// }
+// function BOMView({ prod, updateFile }) {
+//   // Retrieve files for the selected stage; if no stage is selected, stageFiles will be an empty array
+//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
+//   // Update each file to its latest version if available
+//   const latestFiles = stageFiles.map(file => {
+//     if (file.revisions && file.selected_revision_obj) {
+//       return { ...file, ...file.selected_revision_obj };
+//     }
+//     return file;
+//   });
+
+//   // --------------------------
+//   // DXF Files Processing
+//   // --------------------------
+//   // Filter for DXF parent files (non-child files with extension "dxf")
+//   const dxfParentFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return !file.isChildFile && ext === "dxf";
+//   });
+//   // Group child files by their DXF parent's id
+//   const parentFileMap = {};
+//   dxfParentFiles.forEach(parent => {
+//     parentFileMap[parent.id] = [];
+//   });
+//   latestFiles.forEach(file => {
+//     if (file.isChildFile && parentFileMap.hasOwnProperty(file.parentId)) {
+//       parentFileMap[file.parentId].push(file);
+//     }
+//   });
+
+//   // --------------------------
+//   // Spreadsheet Files Processing
+//   // --------------------------
+//   // Filter for spreadsheet files (extensions "xls", "xlsx", or "csv")
+//   const spreadsheetFiles = latestFiles.filter(file => {
+//     const ext = file.name.split('.').pop().toLowerCase();
+//     return ext === "xls" || ext === "xlsx" || ext === "csv";
+//   });
+
+//   // --------------------------
+//   // Field Update Handlers for DXF rows
+//   // --------------------------
+//   const handleLabelChange = (fileId, newLabel) => {
+//     updateFile(fileId, { label: newLabel });
+//   };
+
+//   const handleQuantityChange = (fileId, newQuantity) => {
+//     const quantity = parseInt(newQuantity, 10) || 1;
+//     updateFile(fileId, { quantity });
+//   };
+
+//   const handlePriceChange = (fileId, newPrice) => {
+//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+//     updateFile(fileId, { price });
+//   };
+
+//   // --------------------------
+//   // Field Update Handler for Spreadsheet Rows
+//   // --------------------------
+//   // This handler expects updateFile to update a spreadsheet file’s row,
+//   // passing the file id, the row id, and the field change.
+//   const handleSpreadsheetRowChange = (fileId, rowId, field, value) => {
+//     updateFile(fileId, { rowId, [field]: value });
+//   };
+
+//   // --------------------------
+//   // Calculation Functions
+//   // --------------------------
+//   // Calculate total for a DXF parent and its children
+//   const calculateGroupTotal = (parent) => {
+//     let total = 0;
+//     const parentQty = parent.quantity || 1;
+//     const parentPrice = parseFloat(parent.price) || 0;
+//     total += parentQty * parentPrice;
+//     (parentFileMap[parent.id] || []).forEach(child => {
+//       const childQty = child.quantity || 1;
+//       const childPrice = parseFloat(child.price) || 0;
+//       total += childQty * childPrice;
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // Calculate total for a single spreadsheet file based on its contents
+//   const calculateSpreadsheetTotal = (file) => {
+//     if (Array.isArray(file.contents)) {
+//       const total = file.contents.reduce((sum, row) => {
+//         const qty = row.quantity || 1;
+//         const price = parseFloat(row.price) || 0;
+//         return sum + qty * price;
+//       }, 0);
+//       return total.toFixed(2);
+//     }
+//     return "0.00";
+//   };
+
+//   // Calculate the grand total across all DXF tables and spreadsheet tables
+//   const calculateGrandTotal = () => {
+//     let total = 0;
+//     dxfParentFiles.forEach(parent => {
+//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
+//       let childTotal = 0;
+//       (parentFileMap[parent.id] || []).forEach(child => {
+//         childTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
+//       });
+//       total += parentTotal + childTotal;
+//     });
+//     spreadsheetFiles.forEach(file => {
+//       total += Array.isArray(file.contents)
+//         ? file.contents.reduce((sum, row) => {
+//             const qty = row.quantity || 1;
+//             const price = parseFloat(row.price) || 0;
+//             return sum + qty * price;
+//           }, 0)
+//         : 0;
+//     });
+//     return total.toFixed(2);
+//   };
+
+//   // --------------------------
+//   // Rendering
+//   // --------------------------
+//   return (
+//     <div className="p-3">
+//       <h4>
+//         Bill of Materials: {prod.name} - {prod.selectedStage || "No Stage Selected"}
+//       </h4>
+//       {/* If no stage is selected, show a message but still render BOM view structure */}
+//       {!prod.selectedStage ? (
+//         <p className="text-muted">Select a Stage/Iteration to view BOM.</p>
+//       ) : (
+//         <>
+//           {/* DXF Files: Render each DXF parent and its children as a table */}
+//           {dxfParentFiles.map(parent => {
+//             const headerName = parent.name.split('.')[0]; // Remove extension for header
+//             const children = parentFileMap[parent.id] || [];
+//             return (
+//               <div key={parent.id} className="mb-4">
+//                 <h5
+//                   style={{
+//                     backgroundColor: "#1F2937",
+//                     padding: "10px 15px",
+//                     borderRadius: "4px 4px 0 0",
+//                     marginBottom: 0,
+//                     borderBottom: "1px solid #374151"
+//                   }}
+//                 >
+//                   {headerName}
+//                 </h5>
+//                 <Table
+//                   striped
+//                   bordered
+//                   hover
+//                   variant="dark"
+//                   className="mb-0"
+//                   style={{
+//                     borderCollapse: "collapse",
+//                     borderRadius: "0 0 4px 4px",
+//                     overflow: "hidden",
+//                     border: "1px solid #374151"
+//                   }}
+//                 >
+//                   <thead>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <th style={{ width: "40%" }}>Component</th>
+//                       <th style={{ width: "25%" }}>Label</th>
+//                       <th style={{ width: "10%" }}>Qty</th>
+//                       <th style={{ width: "12%" }}>Price (₹)</th>
+//                       <th style={{ width: "13%" }}>Total (₹)</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     {/* Parent file row */}
+//                     <tr key={parent.id}>
+//                       <td
+//                         style={{
+//                           whiteSpace: "normal",
+//                           wordBreak: "break-word",
+//                           fontWeight: "500"
+//                         }}
+//                       >
+//                         {parent.name}
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="text"
+//                           placeholder="Add label"
+//                           defaultValue={parent.label || ""}
+//                           onBlur={(e) =>
+//                             handleLabelChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="1"
+//                           value={parent.quantity || 1}
+//                           onChange={(e) =>
+//                             handleQuantityChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td>
+//                         <Form.Control
+//                           size="sm"
+//                           type="number"
+//                           min="0"
+//                           step="0.01"
+//                           value={parent.price === "" ? "" : (parseFloat(parent.price) || 0)}
+//                           onChange={(e) =>
+//                             handlePriceChange(parent.id, e.target.value)
+//                           }
+//                           style={{
+//                             backgroundColor: "#1F2937",
+//                             color: "#F3F4F6",
+//                             border: "1px solid #374151",
+//                             width: "100%"
+//                           }}
+//                         />
+//                       </td>
+//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                         {((parent.quantity || 1) * (parseFloat(parent.price) || 0)).toFixed(2)}
+//                       </td>
+//                     </tr>
+//                     {/* Render child rows */}
+//                     {children.map(child => {
+//                       const qty = child.quantity || 1;
+//                       const price = parseFloat(child.price) || 0;
+//                       const total = (qty * price).toFixed(2);
+//                       return (
+//                         <tr key={child.id} style={{ backgroundColor: "rgba(40,45,50,0.8)" }}>
+//                           <td style={{ whiteSpace: "normal", wordBreak: "break-word", paddingLeft: "25px" }}>
+//                             <span style={{ opacity: 0.8 }}>↳</span> {child.name}
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="text"
+//                               placeholder="Add label"
+//                               defaultValue={child.label || ""}
+//                               onBlur={(e) =>
+//                                 handleLabelChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="1"
+//                               value={qty}
+//                               onChange={(e) =>
+//                                 handleQuantityChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="0"
+//                               step="0.01"
+//                               value={child.price === "" ? "" : price}
+//                               onChange={(e) =>
+//                                 handlePriceChange(child.id, e.target.value)
+//                               }
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                             {total}
+//                           </td>
+//                         </tr>
+//                       );
+//                     })}
+//                   </tbody>
+//                   <tfoot>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <td colSpan="4" className="text-end"><strong>Total</strong></td>
+//                       <td style={{ textAlign: "right" }}>
+//                         <strong>{calculateGroupTotal(parent)}</strong>
+//                       </td>
+//                     </tr>
+//                   </tfoot>
+//                 </Table>
+//               </div>
+//             );
+//           })}
+
+//           {/* Render each spreadsheet file as its own table with spreadsheet contents */}
+//           {spreadsheetFiles.map(file => {
+//             // Assume each spreadsheet file object contains a property "contents" which is an array of rows.
+//             // Each row should have: id, name, label, quantity, price.
+//             const tableTotal = calculateSpreadsheetTotal(file);
+//             return (
+//               <div key={file.id} className="mb-4">
+//                 <h5
+//                   style={{
+//                     backgroundColor: "#1F2937",
+//                     padding: "10px 15px",
+//                     borderRadius: "4px 4px 0 0",
+//                     marginBottom: 0,
+//                     borderBottom: "1px solid #374151"
+//                   }}
+//                 >
+//                   {file.name}
+//                 </h5>
+//                 <Table
+//                   striped
+//                   bordered
+//                   hover
+//                   variant="dark"
+//                   className="mb-0"
+//                   style={{
+//                     borderCollapse: "collapse",
+//                     borderRadius: "0 0 4px 4px",
+//                     overflow: "hidden",
+//                     border: "1px solid #374151"
+//                   }}
+//                 >
+//                   <thead>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <th style={{ width: "40%" }}>Component</th>
+//                       <th style={{ width: "25%" }}>Label</th>
+//                       <th style={{ width: "10%" }}>Qty</th>
+//                       <th style={{ width: "12%" }}>Price (₹)</th>
+//                       <th style={{ width: "13%" }}>Total (₹)</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     {Array.isArray(file.contents) && file.contents.map(row => {
+//                       const qty = row.quantity || 1;
+//                       const price = parseFloat(row.price) || 0;
+//                       const total = (qty * price).toFixed(2);
+//                       return (
+//                         <tr key={row.id}>
+//                           <td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+//                             <Form.Control
+//                               size="sm"
+//                               type="text"
+//                               value={row.name}
+//                               onBlur={(e) => handleSpreadsheetRowChange(file.id, row.id, "name", e.target.value)}
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="text"
+//                               value={row.label || ""}
+//                               onBlur={(e) => handleSpreadsheetRowChange(file.id, row.id, "label", e.target.value)}
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="1"
+//                               value={row.quantity || 1}
+//                               onChange={(e) => handleSpreadsheetRowChange(file.id, row.id, "quantity", e.target.value)}
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td>
+//                             <Form.Control
+//                               size="sm"
+//                               type="number"
+//                               min="0"
+//                               step="0.01"
+//                               value={row.price === "" ? "" : (parseFloat(row.price) || 0)}
+//                               onChange={(e) => handleSpreadsheetRowChange(file.id, row.id, "price", e.target.value)}
+//                               style={{
+//                                 backgroundColor: "#1F2937",
+//                                 color: "#F3F4F6",
+//                                 border: "1px solid #374151",
+//                                 width: "100%"
+//                               }}
+//                             />
+//                           </td>
+//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
+//                             {total}
+//                           </td>
+//                         </tr>
+//                       );
+//                     })}
+//                   </tbody>
+//                   <tfoot>
+//                     <tr style={{ backgroundColor: "#1F2937" }}>
+//                       <td colSpan="4" className="text-end">
+//                         <strong>Total</strong>
+//                       </td>
+//                       <td style={{ textAlign: "right" }}>
+//                         <strong>{tableTotal}</strong>
+//                       </td>
+//                     </tr>
+//                   </tfoot>
+//                 </Table>
+//               </div>
+//             );
+//           })}
+
+//           {/* Grand Total */}
+//           <div
+//             className="mt-4 p-3"
+//             style={{
+//               backgroundColor: "#1F2937",
+//               borderRadius: "4px",
+//               borderLeft: "4px solid #059669"
+//             }}
+//           >
+//             <div className="d-flex justify-content-between align-items-center">
+//               <h5 className="mb-0">Grand Total</h5>
+//               <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+//             </div>
+//           </div>
+//         </>
+//       )}
+//     </div>
+//   );
+// }
+function BOMView({ prod, updateFile }) {
+  // Retrieve files for the selected stage; if no stage is selected, stageFiles will be an empty array
+  const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
+  // Update each file to its latest version if available
+  const latestFiles = stageFiles.map(file => {
+    if (file.revisions && file.selected_revision_obj) {
+      return { ...file, ...file.selected_revision_obj };
+    }
+    return file;
+  });
+
+  // --------------------------
+  // DXF Files Processing
+  // --------------------------
+  // Filter for DXF parent files (non-child files with extension "dxf")
+  const dxfParentFiles = latestFiles.filter(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    return !file.isChildFile && ext === "dxf";
+  });
+  // Group child files by their DXF parent's id
+  const parentFileMap = {};
+  dxfParentFiles.forEach(parent => {
+    parentFileMap[parent.id] = [];
+  });
+  latestFiles.forEach(file => {
+    if (file.isChildFile && parentFileMap.hasOwnProperty(file.parentId)) {
+      parentFileMap[file.parentId].push(file);
+    }
+  });
+
+  // --------------------------
+  // Spreadsheet Files Processing
+  // --------------------------
+  // Filter for spreadsheet files (extensions "xls", "xlsx", or "csv")
+  const spreadsheetFiles = latestFiles.filter(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    return ext === "xls" || ext === "xlsx" || ext === "csv";
+  });
+
+  // // --------------------------
+  // // Parse Spreadsheet Files if Needed
+  // // --------------------------
+  // // If a spreadsheet file does not have a "contents" property and has a dataUrl,
+  // // attempt to parse it using XLSX and update it.
+  // useEffect(() => {
+  //   spreadsheetFiles.forEach(file => {
+  //     if (!file.contents && file.dataUrl) {
+  //       try {
+  //         // Parse the dataUrl using XLSX (expects type 'dataURL')
+  //         const workbook = XLSX.read(file.dataUrl, { type: 'dataURL' });
+  //         const sheetName = workbook.SheetNames[0];
+  //         const worksheet = workbook.Sheets[sheetName];
+  //         // Convert worksheet to an array of arrays (each row)
+  //         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  //         // Optionally, you can transform jsonData to objects with keys (if desired)
+  //         // For now, we assume the first row contains headers:
+  //         let contents = [];
+  //         if (jsonData.length > 0) {
+  //           const headers = jsonData[0];
+  //           contents = jsonData.slice(1).map((row, idx) => {
+  //             // Create an object mapping headers to row values
+  //             const rowObj = { id: idx };
+  //             headers.forEach((header, j) => {
+  //               rowObj[header] = row[j];
+  //             });
+  //             // Ensure required fields exist (name, label, quantity, price)
+  //             return {
+  //               id: rowObj.id,
+  //               name: rowObj.name || "",
+  //               label: rowObj.label || "",
+  //               quantity: rowObj.quantity || 1,
+  //               price: rowObj.price || "",
+  //               ...rowObj
+  //             };
+  //           });
+  //         }
+  //         // Call updateFile to update this file object with parsed contents
+  //         updateFile(file.id, { contents });
+  //       } catch (error) {
+  //         console.error("Error parsing spreadsheet file", error);
+  //       }
+  //     }
+  //   });
+  // }, [spreadsheetFiles, updateFile]);
+  // useEffect(() => {
+  //   spreadsheetFiles.forEach(file => {
+  //     if (!file.contents && file.dataUrl) {
+  //       console.log("Attempting to parse spreadsheet:", file.name);
+  //       try {
+  //         // Parse the dataUrl using XLSX (expects type 'dataURL')
+  //         const workbook = XLSX.read(file.dataUrl, { type: 'dataURL' });
+  //         const sheetName = workbook.SheetNames[0];
+  //         const worksheet = workbook.Sheets[sheetName];
+  //         // Convert worksheet to an array of arrays
+  //         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  //         console.log("Raw parsed data:", jsonData);
+  //         let contents = [];
+  //         if (jsonData && jsonData.length > 1) {
+  //           const headers = jsonData[0];
+  //           contents = jsonData.slice(1).map((row, idx) => {
+  //             const rowObj = { id: idx };
+  //             headers.forEach((header, j) => {
+  //               rowObj[header] = row[j];
+  //             });
+  //             // Ensure required fields exist and map them to the expected keys
+  //             return {
+  //               id: idx,
+  //               name: rowObj.name || "",
+  //               label: rowObj.label || "",
+  //               quantity: rowObj.quantity || 1,
+  //               price: rowObj.price || "",
+  //               ...rowObj
+  //             };
+  //           });
+  //         }
+  //         console.log("Final parsed contents for", file.name, ":", contents);
+  //         // Update the file object with the parsed contents
+  //         updateFile(file.id, { contents });
+  //       } catch (error) {
+  //         console.error("Error parsing spreadsheet file", error);
+  //       }
+  //     }
+  //   });
+  // }, [spreadsheetFiles, updateFile]);
+  useEffect(() => {
+    spreadsheetFiles.forEach(file => {
+      if (!file.contents && file.dataUrl) {
+        console.log("Attempting to parse spreadsheet:", file.name);
+        try {
+          // For dataURLs that start with "data:"
+          if (file.dataUrl.startsWith('data:')) {
+            // Extract the base64 part
+            const base64Content = file.dataUrl.split(',')[1];
+            if (base64Content) {
+              // Convert base64 to binary string
+              const binaryString = atob(base64Content);
+              // Create array buffer from binary string
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              // Create a workbook from the array buffer
+              const workbook = XLSX.read(bytes.buffer, { type: 'array' });
+              const sheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[sheetName];
+              
+              // Log what we find in the worksheet to debug
+              console.log("Worksheet content:", worksheet);
+              
+              // Convert worksheet to JSON with headers
+              const jsonData = XLSX.utils.sheet_to_json(worksheet);
+              console.log("Parsed JSON data:", jsonData);
+              
+              if (jsonData && jsonData.length > 0) {
+                // Map the data to the format expected by the component
+                const contents = jsonData.map((row, idx) => ({
+                  id: idx,
+                  name: row.Component || row.Name || row.Item || Object.values(row)[0] || "",
+                  label: row.Label || row.Description || "",
+                  quantity: row.Quantity || row.Qty || row.Amount || 1,
+                  price: row.Price || row.Cost || row.Value || "",
+                  ...row // Keep all original fields too
+                }));
+                
+                console.log("Mapped contents:", contents);
+                // Update the file with parsed contents
+                updateFile(file.id, { contents });
+              }
+            }
+          } else {
+            // Handle regular URL fetching if needed
+            console.warn("Non-dataURL format detected:", file.name);
+          }
+        } catch (error) {
+          console.error("Error parsing spreadsheet file", file.name, error);
+        }
+      }
+    });
+  }, [spreadsheetFiles, updateFile]);
+
+  // --------------------------
+  // Field Update Handlers for DXF rows
+  // --------------------------
+  const handleLabelChange = (fileId, newLabel) => {
+    updateFile(fileId, { label: newLabel });
+  };
+
+  const handleQuantityChange = (fileId, newQuantity) => {
+    const quantity = parseInt(newQuantity, 10) || 1;
+    updateFile(fileId, { quantity });
+  };
+
+  const handlePriceChange = (fileId, newPrice) => {
+    const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
+    updateFile(fileId, { price });
+  };
+
+  // --------------------------
+  // Field Update Handler for Spreadsheet Rows
+  // --------------------------
+  const handleSpreadsheetRowChange = (fileId, rowId, field, value) => {
+    updateFile(fileId, { rowId, [field]: value });
+  };
+
+  // --------------------------
+  // Calculation Functions
+  // --------------------------
+  // Calculate total for a DXF parent and its children
+  const calculateGroupTotal = (parent) => {
+    let total = 0;
+    const parentQty = parent.quantity || 1;
+    const parentPrice = parseFloat(parent.price) || 0;
+    total += parentQty * parentPrice;
+    (parentFileMap[parent.id] || []).forEach(child => {
+      const childQty = child.quantity || 1;
+      const childPrice = parseFloat(child.price) || 0;
+      total += childQty * childPrice;
+    });
+    return total.toFixed(2);
+  };
+
+  // Calculate total for a single spreadsheet file based on its contents
+  const calculateSpreadsheetTotal = (file) => {
+    if (Array.isArray(file.contents)) {
+      const total = file.contents.reduce((sum, row) => {
+        const qty = row.quantity || 1;
+        const price = parseFloat(row.price) || 0;
+        return sum + qty * price;
+      }, 0);
+      return total.toFixed(2);
+    }
+    return "0.00";
+  };
+
+  // Calculate the grand total across all DXF and spreadsheet tables
+  const calculateGrandTotal = () => {
+    let total = 0;
+    dxfParentFiles.forEach(parent => {
+      const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
+      let childTotal = 0;
+      (parentFileMap[parent.id] || []).forEach(child => {
+        childTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
+      });
+      total += parentTotal + childTotal;
+    });
+    spreadsheetFiles.forEach(file => {
+      total += (Array.isArray(file.contents)
+        ? file.contents.reduce((sum, row) => {
+            const qty = row.quantity || 1;
+            const price = parseFloat(row.price) || 0;
+            return sum + qty * price;
+          }, 0)
+        : 0);
+    });
+    return total.toFixed(2);
+  };
+
+  // --------------------------
+  // Rendering
+  // --------------------------
+  return (
+    <div className="p-3">
+      <h4>
+      Bill of Materials: {prod.name.toUpperCase()} - {prod.selectedStage ? prod.selectedStage.toUpperCase() : "No Stage Selected"}
+      </h4>
+      {!prod.selectedStage ? (
+        <p className="text-muted">Select a Stage/Iteration to view BOM.</p>
+      ) : (
+        <>
+          {/* DXF Files: Render each DXF parent and its children as a table */}
+          {dxfParentFiles.map(parent => {
+            const headerName = parent.name.split('.')[0];
+            const children = parentFileMap[parent.id] || [];
+            return (
+              <div key={parent.id} className="mb-4">
+                <h5
+                  style={{
+                    backgroundColor: "#1F2937",
+                    padding: "10px 15px",
+                    borderRadius: "4px 4px 0 0",
+                    marginBottom: 0,
+                    borderBottom: "1px solid #374151"
+                  }}
+                >
+                  {headerName}
+                </h5>
+                <Table
+                  striped
+                  bordered
+                  hover
+                  variant="dark"
+                  className="mb-0"
+                  style={{
+                    borderCollapse: "collapse",
+                    borderRadius: "0 0 4px 4px",
+                    overflow: "hidden",
+                    border: "1px solid #374151"
+                  }}
+                >
+                  <thead>
+                    <tr style={{ backgroundColor: "#1F2937" }}>
+                      <th style={{ width: "40%" }}>Component</th>
+                      <th style={{ width: "25%" }}>Label</th>
+                      <th style={{ width: "10%" }}>Qty</th>
+                      <th style={{ width: "12%" }}>Price (₹)</th>
+                      <th style={{ width: "13%" }}>Total (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Parent row */}
+                    <tr key={parent.id}>
+                      <td
+                        style={{
+                          whiteSpace: "normal",
+                          wordBreak: "break-word",
+                          fontWeight: "500"
+                        }}
+                      >
+                        {parent.name}
+                      </td>
+                      <td>
+                        <Form.Control
+                          size="sm"
+                          type="text"
+                          placeholder="Add label"
+                          defaultValue={parent.label || ""}
+                          onBlur={(e) =>
+                            handleLabelChange(parent.id, e.target.value)
+                          }
+                          style={{
+                            backgroundColor: "#1F2937",
+                            color: "#F3F4F6",
+                            border: "1px solid #374151"
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <Form.Control
+                          size="sm"
+                          type="number"
+                          min="1"
+                          value={parent.quantity || 1}
+                          onChange={(e) =>
+                            handleQuantityChange(parent.id, e.target.value)
+                          }
+                          style={{
+                            backgroundColor: "#1F2937",
+                            color: "#F3F4F6",
+                            border: "1px solid #374151",
+                            width: "100%"
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <Form.Control
+                          size="sm"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={parent.price === "" ? "" : (parseFloat(parent.price) || 0)}
+                          onChange={(e) =>
+                            handlePriceChange(parent.id, e.target.value)
+                          }
+                          style={{
+                            backgroundColor: "#1F2937",
+                            color: "#F3F4F6",
+                            border: "1px solid #374151",
+                            width: "100%"
+                          }}
+                        />
+                      </td>
+                      <td style={{ minWidth: "80px", textAlign: "right" }}>
+                        {((parent.quantity || 1) * (parseFloat(parent.price) || 0)).toFixed(2)}
+                      </td>
+                    </tr>
+                    {/* Render child rows */}
+                    {children.map(child => {
+                      const qty = child.quantity || 1;
+                      const price = parseFloat(child.price) || 0;
+                      const total = (qty * price).toFixed(2);
+                      return (
+                        <tr key={child.id} style={{ backgroundColor: "rgba(40,45,50,0.8)" }}>
+                          <td style={{ whiteSpace: "normal", wordBreak: "break-word", paddingLeft: "25px" }}>
+                            <span style={{ opacity: 0.8 }}>↳</span> {child.name}
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="text"
+                              placeholder="Add label"
+                              defaultValue={child.label || ""}
+                              onBlur={(e) =>
+                                handleLabelChange(child.id, e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151"
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="number"
+                              min="1"
+                              value={qty}
+                              onChange={(e) =>
+                                handleQuantityChange(child.id, e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151",
+                                width: "100%"
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={child.price === "" ? "" : price}
+                              onChange={(e) =>
+                                handlePriceChange(child.id, e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151",
+                                width: "100%"
+                              }}
+                            />
+                          </td>
+                          <td style={{ minWidth: "80px", textAlign: "right" }}>
+                            {total}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: "#1F2937" }}>
+                      <td colSpan="4" className="text-end"><strong>Total</strong></td>
+                      <td style={{ textAlign: "right" }}>
+                        <strong>{calculateGroupTotal(parent)}</strong>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              </div>
+            );
+          })}
+
+          {/* Render each spreadsheet file as its own table using its contents */}
+          {spreadsheetFiles.map(file => {
+            const tableTotal = calculateSpreadsheetTotal(file);
+            return (
+              <div key={file.id} className="mb-4">
+                <h5
+                  style={{
+                    backgroundColor: "#1F2937",
+                    padding: "10px 15px",
+                    borderRadius: "4px 4px 0 0",
+                    marginBottom: 0,
+                    borderBottom: "1px solid #374151"
+                  }}
+                >
+                  {file.name}
+                </h5>
+                <Table
+                  striped
+                  bordered
+                  hover
+                  variant="dark"
+                  className="mb-0"
+                  style={{
+                    borderCollapse: "collapse",
+                    borderRadius: "0 0 4px 4px",
+                    overflow: "hidden",
+                    border: "1px solid #374151"
+                  }}
+                >
+                  <thead>
+                    <tr style={{ backgroundColor: "#1F2937" }}>
+                      <th style={{ width: "40%" }}>Component</th>
+                      <th style={{ width: "25%" }}>Label</th>
+                      <th style={{ width: "10%" }}>Qty</th>
+                      <th style={{ width: "12%" }}>Price (₹)</th>
+                      <th style={{ width: "13%" }}>Total (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(file.contents) && file.contents.map(row => {
+                      const qty = row.quantity || 1;
+                      const price = parseFloat(row.price) || 0;
+                      const total = (qty * price).toFixed(2);
+                      return (
+                        <tr key={row.id}>
+                          <td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                            <Form.Control
+                              size="sm"
+                              type="text"
+                              value={row.name}
+                              onBlur={(e) =>
+                                handleSpreadsheetRowChange(file.id, row.id, "name", e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151"
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="text"
+                              value={row.label || ""}
+                              onBlur={(e) =>
+                                handleSpreadsheetRowChange(file.id, row.id, "label", e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151"
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="number"
+                              min="1"
+                              value={row.quantity || 1}
+                              onChange={(e) =>
+                                handleSpreadsheetRowChange(file.id, row.id, "quantity", e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151",
+                                width: "100%"
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Form.Control
+                              size="sm"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={row.price === "" ? "" : (parseFloat(row.price) || 0)}
+                              onChange={(e) =>
+                                handleSpreadsheetRowChange(file.id, row.id, "price", e.target.value)
+                              }
+                              style={{
+                                backgroundColor: "#1F2937",
+                                color: "#F3F4F6",
+                                border: "1px solid #374151",
+                                width: "100%"
+                              }}
+                            />
+                          </td>
+                          <td style={{ minWidth: "80px", textAlign: "right" }}>
+                            {total}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: "#1F2937" }}>
+                      <td colSpan="4" className="text-end"><strong>Total</strong></td>
+                      <td style={{ textAlign: "right" }}>
+                        <strong>{tableTotal}</strong>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              </div>
+            );
+          })}
+
+          {/* Grand Total */}
+          <div
+            className="mt-4 p-3"
+            style={{
+              backgroundColor: "#1F2937",
+              borderRadius: "4px",
+              borderLeft: "4px solid #059669"
+            }}
+          >
+            <div className="d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">Grand Total</h5>
+              <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
+
+// Keep your existing useEffect for styles
 useEffect(() => {
   const styleTag = document.createElement('style');
   styleTag.innerHTML = `
@@ -4196,261 +8092,7 @@ useEffect(() => {
   };
 }, []);
 
-//   return (
-//     <Container
-//       fluid
-//       style={{
-//         height: '100vh',
-//         overflow: 'hidden',
-//         maxWidth: '100vw',
-//         width: '100%',
-//         padding: 0,
-//         margin: 0,
-//         boxSizing: 'border-box'
-//       }}
-//       className="bg-dark text-light p-0"
-//     >
-//       {/* Center-aligned Toast message at top-center */}
-//       <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
-//         <Toast
-//           bg="dark"
-//           onClose={() => setToastMsg('')}
-//           show={!!toastMsg}
-//           delay={3000}
-//           autohide
-//         >
-//           <Toast.Body className="text-light" style={{ textAlign: 'center', fontSize: '0.85rem' }}>
-//             {toastMsg}
-//           </Toast.Body>
-//         </Toast>
-//       </ToastContainer>
-
-//       <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
-//         {/* Left Ribbon => pH at top, stage icons below */}
-// <Col xs="auto" style={{ width: '50px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
-//   <div
-//     style={{
-//       height: '100%',
-//       width: '100%',
-//       display: 'flex',
-//       flexDirection: 'column',
-//       alignItems: 'center',
-//       paddingTop: '0.6rem'
-//     }}
-//   >
-//     {/* pH logo */}
-//     <div
-//       style={{
-//         cursor: 'pointer',
-//         fontWeight: '500', // Medium weight instead of bold
-//         color: styles.colors.text.light, // Remove quotes and ${} syntax
-//         marginBottom: '20px',
-//         fontSize: '0.9rem'
-//       }}
-//       onClick={() => console.log('pH logo clicked')}
-//     >
-//       pH
-//     </div>
-
-//     {/* Stage/iteration icons with right-click delete if empty */}
-//     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-//       {prod.stageIcons && prod.stageIcons.map((iconObj, idx) => {
-//         const isSelected = prod.selectedStage === iconObj.label;
-//         const bgColor = isSelected ? iconObj.color : 'transparent';
-//         const textColor = isSelected ? styles.colors.dark : styles.colors.text.light; // Remove quotes and ${} syntax
-//         const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
-
-//         return (
-//           <div
-//             key={idx}
-//             onClick={() => {
-//               handleStageIconClick(iconObj.label);
-//             }}
-//             onContextMenu={e => handleStageIconRightClick(e, iconObj.label)}
-//             style={{
-//               cursor: 'pointer',
-//               width: '32px',
-//               height: '32px',
-//               lineHeight: '30px',
-//               textAlign: 'center',
-//               borderRadius: '4px',
-//               marginBottom: '8px',
-//               fontWeight: '400', // Medium weight instead of bold
-//               fontSize: '0.85rem',
-//               background: bgColor,
-//               color: textColor,
-//               border: borderColor,
-              
-//             }}
-//           >
-//             {iconObj.label}
-//           </div>
-//         );
-//       })}
-//     </div>
-//   </div>
-// </Col>
-
-//         {/* Main Content Area with Resizable Columns */}
-//         <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 50px)'  }}>
-//           <ResizableColumn 
-//             leftContent={renderFileBrowser()}
-//             rightContent={renderPreview(selectedFileObj)}
-//           />
-//         </Col>
-//       </Row>
-//     </Container>
-//   );
-// return (
-//   <Container
-//     fluid
-//     style={{
-//       height: '100vh',
-//       overflow: 'hidden',
-//       maxWidth: '100vw',
-//       width: '100%',
-//       padding: 0,
-//       margin: 0,
-//       boxSizing: 'border-box'
-//     }}
-//     className="bg-dark text-light p-0"
-//   >
-//     {/* Center-aligned Toast message at top-center */}
-//     <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
-//       <Toast
-//         bg="dark"
-//         onClose={() => setToastMsg('')}
-//         show={!!toastMsg}
-//         delay={3000}
-//         autohide
-//       >
-//         <Toast.Body
-//           className="text-light"
-//           style={{ textAlign: 'center', fontSize: '0.85rem' }}
-//         >
-//           {toastMsg}
-//         </Toast.Body>
-//       </Toast>
-//     </ToastContainer>
-
-//     <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
-//       {/* Left Ribbon => pH at top, stage/iteration icons (icon + badge) below */}
-//       <Col
-//         xs="auto"
-//         style={{
-//           width: '50px',
-//           background: styles.colors.dark,
-//           padding: 0,
-//           borderRight: `1px solid ${styles.colors.border}`
-//         }}
-//       >
-//         <div
-//           style={{
-//             height: '100%',
-//             width: '100%',
-//             display: 'flex',
-//             flexDirection: 'column',
-//             alignItems: 'center',
-//             paddingTop: '0.6rem'
-//           }}
-//         >
-//           {/* pH logo */}
-//           <div
-//             style={{
-//               cursor: 'pointer',
-//               fontWeight: '500',
-//               color: styles.colors.text.light,
-//               marginBottom: '20px',
-//               fontSize: '0.9rem'
-//             }}
-//             onClick={() => console.log('pH logo clicked')}
-//           >
-//             pH
-//           </div>
-
-//           {/* Stage/iteration icons with icon+badge (using FaSpinner for I and FaToriiGate for S) */}
-//           <div
-//             style={{
-//               display: 'flex',
-//               flexDirection: 'column',
-//               alignItems: 'center',
-//               width: '100%'
-//             }}
-//           >
-//             {prod.stageIcons &&
-//               prod.stageIcons.map((iconObj, idx) => {
-//                 const isSelected = prod.selectedStage === iconObj.label;
-//                 const bgColor = isSelected ? iconObj.color : 'transparent';
-//                 const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
-
-//                 return (
-//                   <div
-//                     key={idx}
-//                     onClick={() => handleStageIconClick(iconObj.label)}
-//                     onContextMenu={(e) => handleStageIconRightClick(e, iconObj.label)}
-//                     style={{
-//                       cursor: 'pointer',
-//                       width: '32px',
-//                       height: '32px',
-//                       position: 'relative',
-//                       borderRadius: '4px',
-//                       marginBottom: '8px',
-//                       fontSize: '0.85rem',
-//                       background: bgColor,
-//                       border: borderColor,
-//                       display: 'flex',
-//                       alignItems: 'center',
-//                       justifyContent: 'center'
-//                     }}
-//                   >
-//                     {iconObj.type === 'I' ? (
-//                       <FaSpinner size={20} color={styles.colors.iteration} />
-//                     ) : (
-//                       <FaToriiGate size={20} color={styles.colors.stage} />
-//                     )}
-//                     <span
-//                       style={{
-//                         position: 'absolute',
-//                         top: '-4px',
-//                         right: '-4px',
-//                         background: isSelected
-//                           ? iconObj.color
-//                           : iconObj.type === 'I'
-//                           ? styles.colors.iteration
-//                           : styles.colors.stage,
-//                         color: '#fff',
-//                         borderRadius: '50%',
-//                         padding: '0 4px',
-//                         fontSize: '10px'
-//                       }}
-//                     >
-//                       {iconObj.number}
-//                     </span>
-//                   </div>
-//                 );
-//               })}
-//           </div>
-//         </div>
-//       </Col>
-
-//       {/* Main Content Area with Resizable Columns */}
-//       <Col
-//         className="p-0 m-0"
-//         style={{
-//           height: '100%',
-//           overflow: 'hidden',
-//           maxWidth: 'calc(100vw - 50px)'
-//         }}
-//       >
-//         <ResizableColumn
-//           leftContent={renderFileBrowser()}
-//           rightContent={renderPreview(selectedFileObj)}
-//         />
-//       </Col>
-//     </Row>
-//   </Container>
-// );
-
+// Update main container return
 return (
   <Container
     fluid
@@ -4530,7 +8172,6 @@ return (
             {prod.stageIcons &&
               prod.stageIcons.map((iconObj, idx) => {
                 const isSelected = prod.selectedStage === iconObj.label;
-                //const bgColor = isSelected ? iconObj.color : 'transparent';
                 const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
                 const borderColor = isSelected ? 'none' : `1px solid ${styles.colors.border}`;
 
@@ -4583,7 +8224,7 @@ return (
         </div>
       </Col>
 
-      {/* Main Content Area with Resizable Columns */}
+      {/* Main Content Area - UPDATED: Conditionally render based on viewMode */}
       <Col
         className="p-0 m-0"
         style={{
@@ -4592,10 +8233,16 @@ return (
           maxWidth: 'calc(100vw - 50px)'
         }}
       >
-        <ResizableColumn
-          leftContent={renderFileBrowser()}
-          rightContent={renderPreview(selectedFileObj)}
-        />
+        {viewMode === 'normal' ? (
+          <ResizableColumn
+            leftContent={renderFileBrowser()}
+            rightContent={renderPreview(selectedFileObj)}
+          />
+        ) : (
+          <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>
+            {renderFileBrowser()}
+          </div>
+        )}
       </Col>
     </Row>
 
@@ -4608,6 +8255,13 @@ return (
     />
   </Container>
 );
+// Add these functions to your component
+function handleViewChange() {
+  setViewMode(viewMode === 'normal' ? 'bom' : 'normal');
+}
 
+function handleShowBOM() {
+  setViewMode('bom');
+}
 
 }
