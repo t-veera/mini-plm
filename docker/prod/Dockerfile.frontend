@@ -1,3 +1,4 @@
+# Build Stage
 FROM node:16-alpine as build
 
 WORKDIR /app
@@ -6,16 +7,22 @@ WORKDIR /app
 COPY mpp_frontend/package*.json ./
 RUN npm ci --silent
 
-# Copy the frontend code
-COPY mpp_frontend/ .
+# Copy the frontend code, including public/
+COPY mpp_frontend/ . 
 
 # Build for production
 ENV REACT_APP_API_URL=/api
 RUN npm run build
 
-# The final image just needs to copy the build files
-FROM node:16-alpine
-WORKDIR /app
-COPY --from=build /app/build ./build
-# Just keep the container running
-CMD ["tail", "-f", "/dev/null"]
+# Final Stage: Serve the App
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
+
+# Copy the built frontend files
+COPY --from=build /app/build . 
+
+# Expose port 80 for serving
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

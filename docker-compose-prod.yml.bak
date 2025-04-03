@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   backend:
-    image: yourusername/mini-plm-backend:latest
+    image: ghcr.io/t-veera/mini-plm-backend:latest
     volumes:
       - ./mpp_files:/app/mpp_files
       - static_volume:/app/staticfiles
@@ -17,7 +15,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: yourusername/mini-plm-frontend:latest
+    image: ghcr.io/t-veera/mini-plm-frontend:latest
     volumes:
       - build_volume:/app/build
     restart: unless-stopped

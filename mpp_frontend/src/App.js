@@ -49,8 +49,10 @@ import * as THREE from 'three';
 import * as XLSX from 'xlsx';
 
 // Code Syntax Highlighting
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 // Markdown
 import ReactMarkdown from 'react-markdown';
@@ -2977,6 +2979,7 @@ function renderFileList(prod) {
                                 color: '${styles.colors.text.light}',
                                 border: '1px solid ${styles.colors.border}',
                                 fontSize: '0.8rem',
+                                textAlign: 'center',
                                 backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
                               }}
                               value={childFile.current_revision || 1}

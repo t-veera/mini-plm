@@ -7,18 +7,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install gunicorn psycopg2-binary
+COPY requirements.txt .  
+RUN pip install --no-cache-dir -r requirements.txt  
+RUN pip install gunicorn psycopg2-binary  
 
 # Copy project files
-COPY . .
+COPY . .  
 
-# Create necessary directories
-RUN mkdir -p mpp_files staticfiles
+# Ensure necessary directories exist
+RUN mkdir -p /app/mpp_files /app/staticfiles
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Set environment variables
+ENV DJANGO_SETTINGS_MODULE=mpp_backend.settings
+ENV PYTHONUNBUFFERED=1
+
+# Collect static files (prevent failure from breaking build)
+RUN python manage.py collectstatic --noinput || echo "Static collection failed, continuing..."
+
+# Set correct permissions
+RUN chmod -R 755 /app/staticfiles /app/mpp_files
+
+# Expose port 8000 for Django
+EXPOSE 8000
 
 # Run Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "mpp_backend.wsgi:application"]
