@@ -1,24 +1,14 @@
 import os
 from pathlib import Path
+import dj_database_url  # Make sure this is installed in your backend image
 
-# Allow iframes for dev
-X_FRAME_OPTIONS = 'ALLOWALL'
-
-# Define BASE_DIR first
+# -- Core Config --
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Static and Media settings
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Ensures Django collects files from 'static/'
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'mpp_files')
-
 SECRET_KEY = 'django-insecure-+^=x8m(8zf^@ro0k)ib)w%+l=_6e5$px0zv0uj9qh2f4h9^g5u'
 DEBUG = True
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']  # Allow from all for dev/testing
 
+# -- Application definition --
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -26,14 +16,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
     'rest_framework',
-    'files',         # Custom app ensuring migrations are detected
-    'corsheaders',   # Handles CORS
+    'rest_framework.authtoken',
+    'files',  # Your app
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Must be near the top for CORS
+    'corsheaders.middleware.CorsMiddleware',  # CORS must be high up
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -62,26 +52,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'mpp_backend.wsgi.application'
 
+# -- Database: Pull from DATABASE_URL (Docker uses Postgres) --
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # Using a Path object
-    }
+    'default': dj_database_url.config(conn_max_age=600)
 }
 
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+# -- Static & Media --
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mpp_files')
+
+# -- CORS --
+CORS_ALLOW_ALL_ORIGINS = True
+
+# -- Security --
+X_FRAME_OPTIONS = 'ALLOWALL'
+
+# -- Internationalization --
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# CORS settings for local dev
-CORS_ALLOW_ALL_ORIGINS = True

@@ -6,9 +6,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create directory for uploaded files
-RUN mkdir -p mpp_files
+# Create directory for uploaded files including uploads subdirectory
+RUN mkdir -p mpp_files/uploads
+# Ensure the directory has proper permissions
+RUN chmod -R 777 mpp_files
 
-# We'll mount the code as a volume, so no need to copy it here
+# Copy the entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Use our entrypoint script
+ENTRYPOINT ["docker-entrypoint.sh"]
 # Run Django's development server
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

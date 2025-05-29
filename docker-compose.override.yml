@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.backend
+    volumes:
+      - ./mpp_files:/app/mpp_files
+      - ./files:/app/files
+      - ./mpp_backend:/app/mpp_backend
+      - static_volume:/app/staticfiles
+    environment:
+      - DEBUG=True
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
+    command: >
+      bash -c "python manage.py migrate &&
+               gunicorn --bind 0.0.0.0:8000 mpp_backend.wsgi:application"
+
+volumes:
+  static_volume:

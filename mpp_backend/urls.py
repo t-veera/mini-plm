@@ -23,8 +23,16 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 # DRF router for automatically generating endpoints for FileViewSet
+# router = routers.DefaultRouter()
+# router.register(r'files', FileViewSet)
+
+from files.views import FileViewSet, ProductViewSet, StageViewSet
+
 router = routers.DefaultRouter()
 router.register(r'files', FileViewSet)
+router.register(r'products', ProductViewSet)
+router.register(r'stages', StageViewSet)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),          # Django admin

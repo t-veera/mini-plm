@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Button from 'react-bootstrap/Button';
+import { hybridStorage, createFileUploadHandler } from './hybridStorage';
+
 import {
   Container,
   Row,
@@ -56,6 +58,9 @@ import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/
 
 // Markdown
 import ReactMarkdown from 'react-markdown';
+
+// API configuration
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 // After your imports, add this complete styles object
 const styles = {
@@ -891,142 +896,206 @@ function ResizableColumn({ leftContent, rightContent }) {
   /* ---------------- MAIN APP ---------------- */
   export default function App() {
     const [viewMode, setViewMode] = useState('normal'); // Options: 'normal', 'bom'
+    //const [isLoading, setIsLoading] = useState(false);
     /* 1) Load from localStorage on mount (persist products) with data validation */
-    const [products, setProducts] = useState(() => {
-      try {
-        const stored = localStorage.getItem('phasorProducts');
-        if (stored) {
-          const parsed = JSON.parse(stored);
+    // const [products, setProducts] = useState(() => {
+    //   try {
+    //     const stored = localStorage.getItem('phasorProducts');
+    //     if (stored) {
+    //       const parsed = JSON.parse(stored);
           
-          // Simple validation
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Remove all quantities and dataURLs from existing files to reduce storage size
-            const cleanedProducts = parsed.map(product => {
-              const updatedProduct = {...product};
-              if (updatedProduct.filesByStage) {
-                Object.keys(updatedProduct.filesByStage).forEach(stage => {
-                  if (Array.isArray(updatedProduct.filesByStage[stage])) {
-                    updatedProduct.filesByStage[stage] = updatedProduct.filesByStage[stage].map(file => {
-                      const updatedFile = {...file};
-                      //delete updatedFile.quantity;
+    //       // Simple validation
+    //       if (Array.isArray(parsed) && parsed.length > 0) {
+    //         // Remove all quantities and dataURLs from existing files to reduce storage size
+    //         const cleanedProducts = parsed.map(product => {
+    //           const updatedProduct = {...product};
+    //           if (updatedProduct.filesByStage) {
+    //             Object.keys(updatedProduct.filesByStage).forEach(stage => {
+    //               if (Array.isArray(updatedProduct.filesByStage[stage])) {
+    //                 updatedProduct.filesByStage[stage] = updatedProduct.filesByStage[stage].map(file => {
+    //                   const updatedFile = {...file};
+    //                   //delete updatedFile.quantity;
                       
-                      // Remove dataURL to save space
-                      delete updatedFile.dataUrl;
+    //                   // Remove dataURL to save space
+    //                   delete updatedFile.dataUrl;
                       
-                      // Also clean revisions if they exist
-                      if (updatedFile.revisions && Array.isArray(updatedFile.revisions)) {
-                        updatedFile.revisions = updatedFile.revisions.map(rev => {
-                          const updatedRev = {...rev};
-                          delete updatedRev.quantity;
-                          // Remove dataURL from revisions too
-                          delete updatedRev.dataUrl;
-                          return updatedRev;
-                        });
-                      }
+    //                   // Also clean revisions if they exist
+    //                   if (updatedFile.revisions && Array.isArray(updatedFile.revisions)) {
+    //                     updatedFile.revisions = updatedFile.revisions.map(rev => {
+    //                       const updatedRev = {...rev};
+    //                       delete updatedRev.quantity;
+    //                       // Remove dataURL from revisions too
+    //                       delete updatedRev.dataUrl;
+    //                       return updatedRev;
+    //                     });
+    //                   }
                       
-                      // Clean selected_revision_obj if it exists
-                      if (updatedFile.selected_revision_obj) {
-                        const updatedRevObj = {...updatedFile.selected_revision_obj};
-                        delete updatedRevObj.quantity;
-                        // Remove dataURL from selected revision
-                        delete updatedRevObj.dataUrl;
-                        updatedFile.selected_revision_obj = updatedRevObj;
-                      }
+    //                   // Clean selected_revision_obj if it exists
+    //                   if (updatedFile.selected_revision_obj) {
+    //                     const updatedRevObj = {...updatedFile.selected_revision_obj};
+    //                     delete updatedRevObj.quantity;
+    //                     // Remove dataURL from selected revision
+    //                     delete updatedRevObj.dataUrl;
+    //                     updatedFile.selected_revision_obj = updatedRevObj;
+    //                   }
                       
-                      return updatedFile;
-                    });
-                  }
-                });
-              }
-              return updatedProduct;
-            });
-            return cleanedProducts;
-          }
-        }
-      } catch (error) {
-        console.error("Error loading from localStorage:", error);
-        localStorage.removeItem('phasorProducts'); // Clear corrupted data
-      }
+    //                   return updatedFile;
+    //                 });
+    //               }
+    //             });
+    //           }
+    //           return updatedProduct;
+    //         });
+    //         return cleanedProducts;
+    //       }
+    //     }
+    //   } catch (error) {
+    //     console.error("Error loading from localStorage:", error);
+    //     localStorage.removeItem('phasorProducts'); // Clear corrupted data
+    //   }
       
-      // default
-      return [
-        {
-          name: 'Sample Product',
-          stageIcons: [],
-          selectedStage: null,
-          filesByStage: {}
+    //   // default
+    //   return [
+    //     {
+    //       name: 'Sample Product',
+    //       stageIcons: [],
+    //       selectedStage: null,
+    //       filesByStage: {}
+    //     }
+    //   ];
+    // });
+    //const [products, setProducts] = useState([]);
+
+    //added on 13 may
+    // const [products, setProducts] = useState([]);
+    // const [isLoading, setIsLoading] = useState(true);
+    // const [selectedProductIndex, setSelectedProductIndex] = useState(0);
+    // const [toastMsg, setToastMsg] = useState('');
+    // const [selectedFileObj, setSelectedFileObj] = useState(null);
+    // const [currentFileForModal, setCurrentFileForModal] = useState(null);
+    // const [tempChangeDescription, setTempChangeDescription] = useState('');
+    // const [showChangeDescriptionModal, setShowChangeDescriptionModal] = useState(false);
+
+
+
+
+
+
+    const [products, setProducts] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    // useEffect(() => {
+    //   fetch('/api/products/')
+    //     .then(res => res.json())
+    //     .then(data => setProducts(data))
+    //     .catch(err => console.error("Failed to fetch products:", err));
+    // }, []);
+    // Load products on mount
+    useEffect(() => {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          const loadedProducts = await hybridStorage.loadProducts();
+          setProducts(loadedProducts);
+          setSelectedProductIndex(0); // Select first product by default
+        } catch (error) {
+          console.error('Failed to load products:', error);
+          // Fallback to default
+          setProducts([{
+            name: 'Sample Product',
+            stageIcons: [],
+            selectedStage: null,
+            filesByStage: {}
+          }]);
+        } finally {
+          setIsLoading(false);
         }
-      ];
-    });
-  
+      };
+      
+      loadData();
+    }, []);
+
+    //added new 9 may 2025
+    useEffect(() => {
+      if (products.length === 0 || isLoading) return;
+    
+      const timeoutId = setTimeout(() => {
+        hybridStorage.saveProducts(products)
+          .catch(err => console.error("Auto-save failed:", err));
+      }, 1000); // Debounced save
+    
+      return () => clearTimeout(timeoutId);
+    }, [products, isLoading]);
+    
+
+
     const [selectedProductIndex, setSelectedProductIndex] = useState(() => {
       const idx = localStorage.getItem('phasorSelectedProductIndex');
       return idx ? parseInt(idx, 10) : 0;
     });
   
-    useEffect(() => {
-      // Create a deep copy of products without dataURLs to save in localStorage
-      const productsForStorage = products.map(product => {
-        const productCopy = {...product};
+    // useEffect(() => {
+    //   // Create a deep copy of products without dataURLs to save in localStorage
+    //   const productsForStorage = products.map(product => {
+    //     const productCopy = {...product};
         
-        if (productCopy.filesByStage) {
-          productCopy.filesByStage = {...productCopy.filesByStage};
+    //     if (productCopy.filesByStage) {
+    //       productCopy.filesByStage = {...productCopy.filesByStage};
           
-          Object.keys(productCopy.filesByStage).forEach(stage => {
-            if (Array.isArray(productCopy.filesByStage[stage])) {
-              productCopy.filesByStage[stage] = productCopy.filesByStage[stage].map(file => {
-                const fileCopy = {...file};
+    //       Object.keys(productCopy.filesByStage).forEach(stage => {
+    //         if (Array.isArray(productCopy.filesByStage[stage])) {
+    //           productCopy.filesByStage[stage] = productCopy.filesByStage[stage].map(file => {
+    //             const fileCopy = {...file};
                 
-                // Remove dataURL to save space
-                delete fileCopy.dataUrl;
+    //             // Remove dataURL to save space
+    //             delete fileCopy.dataUrl;
                 
-                // Clean revisions if they exist
-                if (fileCopy.revisions && Array.isArray(fileCopy.revisions)) {
-                  fileCopy.revisions = fileCopy.revisions.map(rev => {
-                    const revCopy = {...rev};
-                    delete revCopy.dataUrl;
-                    return revCopy;
-                  });
-                }
+    //             // Clean revisions if they exist
+    //             if (fileCopy.revisions && Array.isArray(fileCopy.revisions)) {
+    //               fileCopy.revisions = fileCopy.revisions.map(rev => {
+    //                 const revCopy = {...rev};
+    //                 delete revCopy.dataUrl;
+    //                 return revCopy;
+    //               });
+    //             }
                 
-                // Clean selected_revision_obj if it exists
-                if (fileCopy.selected_revision_obj) {
-                  const revObjCopy = {...fileCopy.selected_revision_obj};
-                  delete revObjCopy.dataUrl;
-                  fileCopy.selected_revision_obj = revObjCopy;
-                }
+    //             // Clean selected_revision_obj if it exists
+    //             if (fileCopy.selected_revision_obj) {
+    //               const revObjCopy = {...fileCopy.selected_revision_obj};
+    //               delete revObjCopy.dataUrl;
+    //               fileCopy.selected_revision_obj = revObjCopy;
+    //             }
                 
-                return fileCopy;
-              });
-            }
-          });
-        }
+    //             return fileCopy;
+    //           });
+    //         }
+    //       });
+    //     }
         
-        return productCopy;
-      });
+    //     return productCopy;
+    //   });
       
-      try {
-        localStorage.setItem('phasorProducts', JSON.stringify(productsForStorage));
-      } catch (error) {
-        console.error("Error saving to localStorage:", error);
-        // If we still have quota issues, clear localStorage and try again with just the structure
-        if (error.name === 'QuotaExceededError' || error.code === 22) {
-          localStorage.clear();
-          try {
-            // Save just the basic structure without file details as a fallback
-            const minimalData = products.map(product => ({
-              name: product.name,
-              stageIcons: product.stageIcons,
-              selectedStage: product.selectedStage,
-              filesByStage: {} // Empty file data to ensure we don't exceed quota
-            }));
-            localStorage.setItem('phasorProducts', JSON.stringify(minimalData));
-          } catch (fallbackError) {
-            console.error("Failed to save even minimal data:", fallbackError);
-          }
-        }
-      }
-    }, [products]);
+    //   try {
+    //     localStorage.setItem('phasorProducts', JSON.stringify(productsForStorage));
+    //   } catch (error) {
+    //     console.error("Error saving to localStorage:", error);
+    //     // If we still have quota issues, clear localStorage and try again with just the structure
+    //     if (error.name === 'QuotaExceededError' || error.code === 22) {
+    //       localStorage.clear();
+    //       try {
+    //         // Save just the basic structure without file details as a fallback
+    //         const minimalData = products.map(product => ({
+    //           name: product.name,
+    //           stageIcons: product.stageIcons,
+    //           selectedStage: product.selectedStage,
+    //           filesByStage: {} // Empty file data to ensure we don't exceed quota
+    //         }));
+    //         localStorage.setItem('phasorProducts', JSON.stringify(minimalData));
+    //       } catch (fallbackError) {
+    //         console.error("Failed to save even minimal data:", fallbackError);
+    //       }
+    //     }
+    //   }
+    // }, [products]);
   
     useEffect(() => {
       localStorage.setItem('phasorSelectedProductIndex', selectedProductIndex.toString());
@@ -1034,7 +1103,7 @@ function ResizableColumn({ leftContent, rightContent }) {
   
     /* Toast + Loading */
     const [toastMsg, setToastMsg] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    
   
     /* The currently selected file => preview in the right column */
     const [selectedFileObj, setSelectedFileObj] = useState(null);
@@ -1079,24 +1148,45 @@ function ResizableColumn({ leftContent, rightContent }) {
       };
     }, [contextMenu.visible]);
     /* CREATE NEW PRODUCT */
+  // function handleCreateProduct() {
+  //   const prodName = prompt('Enter new product name:');
+  //   if (!prodName) return;
+    
+  //   // Create a complete new product with properly initialized properties
+  //   const newProd = {
+  //     name: prodName,
+  //     stageIcons: [],
+  //     selectedStage: null,
+  //     filesByStage: {}
+  //   };
+    
+  //   // Create a new array to trigger React update
+  //   const updatedProducts = [...products, newProd];
+  //   setProducts(updatedProducts);
+  //   setSelectedProductIndex(products.length); // auto-select new product
+  //   setSelectedFileObj(null);
+  // }
   function handleCreateProduct() {
     const prodName = prompt('Enter new product name:');
     if (!prodName) return;
-    
-    // Create a complete new product with properly initialized properties
+  
     const newProd = {
       name: prodName,
       stageIcons: [],
       selectedStage: null,
       filesByStage: {}
     };
-    
-    // Create a new array to trigger React update
+  
     const updatedProducts = [...products, newProd];
     setProducts(updatedProducts);
-    setSelectedProductIndex(products.length); // auto-select new product
+    setSelectedProductIndex(products.length);
     setSelectedFileObj(null);
+  
+    // Persist immediately
+    hybridStorage.saveProducts(updatedProducts)
+      .catch(err => console.error("Error saving product after creation:", err));
   }
+  
 
   /* SWITCH PRODUCT */
   function handleSelectProduct(e) {
@@ -1882,7 +1972,7 @@ function handleRemoveOption() {
         formData.append('parent_revision', parentFileForChild.current_revision || 1);
         
         const response = await axios.post(
-          'http://127.0.0.1:8000/api/files/child/',
+          `${API_BASE_URL}/api/files/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
@@ -2100,7 +2190,7 @@ function handleRemoveOption() {
         formData.append('uploaded_file', file);
         
         const response = await axios.post(
-          'http://127.0.0.1:8000/api/files/',
+          `${API_BASE_URL}/api/files/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
@@ -2334,12 +2424,17 @@ function handleRemoveOption() {
           formData.append('parent_revision', currentFileForModal.parentRevision);
         }
         
+        // const response = await axios.post(
+        //   'http://127.0.0.1:8000/api/files/revision/',
+        //   formData,
+        //   { headers: { 'Content-Type': 'multipart/form-data' } }
+        // );
         const response = await axios.post(
-          'http://127.0.0.1:8000/api/files/revision/',
+          `${API_BASE_URL}/api/files/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
-        
+
         if (response.status === 201) {
           console.log('Revision uploaded to server successfully');
         }
@@ -2582,7 +2677,7 @@ function handleRemoveOption() {
     
     // If dataUrl is not available (because we don't store it in localStorage),
     // construct a URL to fetch from the server based on the file name
-    const serverUrl = `http://127.0.0.1:8000/media/${encodeURIComponent(fileObj.name)}`;
+    const serverUrl = `${API_BASE_URL}/media/${encodeURIComponent(fileObj.name)}`;
     const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl || serverUrl;
     
     const fileToDisplay = selectedRevision;
@@ -2646,7 +2741,7 @@ function handleRemoveOption() {
     );
   
     const nameLower = fileObj.name.toLowerCase();
-    const fileUrl = dataUrl || `http://127.0.0.1:8000/media/${encodeURIComponent(fileObj.name)}`;
+    const fileUrl = dataUrl || `${API_BASE_URL}/media/${encodeURIComponent(fileObj.name)}`;
   
     // Images
     if (
