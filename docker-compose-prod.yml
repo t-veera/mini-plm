@@ -10,7 +10,7 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=False
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.16
+      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.16
       - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
     depends_on:
       - db
@@ -18,7 +18,7 @@ services:
     command: >
       bash -c "mkdir -p /app/mpp_files/uploads &&
                chmod -R 755 /app/mpp_files &&
-               chown -R nginx:nginx /app/mpp_files || true &&
+               chown -R $(whoami):$(whoami) /app/mpp_files &&
                gunicorn --bind 0.0.0.0:8000 mpp_backend.wsgi:application"
 
   frontend:

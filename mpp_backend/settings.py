@@ -1,12 +1,14 @@
 import os
+import sys
 from pathlib import Path
 import dj_database_url  # Make sure this is installed in your backend image
 
 # -- Core Config --
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+^=x8m(8zf^@ro0k)ib)w%+l=_6e5$px0zv0uj9qh2f4h9^g5u'
-DEBUG = True
-ALLOWED_HOSTS = ['*']  # Allow from all for dev/testing
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')  # read DEBUG from env
+
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 # -- Application definition --
 INSTALLED_APPS = [
@@ -53,9 +55,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'mpp_backend.wsgi.application'
 
 # -- Database: Pull from DATABASE_URL (Docker uses Postgres) --
-DATABASES = {
-    'default': dj_database_url.config(conn_max_age=600)
-}
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if not DATABASE_URL:
+    print("WARNING: DATABASE_URL environment variable not set, using SQLite fallback", file=sys.stderr)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    }
+    print(f"Using DATABASE_URL: {DATABASE_URL}", file=sys.stderr)
+    print(f"Database config: {DATABASES['default']}", file=sys.stderr)
 
 # -- Static & Media --
 STATIC_URL = '/static/'
