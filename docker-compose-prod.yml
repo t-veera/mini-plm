@@ -1,8 +1,11 @@
-version: '3.8'
+version: "3.8"
 
 services:
   backend:
-    image: ghcr.io/t-veera/mini-plm-backend:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/prod/Dockerfile.backend
     volumes:
       - ./mpp_files:/app/mpp_files
       - static_volume:/app/staticfiles
@@ -13,16 +16,15 @@ services:
       - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.16
       - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
-    command: >
-      bash -c "mkdir -p /app/mpp_files/uploads &&
-               chmod -R 755 /app/mpp_files &&
-               chown -R $(whoami):$(whoami) /app/mpp_files &&
-               gunicorn --bind 0.0.0.0:8000 mpp_backend.wsgi:application"
+    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "mpp_backend.wsgi:application"]
 
   frontend:
-    image: nginx:alpine  # serving static files with Nginx
+    platform: linux/amd64
+    image: nginx:alpine
     volumes:
       - ./mpp_frontend/build:/usr/share/nginx/html:ro
     restart: unless-stopped
@@ -51,6 +53,11 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=mini_plm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:

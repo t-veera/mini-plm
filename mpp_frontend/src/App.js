@@ -60,7 +60,7 @@ import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/
 import ReactMarkdown from 'react-markdown';
 
 // API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 // After your imports, add this complete styles object
 const styles = {
@@ -1846,155 +1846,317 @@ function handleRemoveOption() {
     }, 0);
   }
   /* Handle child file upload */
+  // async function handleChildFileChange(e) {
+  //   const file = e.target.files[0];
+  //   if (!file || !parentFileForChild) {
+  //     // Clear the input field to make sure it works next time
+  //     e.target.value = '';
+  //     return;
+  //   }
+
+  //   const prod = products[selectedProductIndex];
+  //   if (!prod.selectedStage) {
+  //     setToastMsg('No stage selected yet.');
+  //     e.target.value = '';
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+  //   setToastMsg('');
+
+  //   try {
+  //     // Create a dataURL for preview
+  //     const dataUrl = await new Promise((resolve, reject) => {
+  //       const reader = new FileReader();
+  //       reader.onload = () => resolve(reader.result);
+  //       reader.onerror = reject;
+  //       reader.readAsDataURL(file);
+  //     });
+
+  //     // Create proper deep copies to ensure state updates correctly
+  //     const updatedProducts = [...products];
+  //     const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  //     updatedProducts[selectedProductIndex] = updatedProduct;
+      
+  //     const stage = updatedProduct.selectedStage;
+      
+  //     // Ensure filesByStage exists and create a new object reference
+  //     updatedProduct.filesByStage = {...updatedProduct.filesByStage};
+      
+  //     // Ensure the stage array exists and create a new array reference
+  //     if (!updatedProduct.filesByStage[stage]) {
+  //       updatedProduct.filesByStage[stage] = [];
+  //     } else {
+  //       updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
+  //     }
+
+  //     // Find the parent file
+  //     const parentFileIndex = updatedProduct.filesByStage[stage].findIndex(
+  //       f => f.id === parentFileForChild.id
+  //     );
+
+  //     if (parentFileIndex === -1) {
+  //       setToastMsg('Parent file not found');
+  //       setIsLoading(false);
+  //       e.target.value = '';
+  //       return;
+  //     }
+
+  //     // Create the child file object
+  //     const childFileObj = {
+  //       id: Date.now(), // Add unique ID for React keys
+  //       name: file.name,
+  //       upload_date: new Date().toISOString(),
+  //       size: file.size,
+  //       type: file.type,
+  //       dataUrl: dataUrl, // Store the data URL for preview
+  //       parentId: parentFileForChild.id, // Link to parent
+  //       parentRevision: parentFileForChild.current_revision || 1, // Store which revision of parent this belongs to
+  //       isChildFile: true,
+  //       status: 'In-Work', // Default status
+  //       price: '', // Empty price by default
+  //       current_revision: 1, // Initialize current revision
+  //       changeDescription: '', // Initialize change description
+  //       revisions: [] // Initialize revisions array
+  //     };
+      
+  //     // Initialize the revisions array with the first revision
+  //     childFileObj.revisions = [{
+  //       ...childFileObj,
+  //       rev_number: 1
+  //     }];
+      
+  //     // Set selected_revision_obj to first revision
+  //     childFileObj.selected_revision_obj = childFileObj.revisions[0];
+      
+  //     // Add child file to the stage
+  //     updatedProduct.filesByStage[stage].push(childFileObj);
+
+  //     // Update parent file to track this child
+  //     const updatedParentFile = {...updatedProduct.filesByStage[stage][parentFileIndex]};
+      
+  //     // Ensure childFiles array exists
+  //     if (!updatedParentFile.childFiles) {
+  //       updatedParentFile.childFiles = [];
+  //     } else {
+  //       updatedParentFile.childFiles = [...updatedParentFile.childFiles];
+  //     }
+      
+  //     // Add child file reference to parent
+  //     updatedParentFile.childFiles.push(childFileObj.id);
+      
+  //     // Update parent file in the stage
+  //     updatedProduct.filesByStage[stage][parentFileIndex] = updatedParentFile;
+
+  //     // Update state with completely new references
+  //     setProducts(updatedProducts);
+      
+  //     // Select this file for preview
+  //     setSelectedFileObj(childFileObj);
+      
+  //     // Show change description modal for the child file
+  //     setTimeout(() => {
+  //       setCurrentFileForModal(childFileObj);
+  //       setTempChangeDescription('');
+  //       setShowChangeDescriptionModal(true);
+  //       console.log("Opening change description modal for new child file");
+  //     }, 100);
+      
+  //     setToastMsg(`Child file "${file.name}" added to "${parentFileForChild.name}"`);
+      
+  //     // If API is available, also upload to server
+  //     try {
+  //       const formData = new FormData();
+  //       formData.append('uploaded_file', file);
+  //       formData.append('parent_id', parentFileForChild.id);
+  //       formData.append('parent_revision', parentFileForChild.current_revision || 1);
+        
+  //       const response = await axios.post(
+  //        
+  //         formData,
+  //         { headers: { 'Content-Type': 'multipart/form-data' } }
+  //       );
+        
+  //       if (response.status === 201) {
+  //         console.log('Child file uploaded to server successfully');
+  //       }
+  //     } catch (apiError) {
+  //       console.warn('API upload failed, but file preview will still work:', apiError);
+  //       // We continue anyway since we have the dataURL for preview
+  //     }
+  //   } catch (err) {
+  //     console.error('Error uploading child file:', err);
+  //     setToastMsg('Error uploading child file.');
+  //   } finally {
+  //     setIsLoading(false);
+  //     // Reset the file input and parent file
+  //     e.target.value = '';
+  //     setParentFileForChild(null);
+  //   }
+  // }
   async function handleChildFileChange(e) {
     const file = e.target.files[0];
     if (!file || !parentFileForChild) {
-      // Clear the input field to make sure it works next time
       e.target.value = '';
       return;
     }
-
+  
     const prod = products[selectedProductIndex];
     if (!prod.selectedStage) {
       setToastMsg('No stage selected yet.');
       e.target.value = '';
       return;
     }
-
+  
     setIsLoading(true);
     setToastMsg('');
-
+  
     try {
-      // Create a dataURL for preview
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-
-      // Create proper deep copies to ensure state updates correctly
+  
       const updatedProducts = [...products];
-      const updatedProduct = {...updatedProducts[selectedProductIndex]};
+      const updatedProduct = { ...updatedProducts[selectedProductIndex] };
       updatedProducts[selectedProductIndex] = updatedProduct;
-      
+  
       const stage = updatedProduct.selectedStage;
-      
-      // Ensure filesByStage exists and create a new object reference
-      updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-      
-      // Ensure the stage array exists and create a new array reference
+      updatedProduct.filesByStage = { ...updatedProduct.filesByStage };
+  
       if (!updatedProduct.filesByStage[stage]) {
         updatedProduct.filesByStage[stage] = [];
       } else {
         updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
       }
-
-      // Find the parent file
+  
       const parentFileIndex = updatedProduct.filesByStage[stage].findIndex(
         f => f.id === parentFileForChild.id
       );
-
+  
       if (parentFileIndex === -1) {
         setToastMsg('Parent file not found');
         setIsLoading(false);
         e.target.value = '';
         return;
       }
-
-      // Create the child file object
+  
+      // Create placeholder child file object
       const childFileObj = {
-        id: Date.now(), // Add unique ID for React keys
+        id: Date.now(),
         name: file.name,
         upload_date: new Date().toISOString(),
         size: file.size,
         type: file.type,
-        dataUrl: dataUrl, // Store the data URL for preview
-        parentId: parentFileForChild.id, // Link to parent
-        parentRevision: parentFileForChild.current_revision || 1, // Store which revision of parent this belongs to
+        dataUrl,
+        parentId: parentFileForChild.id,
+        parentRevision: parentFileForChild.current_revision || 1,
         isChildFile: true,
-        status: 'In-Work', // Default status
-        price: '', // Empty price by default
-        current_revision: 1, // Initialize current revision
-        changeDescription: '', // Initialize change description
-        revisions: [] // Initialize revisions array
+        status: 'In-Work',
+        price: '',
+        current_revision: 1,
+        changeDescription: '',
+        revisions: [],
       };
-      
-      // Initialize the revisions array with the first revision
+  
       childFileObj.revisions = [{
         ...childFileObj,
-        rev_number: 1
+        rev_number: 1,
       }];
-      
-      // Set selected_revision_obj to first revision
+  
       childFileObj.selected_revision_obj = childFileObj.revisions[0];
-      
-      // Add child file to the stage
+  
+      // Push placeholder into list
       updatedProduct.filesByStage[stage].push(childFileObj);
-
-      // Update parent file to track this child
-      const updatedParentFile = {...updatedProduct.filesByStage[stage][parentFileIndex]};
-      
-      // Ensure childFiles array exists
+  
+      // Update parent file
+      const updatedParentFile = { ...updatedProduct.filesByStage[stage][parentFileIndex] };
       if (!updatedParentFile.childFiles) {
         updatedParentFile.childFiles = [];
       } else {
         updatedParentFile.childFiles = [...updatedParentFile.childFiles];
       }
-      
-      // Add child file reference to parent
       updatedParentFile.childFiles.push(childFileObj.id);
-      
-      // Update parent file in the stage
       updatedProduct.filesByStage[stage][parentFileIndex] = updatedParentFile;
-
-      // Update state with completely new references
+  
       setProducts(updatedProducts);
-      
-      // Select this file for preview
       setSelectedFileObj(childFileObj);
-      
-      // Show change description modal for the child file
+  
       setTimeout(() => {
         setCurrentFileForModal(childFileObj);
         setTempChangeDescription('');
         setShowChangeDescriptionModal(true);
-        console.log("Opening change description modal for new child file");
+        console.log('Opening change description modal for new child file');
       }, 100);
-      
+  
       setToastMsg(`Child file "${file.name}" added to "${parentFileForChild.name}"`);
-      
-      // If API is available, also upload to server
+  
+      // Upload to server
       try {
         const formData = new FormData();
         formData.append('uploaded_file', file);
+        formData.append('original_name', file.name);
+        formData.append('is_child_file', 'true');
         formData.append('parent_id', parentFileForChild.id);
+        formData.append('stage_id', prod.selectedStage.id || prod.selectedStage);
         formData.append('parent_revision', parentFileForChild.current_revision || 1);
-        
+  
         const response = await axios.post(
           `${API_BASE_URL}/api/files/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
-        
+  
         if (response.status === 201) {
-          console.log('Child file uploaded to server successfully');
+          const savedFile = response.data;
+  
+          // Update the child file object with backend values
+          const updatedChildFile = {
+            ...childFileObj,
+            id: savedFile.id,
+            current_revision: savedFile.current_revision || 1,
+            upload_date: savedFile.upload_date,
+            revisions: [{
+              ...childFileObj,
+              id: savedFile.id,
+              rev_number: savedFile.current_revision || 1,
+            }],
+          };
+          updatedChildFile.selected_revision_obj = updatedChildFile.revisions[0];
+  
+          // Replace placeholder child file with real one
+          const childIndex = updatedProduct.filesByStage[stage].findIndex(f => f.id === childFileObj.id);
+          if (childIndex !== -1) {
+            updatedProduct.filesByStage[stage][childIndex] = updatedChildFile;
+          }
+  
+          // Update parent to replace placeholder child ID with backend ID
+          const finalParent = { ...updatedProduct.filesByStage[stage][parentFileIndex] };
+          finalParent.childFiles = finalParent.childFiles.map(cid =>
+            cid === childFileObj.id ? savedFile.id : cid
+          );
+          updatedProduct.filesByStage[stage][parentFileIndex] = finalParent;
+  
+          // Final state update
+          updatedProducts[selectedProductIndex] = updatedProduct;
+          setProducts(updatedProducts);
+          setSelectedFileObj(updatedChildFile);
         }
       } catch (apiError) {
         console.warn('API upload failed, but file preview will still work:', apiError);
-        // We continue anyway since we have the dataURL for preview
       }
     } catch (err) {
       console.error('Error uploading child file:', err);
       setToastMsg('Error uploading child file.');
     } finally {
       setIsLoading(false);
-      // Reset the file input and parent file
       e.target.value = '';
       setParentFileForChild(null);
     }
   }
-
+  
   /* Handle child file revision change */
   function handleChildRevisionChange(childFileObj, revisionNumber) {
     // Find the revision object
@@ -2032,23 +2194,202 @@ function handleRemoveOption() {
     }
   }
   /* FILE SELECT (UPLOAD) - Fixed version that properly handles all file types */
+  // async function handleFileChange(e) {
+  //   const file = e.target.files[0];
+  //   if (!file) {
+  //     e.target.value = '';
+  //     return;
+  //   }
+
+  //   const prod = products[selectedProductIndex];
+  //   if (!prod.selectedStage) {
+  //     setToastMsg('No stage selected yet.');
+  //     e.target.value = '';
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+  //   setToastMsg('');
+
+  //   try {
+  //     // Create a dataURL for preview
+  //     const dataUrl = await new Promise((resolve, reject) => {
+  //       const reader = new FileReader();
+  //       reader.onload = () => resolve(reader.result);
+  //       reader.onerror = (error) => {
+  //         console.error("FileReader error:", error);
+  //         reject(error);
+  //       };
+  //       reader.readAsDataURL(file);
+  //     });
+
+  //     // Create proper deep copies to ensure state updates correctly
+  //     const updatedProducts = [...products];
+  //     const updatedProduct = {...updatedProducts[selectedProductIndex]};
+  //     updatedProducts[selectedProductIndex] = updatedProduct;
+      
+  //     const stage = updatedProduct.selectedStage;
+      
+  //     // Ensure filesByStage exists and create a new object reference
+  //     updatedProduct.filesByStage = {...updatedProduct.filesByStage};
+      
+  //     // Ensure the stage array exists and create a new array reference
+  //     if (!updatedProduct.filesByStage[stage]) {
+  //       updatedProduct.filesByStage[stage] = [];
+  //     } else {
+  //       updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
+  //     }
+
+  //     // Check if a file with the same name already exists
+  //     const existingFileIndex = updatedProduct.filesByStage[stage].findIndex(
+  //       f => f.name === file.name && !f.isChildFile
+  //     );
+
+  //     // Create the new file object
+  //     const newFileObj = {
+  //       id: Date.now(), // Add unique ID for React keys
+  //       name: file.name,
+  //       upload_date: new Date().toISOString(),
+  //       size: file.size,
+  //       type: file.type,
+  //       dataUrl: dataUrl, // Store the data URL for preview
+  //       childFiles: [], // Initialize empty array to track child files
+  //       status: 'In-Work', // Default status
+  //       price: '', // Empty price by default
+  //       quantity: 1, 
+  //       current_revision: 1 // Initialize with revision 1
+  //     };
+
+  //     let fileToSelect; // This will be the file we select for preview
+
+  //     if (existingFileIndex !== -1) {
+  //       // A file with the same name exists - handle as a revision
+  //       const existingFile = {...updatedProduct.filesByStage[stage][existingFileIndex]};
+        
+  //       // Initialize revisions array if it doesn't exist
+  //       if (!existingFile.revisions) {
+  //         existingFile.revisions = [];
+  //         // First revision is the current file
+  //         existingFile.revisions.push({
+  //           id: existingFile.id,
+  //           name: existingFile.name,
+  //           upload_date: existingFile.upload_date,
+  //           size: existingFile.size,
+  //           type: existingFile.type,
+  //           dataUrl: existingFile.dataUrl,
+  //           rev_number: 1,
+  //           childFiles: existingFile.childFiles || [], // Store child files in revision
+  //           status: existingFile.status || 'In-Work',
+  //           price: existingFile.price || ''
+  //         });
+  //       }
+        
+  //       // Add new revision
+  //       const newRevision = {
+  //         ...newFileObj,
+  //         rev_number: existingFile.revisions.length + 1,
+  //         childFiles: [], // Initialize empty child files array for new revision
+  //         status: 'In-Work', // Reset status for new revision
+  //         price: existingFile.price || '' // Inherit price
+  //       };
+        
+  //       existingFile.revisions.push(newRevision);
+        
+  //       // Update current file to new revision (always show latest revision)
+  //       existingFile.dataUrl = newFileObj.dataUrl;
+  //       existingFile.upload_date = newFileObj.upload_date;
+  //       existingFile.size = newFileObj.size;
+  //       existingFile.current_revision = newRevision.rev_number; // Set to latest revision number
+  //       existingFile.childFiles = newRevision.childFiles; // Reset child files for the new revision
+  //       existingFile.status = 'In-Work'; // Reset status for new revision
+        
+  //       // Important: Set the selected_revision_obj to the new revision
+  //       existingFile.selected_revision_obj = newRevision;
+        
+  //       // Replace file in array
+  //       updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
+        
+  //       fileToSelect = existingFile;
+        
+  //       setToastMsg(`New revision (Rev ${newRevision.rev_number}) created!`);
+  //     } else {
+  //       // New file - add to list
+  //       newFileObj.current_revision = 1;
+        
+  //       // Initialize revisions array with the first revision
+  //       newFileObj.revisions = [{
+  //         ...newFileObj,
+  //         rev_number: 1
+  //       }];
+        
+  //       // Set selected_revision_obj to first revision
+  //       newFileObj.selected_revision_obj = newFileObj.revisions[0];
+        
+  //       updatedProduct.filesByStage[stage].push(newFileObj);
+        
+  //       fileToSelect = newFileObj;
+        
+  //       setToastMsg('File uploaded successfully!');
+  //     }
+      
+  //     // Update state with completely new references
+  //     setProducts(updatedProducts);
+      
+  //     // Select this file for preview after state update
+  //     setSelectedFileObj(fileToSelect);
+      
+  //     // Show change description modal with a slight delay to ensure state updates
+  //     setTimeout(() => {
+  //       setCurrentFileForModal(fileToSelect);
+  //       setTempChangeDescription('');
+  //       setShowChangeDescriptionModal(true);
+  //       console.log("Opening change description modal for new file upload");
+  //     }, 100);
+      
+  //     // If API is available, also upload to server
+  //     try {
+  //       const formData = new FormData();
+  //       formData.append('uploaded_file', file);
+        
+  //       const response = await axios.post(
+  //         
+  //         formData,
+  //         { headers: { 'Content-Type': 'multipart/form-data' } }
+  //       );
+        
+  //       if (response.status === 201) {
+  //         console.log('File uploaded to server successfully');
+  //       }
+  //     } catch (apiError) {
+  //       console.warn('API upload failed, but file preview will still work:', apiError);
+  //       // We continue anyway since we have the dataURL for preview
+  //     }
+  //   } catch (err) {
+  //     console.error('Error uploading file:', err);
+  //     setToastMsg('Error uploading file: ' + (err.message || 'Unknown error'));
+  //   } finally {
+  //     setIsLoading(false);
+  //     // Reset the file input
+  //     e.target.value = '';
+  //   }
+  // }
   async function handleFileChange(e) {
     const file = e.target.files[0];
     if (!file) {
       e.target.value = '';
       return;
     }
-
+  
     const prod = products[selectedProductIndex];
     if (!prod.selectedStage) {
       setToastMsg('No stage selected yet.');
       e.target.value = '';
       return;
     }
-
+  
     setIsLoading(true);
     setToastMsg('');
-
+  
     try {
       // Create a dataURL for preview
       const dataUrl = await new Promise((resolve, reject) => {
@@ -2060,55 +2401,48 @@ function handleRemoveOption() {
         };
         reader.readAsDataURL(file);
       });
-
-      // Create proper deep copies to ensure state updates correctly
+  
+      // Deep copies for immutability
       const updatedProducts = [...products];
-      const updatedProduct = {...updatedProducts[selectedProductIndex]};
+      const updatedProduct = { ...updatedProducts[selectedProductIndex] };
       updatedProducts[selectedProductIndex] = updatedProduct;
-      
+  
       const stage = updatedProduct.selectedStage;
-      
-      // Ensure filesByStage exists and create a new object reference
-      updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-      
-      // Ensure the stage array exists and create a new array reference
+  
+      updatedProduct.filesByStage = { ...updatedProduct.filesByStage };
+  
       if (!updatedProduct.filesByStage[stage]) {
         updatedProduct.filesByStage[stage] = [];
       } else {
         updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
       }
-
-      // Check if a file with the same name already exists
+  
       const existingFileIndex = updatedProduct.filesByStage[stage].findIndex(
         f => f.name === file.name && !f.isChildFile
       );
-
-      // Create the new file object
+  
       const newFileObj = {
-        id: Date.now(), // Add unique ID for React keys
+        id: Date.now(),
         name: file.name,
         upload_date: new Date().toISOString(),
         size: file.size,
         type: file.type,
-        dataUrl: dataUrl, // Store the data URL for preview
-        childFiles: [], // Initialize empty array to track child files
-        status: 'In-Work', // Default status
-        price: '', // Empty price by default
-        quantity: 1, 
-        current_revision: 1 // Initialize with revision 1
+        dataUrl,
+        childFiles: [],
+        status: 'In-Work',
+        price: '',
+        quantity: 1,
+        current_revision: 1
       };
-
-      let fileToSelect; // This will be the file we select for preview
-
+  
+      let fileToSelect;
+  
       if (existingFileIndex !== -1) {
-        // A file with the same name exists - handle as a revision
-        const existingFile = {...updatedProduct.filesByStage[stage][existingFileIndex]};
-        
-        // Initialize revisions array if it doesn't exist
+        // Revision of existing file
+        const existingFile = { ...updatedProduct.filesByStage[stage][existingFileIndex] };
+  
         if (!existingFile.revisions) {
-          existingFile.revisions = [];
-          // First revision is the current file
-          existingFile.revisions.push({
+          existingFile.revisions = [{
             id: existingFile.id,
             name: existingFile.name,
             upload_date: existingFile.upload_date,
@@ -2116,103 +2450,146 @@ function handleRemoveOption() {
             type: existingFile.type,
             dataUrl: existingFile.dataUrl,
             rev_number: 1,
-            childFiles: existingFile.childFiles || [], // Store child files in revision
+            childFiles: existingFile.childFiles || [],
             status: existingFile.status || 'In-Work',
             price: existingFile.price || ''
-          });
+          }];
         }
-        
-        // Add new revision
+  
         const newRevision = {
           ...newFileObj,
           rev_number: existingFile.revisions.length + 1,
-          childFiles: [], // Initialize empty child files array for new revision
-          status: 'In-Work', // Reset status for new revision
-          price: existingFile.price || '' // Inherit price
+          childFiles: [],
+          status: 'In-Work',
+          price: existingFile.price || ''
         };
-        
+  
         existingFile.revisions.push(newRevision);
-        
-        // Update current file to new revision (always show latest revision)
+  
         existingFile.dataUrl = newFileObj.dataUrl;
         existingFile.upload_date = newFileObj.upload_date;
         existingFile.size = newFileObj.size;
-        existingFile.current_revision = newRevision.rev_number; // Set to latest revision number
-        existingFile.childFiles = newRevision.childFiles; // Reset child files for the new revision
-        existingFile.status = 'In-Work'; // Reset status for new revision
-        
-        // Important: Set the selected_revision_obj to the new revision
+        existingFile.current_revision = newRevision.rev_number;
+        existingFile.childFiles = newRevision.childFiles;
+        existingFile.status = 'In-Work';
         existingFile.selected_revision_obj = newRevision;
-        
-        // Replace file in array
+  
         updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
-        
         fileToSelect = existingFile;
-        
+  
         setToastMsg(`New revision (Rev ${newRevision.rev_number}) created!`);
       } else {
-        // New file - add to list
+        // New file
         newFileObj.current_revision = 1;
-        
-        // Initialize revisions array with the first revision
         newFileObj.revisions = [{
           ...newFileObj,
           rev_number: 1
         }];
-        
-        // Set selected_revision_obj to first revision
         newFileObj.selected_revision_obj = newFileObj.revisions[0];
-        
+  
         updatedProduct.filesByStage[stage].push(newFileObj);
-        
         fileToSelect = newFileObj;
-        
+  
         setToastMsg('File uploaded successfully!');
       }
-      
-      // Update state with completely new references
+  
       setProducts(updatedProducts);
-      
-      // Select this file for preview after state update
       setSelectedFileObj(fileToSelect);
-      
-      // Show change description modal with a slight delay to ensure state updates
+  
       setTimeout(() => {
         setCurrentFileForModal(fileToSelect);
         setTempChangeDescription('');
         setShowChangeDescriptionModal(true);
         console.log("Opening change description modal for new file upload");
       }, 100);
-      
-      // If API is available, also upload to server
+  
+      // Upload to server - Django handles file name matching and revisions automatically
       try {
         const formData = new FormData();
         formData.append('uploaded_file', file);
-        
+        formData.append('original_name', file.name);
+        formData.append('is_child_file', 'false'); // Explicitly mark as parent file
+        formData.append('stage_id', prod.selectedStage.id || prod.selectedStage);
+        formData.append('change_description', ''); // Will be updated when user provides description
+        formData.append('status', 'In-Work');
+
         const response = await axios.post(
           `${API_BASE_URL}/api/files/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
-        
+  
         if (response.status === 201) {
-          console.log('File uploaded to server successfully');
+          const savedFile = response.data;
+          
+          // Django response structure:
+          // {
+          //   "id": file_id,
+          //   "name": file_name,
+          //   "revision": revision_number,
+          //   "upload_date": upload_date.isoformat(),
+          //   "file_path": file_path,
+          //   "is_child_file": boolean,
+          //   "parent_id": parent_id,
+          //   "parent_revision": parent_revision,
+          //   "status": status,
+          //   "price": price
+          // }
+  
+          // Update local file object with backend data
+          const updatedFileFromServer = {
+            ...fileToSelect,
+            serverFileId: savedFile.id, // Store server file ID separately
+            current_revision: savedFile.revision,
+            upload_date: savedFile.upload_date,
+            file_path: savedFile.file_path,
+            name: savedFile.name,
+            status: savedFile.status,
+            price: savedFile.price || fileToSelect.price
+          };
+
+          // Update the latest revision with server data
+          if (updatedFileFromServer.revisions && updatedFileFromServer.revisions.length > 0) {
+            const latestRevision = updatedFileFromServer.revisions[updatedFileFromServer.revisions.length - 1];
+            latestRevision.upload_date = savedFile.upload_date;
+            latestRevision.file_path = savedFile.file_path;
+            latestRevision.serverRevisionNumber = savedFile.revision;
+            latestRevision.status = savedFile.status;
+            latestRevision.price = savedFile.price;
+          }
+  
+          // Replace the placeholder with the updated object
+          if (existingFileIndex !== -1) {
+            updatedProduct.filesByStage[stage][existingFileIndex] = updatedFileFromServer;
+          } else {
+            const newIndex = updatedProduct.filesByStage[stage].findIndex(f => f.id === fileToSelect.id);
+            if (newIndex !== -1) {
+              updatedProduct.filesByStage[stage][newIndex] = updatedFileFromServer;
+            }
+          }
+  
+          updatedProducts[selectedProductIndex] = updatedProduct;
+          setProducts(updatedProducts);
+          setSelectedFileObj(updatedFileFromServer);
+  
+          console.log('File uploaded to server successfully and local state synced');
         }
       } catch (apiError) {
         console.warn('API upload failed, but file preview will still work:', apiError);
-        // We continue anyway since we have the dataURL for preview
       }
+  
     } catch (err) {
       console.error('Error uploading file:', err);
       setToastMsg('Error uploading file: ' + (err.message || 'Unknown error'));
     } finally {
       setIsLoading(false);
-      // Reset the file input
-      e.target.value = '';
+      e.target.value = '';x
     }
-  }
+}
+
+
   /* Handle context menu upload - Fixed version for uploading revisions */
-  async function handleContextMenuFileChange(e) {
+   async function handleContextMenuFileChange(e) {
     const file = e.target.files[0];
     if (!file || !currentFileForModal) {
       e.target.value = '';
@@ -2273,6 +2650,21 @@ function handleRemoveOption() {
       // Get the existing file
       const existingFile = {...updatedProduct.filesByStage[stage][existingFileIndex]};
       
+      // Create new file object with updated data
+      const newFileObj = {
+        id: Date.now(),
+        name: existingFile.name, // Keep original name
+        upload_date: new Date().toISOString(),
+        size: file.size,
+        type: file.type,
+        dataUrl: dataUrl,
+        status: 'In-Work', // Reset status for new revision
+        price: existingFile.price || '', // Inherit price
+        quantity: existingFile.quantity || 1
+      };
+
+      let fileToSelect;
+
       // Check if it's a child file or parent file
       if (existingFile.isChildFile) {
         // Handle child file revision
@@ -2299,15 +2691,8 @@ function handleRemoveOption() {
         
         // Create new revision object
         const newRevision = {
-          id: Date.now(),
-          name: existingFile.name,
-          upload_date: new Date().toISOString(),
-          size: file.size,
-          type: file.type,
-          dataUrl: dataUrl,
+          ...newFileObj,
           rev_number: existingFile.revisions.length + 1,
-          status: 'In-Work', // Reset status for new revision
-          price: existingFile.price || '', // Inherit price
           parentId: existingFile.parentId,
           parentRevision: existingFile.parentRevision,
           isChildFile: true,
@@ -2317,27 +2702,15 @@ function handleRemoveOption() {
         // Add to revisions array
         existingFile.revisions.push(newRevision);
         
-        // Update current file
-        existingFile.dataUrl = dataUrl;
-        existingFile.upload_date = new Date().toISOString();
-        existingFile.size = file.size;
+        // Update current file properties
+        existingFile.dataUrl = newFileObj.dataUrl;
+        existingFile.upload_date = newFileObj.upload_date;
+        existingFile.size = newFileObj.size;
         existingFile.current_revision = newRevision.rev_number;
-        existingFile.selected_revision_obj = newRevision;
         existingFile.status = 'In-Work'; // Reset status for new revision
+        existingFile.selected_revision_obj = newRevision;
         
-        // Update file in stage
-        updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
-        
-        // Select updated file for preview
-        setSelectedFileObj(existingFile);
-        
-        // Show change description modal with a slight delay to ensure state updates
-        setTimeout(() => {
-          setCurrentFileForModal(existingFile);
-          setTempChangeDescription('');
-          setShowChangeDescriptionModal(true);
-          console.log("Opening change description modal for child file revision");
-        }, 100);
+        fileToSelect = existingFile;
         
         setToastMsg(`New revision (Rev ${newRevision.rev_number}) created for child file ${existingFile.name}!`);
       } else {
@@ -2361,23 +2734,11 @@ function handleRemoveOption() {
           });
         }
         
-        // Create new file object but use the original filename
-        const newFileObj = {
-          id: Date.now(),
-          name: existingFile.name, // Keep original name
-          upload_date: new Date().toISOString(),
-          size: file.size,
-          type: file.type,
-          dataUrl: dataUrl,
-          childFiles: [], // New empty child files array for new revision
-          status: 'In-Work', // Reset status for new revision
-          price: existingFile.price || '' // Inherit price
-        };
-        
-        // Add new revision
+        // Create new revision
         const newRevision = {
           ...newFileObj,
-          rev_number: existingFile.revisions.length + 1
+          rev_number: existingFile.revisions.length + 1,
+          childFiles: [], // New empty child files array for new revision
         };
         
         existingFile.revisions.push(newRevision);
@@ -2386,49 +2747,53 @@ function handleRemoveOption() {
         existingFile.dataUrl = newFileObj.dataUrl;
         existingFile.upload_date = newFileObj.upload_date;
         existingFile.size = newFileObj.size;
-        existingFile.current_revision = newRevision.rev_number; // Set to latest revision number
+        existingFile.current_revision = newRevision.rev_number;
         existingFile.childFiles = []; // Reset child files for the new revision
         existingFile.status = 'In-Work'; // Reset status for new revision
-        
-        // Important: Set the selected_revision_obj to the new revision
         existingFile.selected_revision_obj = newRevision;
         
-        // Replace file in array
-        updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
-        
-        // Select this file for preview
-        setSelectedFileObj(existingFile);
-        
-        // Show change description modal with a slight delay to ensure state updates
-        setTimeout(() => {
-          setCurrentFileForModal(existingFile);
-          setTempChangeDescription('');
-          setShowChangeDescriptionModal(true);
-          console.log("Opening change description modal for parent file revision");
-        }, 100);
+        fileToSelect = existingFile;
         
         setToastMsg(`New revision (Rev ${newRevision.rev_number}) created for ${existingFile.name}!`);
       }
       
+      // Update file in stage
+      updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
+      
       // Update state with completely new references
       setProducts(updatedProducts);
       
-      // If API is available, also upload to server
+      // Select updated file for preview
+      setSelectedFileObj(fileToSelect);
+      
+      // Show change description modal with a slight delay to ensure state updates
+      setTimeout(() => {
+        setCurrentFileForModal(fileToSelect);
+        setTempChangeDescription('');
+        setShowChangeDescriptionModal(true);
+        console.log("Opening change description modal for file revision");
+      }, 100);
+      
+      // Upload to server - this will create a new revision in Django
       try {
         const formData = new FormData();
         formData.append('uploaded_file', file);
-        formData.append('original_name', currentFileForModal.name); // Pass original name
+        formData.append('original_name', currentFileForModal.name);
         formData.append('is_child_file', currentFileForModal.isChildFile ? 'true' : 'false');
+        formData.append('stage_id', prod.selectedStage.id || prod.selectedStage);
+        formData.append('change_description', ''); // Will be updated when user provides description
+        formData.append('status', 'In-Work');
+        formData.append('stage_id', prod.selectedStage.id || prod.selectedStage);
+        
         if (currentFileForModal.isChildFile) {
           formData.append('parent_id', currentFileForModal.parentId);
           formData.append('parent_revision', currentFileForModal.parentRevision);
         }
         
-        // const response = await axios.post(
-        //   'http://127.0.0.1:8000/api/files/revision/',
-        //   formData,
-        //   { headers: { 'Content-Type': 'multipart/form-data' } }
-        // );
+        if (currentFileForModal.price) {
+          formData.append('price', currentFileForModal.price);
+        }
+
         const response = await axios.post(
           `${API_BASE_URL}/api/files/`,
           formData,
@@ -2436,7 +2801,51 @@ function handleRemoveOption() {
         );
 
         if (response.status === 201) {
-          console.log('Revision uploaded to server successfully');
+          const savedFile = response.data;
+          
+          // Django response structure:
+          // {
+          //   "id": file_id,
+          //   "name": file_name,
+          //   "revision": revision_number,
+          //   "upload_date": upload_date.isoformat(),
+          //   "file_path": file_path,
+          //   "is_child_file": boolean,
+          //   "parent_id": parent_id,
+          //   "parent_revision": parent_revision,
+          //   "status": status,
+          //   "price": price
+          // }
+          
+          // Update local file object with backend data
+          const updatedFileFromServer = {
+            ...fileToSelect,
+            serverFileId: savedFile.id, // Django file ID
+            current_revision: savedFile.revision,
+            upload_date: savedFile.upload_date,
+            file_path: savedFile.file_path,
+            name: savedFile.name,
+            status: savedFile.status,
+            price: savedFile.price || fileToSelect.price
+          };
+          
+          // Update the latest revision with server data
+          if (updatedFileFromServer.revisions && updatedFileFromServer.revisions.length > 0) {
+            const latestRevision = updatedFileFromServer.revisions[updatedFileFromServer.revisions.length - 1];
+            latestRevision.upload_date = savedFile.upload_date;
+            latestRevision.file_path = savedFile.file_path;
+            latestRevision.serverRevisionNumber = savedFile.revision;
+            latestRevision.status = savedFile.status;
+            latestRevision.price = savedFile.price;
+          }
+          
+          // Update the file in the products array
+          updatedProduct.filesByStage[stage][existingFileIndex] = updatedFileFromServer;
+          updatedProducts[selectedProductIndex] = updatedProduct;
+          setProducts(updatedProducts);
+          setSelectedFileObj(updatedFileFromServer);
+          
+          console.log('Revision uploaded to server successfully and local state synced');
         }
       } catch (apiError) {
         console.warn('API upload failed, but file preview will still work:', apiError);
@@ -2451,7 +2860,8 @@ function handleRemoveOption() {
       e.target.value = '';
       setCurrentFileForModal(null);
     }
-  }
+}
+
   /* Handle quantity update */
   function handleQuantityUpdate(quantity) {
     if (!currentFileForModal) return;

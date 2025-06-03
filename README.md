@@ -152,7 +152,7 @@ cd mini-plm
 
 1. **Visit the React App** at [http://localhost:3000](http://localhost:3000).  
 2. **Upload Files** via the simple form (images, PDFs, STL, code, markdown, etc.).  
-3. **Check the Django API** at [http://127.0.0.1:8000/api/files/](http://127.0.0.1:8000/api/files/) to see a JSON list of uploaded files.  
+3. **Check the Django API** at [url](http://127.0.0.1:8000/api/files/) to see a JSON list of uploaded files.  
 4. **Click a file** in the left column to see its preview (PDF, STL, code, markdown, or image) in the right column.
 
 ---

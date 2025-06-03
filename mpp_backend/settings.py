@@ -1,12 +1,12 @@
 import os
 import sys
 from pathlib import Path
-import dj_database_url  # Make sure this is installed in your backend image
+import dj_database_url
 
 # -- Core Config --
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+^=x8m(8zf^@ro0k)ib)w%+l=_6e5$px0zv0uj9qh2f4h9^g5u'
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')  # read DEBUG from env
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
@@ -20,12 +20,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
-    'files',  # Your app
+    'files',    
     'corsheaders',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # CORS must be high up
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -56,21 +56,21 @@ WSGI_APPLICATION = 'mpp_backend.wsgi.application'
 
 # -- Database: Pull from DATABASE_URL (Docker uses Postgres) --
 DATABASE_URL = os.getenv('DATABASE_URL')
-
-if not DATABASE_URL:
-    print("WARNING: DATABASE_URL environment variable not set, using SQLite fallback", file=sys.stderr)
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    }
+    print(f"Using DATABASE_URL: {DATABASE_URL}", file=sys.stderr)
+    print(f"Database config: {DATABASES['default']}", file=sys.stderr)
+else:
+    # Fallback to SQLite for development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-else:
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    }
-    print(f"Using DATABASE_URL: {DATABASE_URL}", file=sys.stderr)
-    print(f"Database config: {DATABASES['default']}", file=sys.stderr)
+    print("Using SQLite fallback database", file=sys.stderr)
 
 # -- Static & Media --
 STATIC_URL = '/static/'
@@ -83,8 +83,27 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mpp_files')
 
-# -- CORS --
+# -- CORS Configuration --
 CORS_ALLOW_ALL_ORIGINS = True
+
+# If you want to be more specific (recommended for production):
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+# ]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # -- Security --
 X_FRAME_OPTIONS = 'ALLOWALL'
