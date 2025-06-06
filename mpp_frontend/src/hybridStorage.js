@@ -1,58 +1,182 @@
 // Hybrid storage solution - combines server storage with local caching
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+// Use relative URLs since we're proxying through nginx
+const API_BASE_URL = '';
 
 export const hybridStorage = {
   // Local storage key for file cache
   CACHE_KEY: 'phasorFileCache',
   
-// Save products to server
-async saveProducts(products) {
-  console.log("🚀 [hybridStorage] saveProducts called with:", products);
+  // Save products to server - uses individual Django REST endpoints
+  async saveProducts(products) {
+    console.log("🚀 [hybridStorage] saveProducts called with:", products);
 
-  try {
-    // Strip file data for efficient server saving
-    const lightProducts = this.stripFileData(products);
-    const apiUrl = `${API_BASE_URL}/api/products/save`;
+    try {
+      const savedProducts = [];
+      
+      for (const product of products) {
+        let savedProduct;
+        
+        if (product.id) {
+          // Update existing product
+          console.log(`📡 Updating product ${product.id}`);
+          const response = await axios.put(`/api/products/${product.id}/`, {
+            name: product.name,
+            description: product.description || ''
+          });
+          savedProduct = response.data;
+        } else {
+          // Create new product  
+          console.log(`📡 Creating new product: ${product.name}`);
+          const response = await axios.post('/api/products/', {
+            name: product.name,
+            description: product.description || ''
+          });
+          savedProduct = response.data;
+        }
+        
+        // Save stages for this product
+        if (product.stages && product.stages.length > 0) {
+          savedProduct.stages = await this.saveStages(savedProduct.id, product.stages);
+        }
+        
+        // Save iterations for this product  
+        if (product.iterations && product.iterations.length > 0) {
+          savedProduct.iterations = await this.saveIterations(savedProduct.id, product.iterations);
+        }
+        
+        savedProducts.push(savedProduct);
+      }
 
-    console.log("📡 Attempting POST to:", apiUrl);
-    console.log("📦 Payload:", JSON.stringify(lightProducts, null, 2));
+      console.log("✅ [hybridStorage] All products saved successfully");
+      
+      // Cache file data separately in localStorage
+      this.cacheFileData(products);
 
-    const response = await axios.post(apiUrl, lightProducts);
+      return savedProducts;
 
-    console.log("✅ [hybridStorage] Save successful:", response.status, response.data);
+    } catch (error) {
+      console.error("❌ [hybridStorage] Save to server FAILED:");
+      if (error.response) {
+        console.error("Response:", error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error("No response received. Request:", error.request);
+      } else {
+        console.error("Error message:", error.message);
+      }
 
-    // Cache file data separately in localStorage
-    this.cacheFileData(products);
+      // Fallback to local save
+      this.saveProductsLocally(products);
 
-    return response.data;
-
-  } catch (error) {
-    console.error("❌ [hybridStorage] Save to server FAILED:");
-    if (error.response) {
-      console.error("Response:", error.response.status, error.response.data);
-    } else if (error.request) {
-      console.error("No response received. Request:", error.request);
-    } else {
-      console.error("Error message:", error.message);
+      throw error;
     }
+  },
 
-    // Fallback to local save
-    this.saveProductsLocally(products);
+  // Save stages for a product
+  async saveStages(productId, stages) {
+    const savedStages = [];
+    
+    for (const stage of stages) {
+      try {
+        if (stage.id) {
+          // Update existing stage
+          const response = await axios.put(`/api/stages/${stage.id}/`, {
+            name: stage.name,
+            description: stage.description || '',
+            stage_number: stage.stage_number,
+            product: productId,
+            order: stage.order
+          });
+          savedStages.push(response.data);
+        } else {
+          // Create new stage
+          const response = await axios.post('/api/stages/', {
+            name: stage.name,
+            description: stage.description || '',
+            stage_number: stage.stage_number,
+            product: productId,
+            order: stage.order
+          });
+          savedStages.push(response.data);
+        }
+      } catch (error) {
+        console.error(`Failed to save stage ${stage.name}:`, error);
+      }
+    }
+    
+    return savedStages;
+  },
 
-    throw error;
-  }
-},
+  // Save iterations for a product
+  async saveIterations(productId, iterations) {
+    const savedIterations = [];
+    
+    for (const iteration of iterations) {
+      try {
+        if (iteration.id) {
+          // Update existing iteration
+          const response = await axios.put(`/api/iterations/${iteration.id}/`, {
+            name: iteration.name,
+            description: iteration.description || '',
+            iteration_number: iteration.iteration_number,
+            product: productId,
+            stage: iteration.stage_id, // If iteration belongs to a stage
+            order: iteration.order
+          });
+          savedIterations.push(response.data);
+        } else {
+          // Create new iteration
+          const response = await axios.post('/api/iterations/', {
+            name: iteration.name,
+            description: iteration.description || '',
+            iteration_number: iteration.iteration_number,
+            product: productId,
+            stage: iteration.stage_id, // If iteration belongs to a stage
+            order: iteration.order
+          });
+          savedIterations.push(response.data);
+        }
+      } catch (error) {
+        console.error(`Failed to save iteration ${iteration.name}:`, error);
+      }
+    }
+    
+    return savedIterations;
+  },
   
   // Load products from server
   async loadProducts() {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/products/`);
+      const response = await axios.get('/api/products/');
       
       if (response.status === 200 && response.data.length > 0) {
+        // Load associated stages and iterations for each product
+        const productsWithDetails = await Promise.all(
+          response.data.map(async (product) => {
+            try {
+              // Load stages
+              const stagesResponse = await axios.get(`/api/stages/?product_id=${product.id}`);
+              product.stages = stagesResponse.data;
+              
+              // Load iterations
+              const iterationsResponse = await axios.get(`/api/iterations/?product_id=${product.id}`);
+              product.iterations = iterationsResponse.data;
+              
+              // Load files for this product
+              const filesResponse = await axios.get(`/api/files/?product_id=${product.id}`);
+              product.filesByContainer = this.organizeFilesByContainer(filesResponse.data);
+              
+              return product;
+            } catch (error) {
+              console.error(`Failed to load details for product ${product.id}:`, error);
+              return product;
+            }
+          })
+        );
+        
         // Merge with cached file data
-        const productsWithFiles = this.restoreFileData(response.data);
+        const productsWithFiles = this.restoreFileData(productsWithDetails);
         return productsWithFiles;
       }
       
@@ -61,6 +185,21 @@ async saveProducts(products) {
       console.warn('Failed to load products from server:', error);
       return this.loadProductsLocally();
     }
+  },
+
+  // Organize files by container (stage_id or iteration_id)
+  organizeFilesByContainer(files) {
+    const filesByContainer = {};
+    
+    files.forEach(file => {
+      const containerKey = `${file.container_type}_${file.container_id}`;
+      if (!filesByContainer[containerKey]) {
+        filesByContainer[containerKey] = [];
+      }
+      filesByContainer[containerKey].push(file);
+    });
+    
+    return filesByContainer;
   },
   
   // Save products to localStorage (fallback)
@@ -80,9 +219,11 @@ async saveProducts(products) {
         try {
           const minimalProducts = products.map(product => ({
             name: product.name,
-            stageIcons: product.stageIcons,
-            selectedStage: product.selectedStage,
-            filesByStage: {}
+            stages: [],
+            iterations: [],
+            selectedContainer: product.selectedContainer,
+            containerType: product.containerType,
+            filesByContainer: {}
           }));
           localStorage.setItem('phasorProducts', JSON.stringify(minimalProducts));
         } catch (fallbackError) {
@@ -108,9 +249,11 @@ async saveProducts(products) {
     // Default fallback
     return [{
       name: 'Sample Product',
-      stageIcons: [],
-      selectedStage: null,
-      filesByStage: {}
+      stages: [],
+      iterations: [],
+      selectedContainer: null,
+      containerType: null,
+      filesByContainer: {}
     }];
   },
   
@@ -119,12 +262,12 @@ async saveProducts(products) {
     return products.map(product => {
       const strippedProduct = {...product};
       
-      if (strippedProduct.filesByStage) {
-        strippedProduct.filesByStage = {...strippedProduct.filesByStage};
+      if (strippedProduct.filesByContainer) {
+        strippedProduct.filesByContainer = {...strippedProduct.filesByContainer};
         
-        Object.keys(strippedProduct.filesByStage).forEach(stage => {
-          if (Array.isArray(strippedProduct.filesByStage[stage])) {
-            strippedProduct.filesByStage[stage] = strippedProduct.filesByStage[stage].map(file => {
+        Object.keys(strippedProduct.filesByContainer).forEach(containerKey => {
+          if (Array.isArray(strippedProduct.filesByContainer[containerKey])) {
+            strippedProduct.filesByContainer[containerKey] = strippedProduct.filesByContainer[containerKey].map(file => {
               const fileCopy = {...file};
               
               // Remove dataURL
@@ -162,8 +305,8 @@ async saveProducts(products) {
     
     // Extract all files with dataURLs
     products.forEach(product => {
-      if (product.filesByStage) {
-        Object.values(product.filesByStage).forEach(files => {
+      if (product.filesByContainer) {
+        Object.values(product.filesByContainer).forEach(files => {
           if (Array.isArray(files)) {
             files.forEach(file => {
               // Cache main file
@@ -225,12 +368,12 @@ async saveProducts(products) {
     return products.map(product => {
       const restoredProduct = {...product};
       
-      if (restoredProduct.filesByStage) {
-        restoredProduct.filesByStage = {...restoredProduct.filesByStage};
+      if (restoredProduct.filesByContainer) {
+        restoredProduct.filesByContainer = {...restoredProduct.filesByContainer};
         
-        Object.keys(restoredProduct.filesByStage).forEach(stage => {
-          if (Array.isArray(restoredProduct.filesByStage[stage])) {
-            restoredProduct.filesByStage[stage] = restoredProduct.filesByStage[stage].map(file => {
+        Object.keys(restoredProduct.filesByContainer).forEach(containerKey => {
+          if (Array.isArray(restoredProduct.filesByContainer[containerKey])) {
+            restoredProduct.filesByContainer[containerKey] = restoredProduct.filesByContainer[containerKey].map(file => {
               const fileCopy = {...file};
               
               // Restore main file dataUrl
@@ -280,36 +423,103 @@ async saveProducts(products) {
     localStorage.removeItem('phasorProducts');
   },
   
-  // Upload a file to the server and get a URL
-  async uploadFile(file) {
+  // Upload a file to the server with proper container association
+  async uploadFile(file, containerType, containerId) {
     try {
       const formData = new FormData();
       formData.append('uploaded_file', file);
+      formData.append('original_name', file.name);
+      formData.append('is_child_file', 'false');
+      formData.append('change_description', 'Initial file upload');
+      formData.append('status', 'in_work');
+      formData.append('quantity', '1');
       
-      const response = await axios.post(
-        `${API_BASE_URL}/api/files/`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+      // Add container information
+      if (containerType === 'stage') {
+        formData.append('stage_id', containerId);
+      } else if (containerType === 'iteration') {
+        formData.append('iteration_id', containerId);
+      } else {
+        throw new Error('Invalid container type. Must be "stage" or "iteration".');
+      }
+      
+      const response = await axios.post('/api/files/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       
       if (response.status === 201) {
-        // Return the URL to the file on the server
         return {
           success: true,
-          url: response.data.url,
-          fileId: response.data.id
+          data: response.data
         };
       }
       
       return { success: false, error: 'Upload failed' };
     } catch (error) {
       console.error('Error uploading file:', error);
-      return { success: false, error: error.message || 'Unknown error' };
+      return { 
+        success: false, 
+        error: error.response?.data?.error || error.message || 'Unknown error' 
+      };
+    }
+  },
+
+  // Create a new stage
+  async createStage(productId, stageName, stageNumber, order = 1) {
+    try {
+      const response = await axios.post('/api/stages/', {
+        name: stageName,
+        description: '',
+        stage_number: stageNumber,
+        product: productId,
+        order: order
+      });
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error creating stage:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Unknown error'
+      };
+    }
+  },
+
+  // Create a new iteration
+  async createIteration(productId, iterationName, iterationNumber, stageId = null, order = 1) {
+    try {
+      const requestData = {
+        name: iterationName,
+        description: '',
+        iteration_number: iterationNumber,
+        product: productId,
+        order: order
+      };
+      
+      if (stageId) {
+        requestData.stage = stageId;
+      }
+      
+      const response = await axios.post('/api/iterations/', requestData);
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error creating iteration:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Unknown error'
+      };
     }
   }
 };
 
-// File handling helper function that can be exported and used in App.js
+// File handling helper function that works with the backend
 export const createFileUploadHandler = (
   products, 
   setProducts, 
@@ -329,8 +539,8 @@ export const createFileUploadHandler = (
     }
 
     const prod = products[selectedProductIndex];
-    if (!prod.selectedStage) {
-      setToastMsg('No stage selected yet.');
+    if (!prod.selectedContainer || !prod.containerType) {
+      setToastMsg('No container (stage/iteration) selected yet.');
       e.target.value = '';
       return;
     }
@@ -339,7 +549,18 @@ export const createFileUploadHandler = (
     setToastMsg('');
 
     try {
-      // Create dataURL for preview and local caching
+      // Upload to server first (backend handles revision logic)
+      const uploadResult = await hybridStorage.uploadFile(
+        file, 
+        prod.containerType, 
+        prod.selectedContainer.id
+      );
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error);
+      }
+
+      // Create dataURL for preview
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -350,134 +571,88 @@ export const createFileUploadHandler = (
         reader.readAsDataURL(file);
       });
 
-      // Upload to server and get URL
-      const uploadResult = await hybridStorage.uploadFile(file);
-      
-      // Create deep copies to ensure state updates correctly
+      // Update local state with the backend response
       const updatedProducts = [...products];
-      const updatedProduct = {...updatedProducts[selectedProductIndex]};
+      const updatedProduct = { ...updatedProducts[selectedProductIndex] };
       updatedProducts[selectedProductIndex] = updatedProduct;
+
+      updatedProduct.filesByContainer = { ...updatedProduct.filesByContainer };
       
-      const stage = updatedProduct.selectedStage;
+      // Build container key
+      const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
       
-      // Ensure filesByStage exists and create a new object reference
-      updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-      
-      // Ensure the stage array exists and create a new array reference
-      if (!updatedProduct.filesByStage[stage]) {
-        updatedProduct.filesByStage[stage] = [];
+      if (!updatedProduct.filesByContainer[containerKey]) {
+        updatedProduct.filesByContainer[containerKey] = [];
       } else {
-        updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
+        updatedProduct.filesByContainer[containerKey] = [...updatedProduct.filesByContainer[containerKey]];
       }
 
-      // Check if a file with the same name already exists
-      const existingFileIndex = updatedProduct.filesByStage[stage].findIndex(
-        f => f.name === file.name && !f.isChildFile
+      // Check if this is a new file or revision
+      const existingFileIndex = updatedProduct.filesByContainer[containerKey].findIndex(
+        f => f.name === file.name && !f.is_child_file
       );
 
-      // Create the new file object
-      const newFileObj = {
-        id: Date.now(), // Add unique ID for React keys
-        name: file.name,
-        upload_date: new Date().toISOString(),
-        size: file.size,
-        type: file.type,
-        dataUrl: dataUrl, // Store the dataURL for preview
-        serverUrl: uploadResult.success ? uploadResult.url : null, // Store server URL if upload succeeded
-        childFiles: [], // Initialize empty array to track child files
-        status: 'In-Work', // Default status
-        price: '', // Empty price by default
-        quantity: 1, 
-        current_revision: 1 // Initialize with revision 1
+      // Create file object from backend response
+      const fileObj = {
+        ...uploadResult.data,
+        dataUrl, // Add dataURL for preview
       };
 
-      let fileToSelect; // This will be the file we select for preview
+      let fileToSelect;
+      let isNewRevision = false;
 
-      if (existingFileIndex !== -1) {
-        // Handle existing file as a revision
-        const existingFile = {...updatedProduct.filesByStage[stage][existingFileIndex]};
+      if (existingFileIndex !== -1 && uploadResult.data.revision > 1) {
+        // This is a revision - update existing file
+        const existingFile = { ...updatedProduct.filesByContainer[containerKey][existingFileIndex] };
         
-        // Initialize revisions array if needed
-        if (!existingFile.revisions) {
-          existingFile.revisions = [];
-          // First revision is the current file
-          existingFile.revisions.push({
-            id: existingFile.id,
-            name: existingFile.name,
-            upload_date: existingFile.upload_date,
-            size: existingFile.size,
-            type: existingFile.type,
-            dataUrl: existingFile.dataUrl,
-            serverUrl: existingFile.serverUrl,
-            rev_number: 1,
-            childFiles: existingFile.childFiles || [],
-            status: existingFile.status || 'In-Work',
-            price: existingFile.price || ''
-          });
+        // Update with new revision data
+        existingFile.current_revision = uploadResult.data.revision;
+        existingFile.dataUrl = dataUrl;
+        existingFile.updated_at = uploadResult.data.created_at;
+        existingFile.file_path = uploadResult.data.file_path;
+        existingFile.latest_revision = uploadResult.data.latest_revision;
+        
+        // Add to revisions array if it exists
+        if (existingFile.revisions) {
+          existingFile.revisions = [...existingFile.revisions, uploadResult.data.latest_revision];
         }
-        
-        // Add new revision
-        const newRevision = {
-          ...newFileObj,
-          rev_number: existingFile.revisions.length + 1,
-          childFiles: [],
-          status: 'In-Work',
-          price: existingFile.price || ''
-        };
-        
-        existingFile.revisions.push(newRevision);
-        
-        // Update current file
-        existingFile.dataUrl = newFileObj.dataUrl;
-        existingFile.serverUrl = newFileObj.serverUrl;
-        existingFile.upload_date = newFileObj.upload_date;
-        existingFile.size = newFileObj.size;
-        existingFile.current_revision = newRevision.rev_number;
-        existingFile.childFiles = newRevision.childFiles;
-        existingFile.status = 'In-Work';
-        existingFile.selected_revision_obj = newRevision;
-        
-        // Replace in array
-        updatedProduct.filesByStage[stage][existingFileIndex] = existingFile;
-        
+
+        updatedProduct.filesByContainer[containerKey][existingFileIndex] = existingFile;
         fileToSelect = existingFile;
-        
-        setToastMsg(`New revision (Rev ${newRevision.rev_number}) created!`);
+        isNewRevision = true;
+
+        setToastMsg(`New revision (Rev ${uploadResult.data.revision}) created!`);
       } else {
-        // New file
-        newFileObj.revisions = [{
-          ...newFileObj,
-          rev_number: 1
-        }];
-        
-        newFileObj.selected_revision_obj = newFileObj.revisions[0];
-        
-        updatedProduct.filesByStage[stage].push(newFileObj);
-        
-        fileToSelect = newFileObj;
-        
+        // This is a new file
+        updatedProduct.filesByContainer[containerKey].push(fileObj);
+        fileToSelect = fileObj;
+
         setToastMsg('File uploaded successfully!');
       }
-      
-      // Update state with completely new references
+
+      // Update state
       setProducts(updatedProducts);
-      
-      // Select this file for preview
       setSelectedFileObj(fileToSelect);
-      
-      // Show change description modal
+
+      // Persist changes
+      hybridStorage.saveProducts(updatedProducts)
+        .catch(err => console.error("Error saving after file upload:", err));
+
+      // Open change description modal for additional details
       setTimeout(() => {
         setCurrentFileForModal(fileToSelect);
         setTempChangeDescription('');
         setShowChangeDescriptionModal(true);
         console.log("Opening change description modal for new file upload");
       }, 100);
+
+      console.log('File uploaded and local state updated successfully');
+
     } catch (err) {
       console.error('Error uploading file:', err);
       setToastMsg('Error uploading file: ' + (err.message || 'Unknown error'));
     } finally {
       setIsLoading(false);
-      // Reset the file input
       e.target.value = '';
     }
   };

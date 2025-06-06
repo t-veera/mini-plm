@@ -3,6 +3,7 @@ import logging
 import mimetypes
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -10,47 +11,164 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 
-from .models import File, FileRevision, Product, Stage
-from .serializers import FileSerializer, FileRevisionSerializer, ProductSerializer, StageSerializer
+from .models import File, FileRevision, Product, Stage, Iteration
+from .serializers import (
+    FileSerializer, FileRevisionSerializer, ProductSerializer, 
+    StageSerializer, IterationSerializer
+)
 
 logger = logging.getLogger('files')
 
 class ProductViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing products"""
     permission_classes = [AllowAny]  # Disable auth temporarily
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductSerializer
 
     def perform_create(self, serializer):
+        """Set owner when creating a product"""
         user = self.request.user if self.request.user.is_authenticated else User.objects.first()
+        if not user:
+            # Create a default user if none exists
+            user = User.objects.create_user('default', 'default@test.com', 'password')
+        
         serializer.save(owner=user)
 
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files for a specific product"""
+        product = self.get_object()
+        
+        # Get files from all stages and iterations of this product
+        stage_content_type = ContentType.objects.get_for_model(Stage)
+        iteration_content_type = ContentType.objects.get_for_model(Iteration)
+        
+        stage_ids = list(product.stages.values_list('id', flat=True))
+        iteration_ids = list(product.iterations.values_list('id', flat=True))
+        
+        from django.db import models
+        files = File.objects.filter(
+            models.Q(content_type=stage_content_type, object_id__in=stage_ids) |
+            models.Q(content_type=iteration_content_type, object_id__in=iteration_ids)
+        ).order_by('-updated_at')
+        
+        serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+
 class StageViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing stages"""
     permission_classes = [AllowAny]  # Disable auth temporarily
-    queryset = Stage.objects.all().order_by('order')
+    queryset = Stage.objects.all().order_by('order', 'stage_number')
     serializer_class = StageSerializer
 
+    def get_queryset(self):
+        """Filter stages by product if provided"""
+        queryset = Stage.objects.all().order_by('order', 'stage_number')
+        product_id = self.request.query_params.get('product_id', None)
+        if product_id is not None:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset
+
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files for a specific stage"""
+        stage = self.get_object()
+        stage_content_type = ContentType.objects.get_for_model(Stage)
+        
+        files = File.objects.filter(
+            content_type=stage_content_type,
+            object_id=stage.id
+        ).order_by('-updated_at')
+        
+        serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+
+class IterationViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing iterations"""
+    permission_classes = [AllowAny]  # Disable auth temporarily
+    queryset = Iteration.objects.all().order_by('order', 'iteration_number')
+    serializer_class = IterationSerializer
+
+    def get_queryset(self):
+        """Filter iterations by product if provided"""
+        queryset = Iteration.objects.all().order_by('order', 'iteration_number')
+        product_id = self.request.query_params.get('product_id', None)
+        if product_id is not None:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset
+
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Get all files for a specific iteration"""
+        iteration = self.get_object()
+        iteration_content_type = ContentType.objects.get_for_model(Iteration)
+        
+        files = File.objects.filter(
+            content_type=iteration_content_type,
+            object_id=iteration.id
+        ).order_by('-updated_at')
+        
+        serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+
 class FileViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing files"""
     permission_classes = [AllowAny]  # Disable auth temporarily
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = (MultiPartParser, FormParser)
 
     def list(self, request, *args, **kwargs):
-        # Override list to filter files by owner (authenticated user)
-        # Temporarily bypass auth check: return all files
-        files = File.objects.all()
-        serializer = self.get_serializer(files, many=True)
+        """List files with optional filtering"""
+        queryset = self.get_queryset()
+        
+        # Filter by container type and id
+        container_type = request.query_params.get('container_type', None)
+        container_id = request.query_params.get('container_id', None)
+        
+        if container_type and container_id:
+            if container_type == 'stage':
+                stage_content_type = ContentType.objects.get_for_model(Stage)
+                queryset = queryset.filter(content_type=stage_content_type, object_id=container_id)
+            elif container_type == 'iteration':
+                iteration_content_type = ContentType.objects.get_for_model(Iteration)
+                queryset = queryset.filter(content_type=iteration_content_type, object_id=container_id)
+        
+        # Filter by product
+        product_id = request.query_params.get('product_id', None)
+        if product_id:
+            from django.db import models
+            stage_content_type = ContentType.objects.get_for_model(Stage)
+            iteration_content_type = ContentType.objects.get_for_model(Iteration)
+            
+            stage_ids = Stage.objects.filter(product_id=product_id).values_list('id', flat=True)
+            iteration_ids = Iteration.objects.filter(product_id=product_id).values_list('id', flat=True)
+            
+            queryset = queryset.filter(
+                models.Q(content_type=stage_content_type, object_id__in=stage_ids) |
+                models.Q(content_type=iteration_content_type, object_id__in=iteration_ids)
+            )
+        
+        # Filter out child files by default, unless specifically requested
+        include_children = request.query_params.get('include_children', 'false').lower() == 'true'
+        if not include_children:
+            queryset = queryset.filter(parent_file__isnull=True)
+        
+        queryset = queryset.order_by('-updated_at')
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='my-files')
     def my_files(self, request):
+        """Get files for the current user"""
         # Temporarily bypass auth check: return all files
-        files = File.objects.all()
+        files = File.objects.filter(parent_file__isnull=True).order_by('-updated_at')
         serializer = self.get_serializer(files, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='preview-doc')
     def preview_doc(self, request):
+        """Preview document using Google Docs viewer"""
         file_path = request.query_params.get('file_path')
         if not file_path:
             return Response({"error": "No file path provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -94,6 +212,7 @@ class FileViewSet(viewsets.ModelViewSet):
         return HttpResponse(html_content, content_type='text/html')
 
     def create(self, request, *args, **kwargs):
+        """Create a new file or file revision"""
         uploaded_file = request.FILES.get('uploaded_file')
         logger.debug(f"Upload attempt: {uploaded_file.name if uploaded_file else 'None'}")
         logger.debug(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
@@ -101,55 +220,58 @@ class FileViewSet(viewsets.ModelViewSet):
         if not uploaded_file:
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract additional parameters
+        # Extract parameters from request
         original_name = request.data.get('original_name', uploaded_file.name)
         is_child_file = request.data.get('is_child_file', '').lower() == 'true'
         parent_id = request.data.get('parent_id')
-        parent_revision = request.data.get('parent_revision')
         stage_id = request.data.get('stage_id')
+        iteration_id = request.data.get('iteration_id')
         change_description = request.data.get('change_description', '')
-        status_value = request.data.get('status', 'In-Work')
+        status_value = request.data.get('status', 'in_work')
         price_value = request.data.get('price')
+        quantity_value = request.data.get('quantity', 1)
 
         user = request.user if request.user.is_authenticated else User.objects.first()
 
-        # Handle Product - default to product id 1 if not specified
-        product_id = request.data.get('product_id', 1)
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Handle Stage
-        if not stage_id:
-            # Default to first stage of product
-            stage = product.stages.first()
-            if not stage:
-                return Response({"error": "No stages found for the product."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
+        # Validate container (stage or iteration)
+        container_object = None
+        if stage_id:
             try:
-                stage = Stage.objects.get(id=stage_id, product=product)
+                container_object = Stage.objects.get(id=stage_id)
+                content_type = ContentType.objects.get_for_model(Stage)
             except Stage.DoesNotExist:
-                return Response({"error": "Stage not found for the given product."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Stage not found."}, status=status.HTTP_404_NOT_FOUND)
+        elif iteration_id:
+            try:
+                container_object = Iteration.objects.get(id=iteration_id)
+                content_type = ContentType.objects.get_for_model(Iteration)
+            except Iteration.DoesNotExist:
+                return Response({"error": "Iteration not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({"error": "Either stage_id or iteration_id must be provided."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Handle parent-child relationships
         parent_file_obj = None
         if is_child_file and parent_id:
             try:
                 parent_file_obj = File.objects.get(id=parent_id)
+                # Ensure parent is in the same container
+                if parent_file_obj.content_type != content_type or parent_file_obj.object_id != container_object.id:
+                    return Response({"error": "Parent file must be in the same container."}, status=status.HTTP_400_BAD_REQUEST)
             except File.DoesNotExist:
                 return Response({"error": "Parent file not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Check if file exists (for revisions)
-        file_lookup = {'name': original_name, 'stage': stage}
+        file_lookup = {
+            'name': original_name,
+            'content_type': content_type,
+            'object_id': container_object.id
+        }
+        
         if is_child_file and parent_file_obj:
-            file_lookup.update({
-                'parent_file': parent_file_obj,
-                'parent_revision': parent_revision,
-                'is_child_file': True
-            })
+            file_lookup['parent_file'] = parent_file_obj
         else:
-            file_lookup['is_child_file'] = False
+            file_lookup['parent_file__isnull'] = True
 
         existing_file = File.objects.filter(**file_lookup).first()
 
@@ -164,8 +286,9 @@ class FileViewSet(viewsets.ModelViewSet):
                 file=existing_file,
                 revision_number=revision_number,
                 uploaded_file=uploaded_file,
-                change_description=change_description,
-                status=status_value
+                description=change_description,
+                status=status_value,
+                created_by=user
             )
             
             if price_value:
@@ -174,8 +297,6 @@ class FileViewSet(viewsets.ModelViewSet):
                 except (ValueError, TypeError):
                     pass
             
-            new_revision.save()
-            new_revision.file_path = new_revision.uploaded_file.name
             new_revision.save()
 
             # Update file's current revision and file_path
@@ -187,11 +308,12 @@ class FileViewSet(viewsets.ModelViewSet):
                 "id": existing_file.id,
                 "name": existing_file.name,
                 "revision": revision_number,
-                "upload_date": new_revision.upload_date.isoformat(),
+                "upload_date": new_revision.created_at.isoformat(),
                 "file_path": new_revision.file_path,
                 "is_child_file": existing_file.is_child_file,
                 "parent_id": existing_file.parent_file.id if existing_file.parent_file else None,
-                "parent_revision": existing_file.parent_revision,
+                "container_type": existing_file.container_type,
+                "container_id": existing_file.container_id,
                 "status": new_revision.status,
                 "price": str(new_revision.price) if new_revision.price else None
             }, status=status.HTTP_201_CREATED)
@@ -203,11 +325,11 @@ class FileViewSet(viewsets.ModelViewSet):
                 owner=user,
                 name=original_name,
                 uploaded_file=uploaded_file,
-                stage=stage,
+                content_type=content_type,
+                object_id=container_object.id,
                 parent_file=parent_file_obj,
-                parent_revision=int(parent_revision) if parent_revision else None,
-                is_child_file=is_child_file,
-                status=status_value
+                status=status_value,
+                quantity=int(quantity_value) if quantity_value else 1
             )
             
             if price_value:
@@ -217,16 +339,15 @@ class FileViewSet(viewsets.ModelViewSet):
                     pass
             
             file_instance.save()
-            file_instance.file_path = file_instance.uploaded_file.name
-            file_instance.save()
 
             # Create first revision
             new_revision = FileRevision(
                 file=file_instance,
                 revision_number=1,
                 uploaded_file=uploaded_file,
-                change_description=change_description,
-                status=status_value
+                description=change_description,
+                status=status_value,
+                created_by=user
             )
             
             if price_value:
@@ -236,18 +357,31 @@ class FileViewSet(viewsets.ModelViewSet):
                     pass
             
             new_revision.save()
-            new_revision.file_path = new_revision.uploaded_file.name
-            new_revision.save()
 
             return Response({
                 "id": file_instance.id,
                 "name": file_instance.name,
                 "revision": 1,
-                "upload_date": file_instance.upload_date.isoformat(),
+                "upload_date": file_instance.created_at.isoformat(),
                 "file_path": file_instance.file_path,
                 "is_child_file": file_instance.is_child_file,
                 "parent_id": file_instance.parent_file.id if file_instance.parent_file else None,
-                "parent_revision": file_instance.parent_revision,
+                "container_type": file_instance.container_type,
+                "container_id": file_instance.container_id,
                 "status": new_revision.status,
                 "price": str(new_revision.price) if new_revision.price else None
             }, status=status.HTTP_201_CREATED)
+
+class FileRevisionViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for viewing file revisions"""
+    permission_classes = [AllowAny]
+    queryset = FileRevision.objects.all().order_by('-revision_number')
+    serializer_class = FileRevisionSerializer
+
+    def get_queryset(self):
+        """Filter revisions by file if provided"""
+        queryset = FileRevision.objects.all().order_by('-revision_number')
+        file_id = self.request.query_params.get('file_id', None)
+        if file_id is not None:
+            queryset = queryset.filter(file_id=file_id)
+        return queryset

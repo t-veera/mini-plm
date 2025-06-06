@@ -7,22 +7,23 @@ WORKDIR /app
 COPY mpp_frontend/package*.json ./
 RUN npm ci --silent
 
-# Copy the frontend code, including public/
+# Copy the frontend code
 COPY mpp_frontend/ . 
 
 # Build for production
 ENV REACT_APP_API_URL=/api
 RUN npm run build
 
-# Final Stage: Serve the App
+# Production Stage: Single container with nginx
 FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
 
-# Copy the built frontend files
-COPY --from=build /app/build . 
+# Copy the built React files
+COPY --from=build /app/build /usr/share/nginx/html
 
-# Expose port 80 for serving
+# Copy nginx config that handles everything
+COPY nginx/conf/single.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
 EXPOSE 80
 
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
