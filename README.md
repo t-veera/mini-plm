@@ -57,7 +57,7 @@ A lightweight, self-hosted Product Lifecycle Management (PLM) system designed fo
 ### 🎨 User Interface
 - **Flexible Split Layout**: Adjustable panels for file browsing and preview
 - **Right-Click Controls**: 
-  - Delete stages/iterations by right-clicking
+  - Delete stages/iterations by right-clicking on ⛩️ FaToriiGate or 🥁 FaDrumSteelpan icons
   - Add file metadata by right-clicking on files
 - **No User Management**: Open access system (user-specific features coming in next update)
 
@@ -94,8 +94,8 @@ A lightweight, self-hosted Product Lifecycle Management (PLM) system designed fo
 
 ### Creating Your First Product
 1. Click "New Product" to create a product
-2. Add stages (🟢) for major milestones (concept, prototype, testing, production)
-3. Add iterations (🔵) for development cycles within each stage
+2. Add stages (⛩️ FaToriiGate) for major milestones (concept, prototype, testing, production)
+3. Add iterations (🥁 FaDrumSteelpan) for development cycles within each stage
 4. Click on any stage/iteration to upload relevant files
 
 ### File Management
@@ -216,12 +216,12 @@ Free to use, modify, and distribute. Contributions welcome!
 
 ## 🌟 Why Choose Mini-PLM?
 
-Unlike enterprise PLM systems that cost thousands per user or cloud solutions that lock your data away, Mini-PLM gives you:
+**All-in-One File Management Tool** - Not just file viewing, but complete version control, metadata tracking, and development process organization for multiple file types - all stored locally on your infrastructure.
 
-- **Data Ownership**: Your files stay on your infrastructure
-- **Zero Recurring Costs**: No monthly subscriptions or per-user fees
-- **Easy Setup**: Running in minutes, not months
-- **Flexible Process**: Adapts to your workflow, not the other way around
-- **Universal Access**: Works on any device with a web browser
-
-Perfect for teams who need more structure than shared folders but don't want the complexity and cost of enterprise PLM systems.
+**Key Benefits:**
+- **Your Data, Your Server**: All files stored locally, no cloud dependencies
+- **Universal File Management**: Handle STL, PDF, code, CAD, images, and more in one system
+- **Automatic Version Control**: Track file revisions with dates and change descriptions
+- **Integrated Metadata**: Add quantity, pricing, and other metadata directly to files
+- **Development Process Tracking**: Organize stages and iterations with complete file history
+- **No External Dependencies**: One tool replaces multiple file viewers and version control systems
