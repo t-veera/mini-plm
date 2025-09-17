@@ -1,205 +1,227 @@
-# mini-PLM
+# Mini-PLM
 
-A lightweight, web-based Product Lifecycle Management (PLM) tool, built with **Django** (backend) and **React** (frontend). This project is ideal for small teams who need basic file upload, simple metadata handling, and a minimal user interface to manage files.
+A lightweight, self-hosted Product Lifecycle Management (PLM) system designed for small to medium product development teams. Built with Django (backend) and React (frontend), Mini-PLM helps you organize product development stages, manage design files with automatic revision control, and track your development process from concept to production.
 
-![mini-PLM Screenshot](docs/mini-plm-banner.png)
+![Mini-PLM Banner](docs/mini-plm-banner.png)
 
-> **Note:** This project is still in MVP stage. It demonstrates file uploads, basic metadata, and a minimal UI, rather than a full enterprise PLM solution.
+## 🎯 Why Mini-PLM?
+
+**Your Data Stays Local** - Unlike cloud-based PLM solutions, all your files and data remain on your own server. No vendor lock-in, no monthly subscriptions, no data privacy concerns.
+
+**Universal File Viewer** - Preview multiple file formats directly in your browser without downloading or installing specialized software.
+
+**Integrated Development Process** - Organize your product development using stages and iterations with built-in file revision control.
 
 ---
 
 ## Table of Contents
 
-1. [Features](#features)  
-2. [Tech Stack](#tech-stack)  
-3. [Project Structure](#project-structure)  
-4. [Getting Started](#getting-started)  
-5. [Usage](#usage)  
-6. [Troubleshooting](#troubleshooting)  
-7. [Roadmap](#roadmap)  
-8. [License](#license)  
+1. [Current Features](#-current-features)
+2. [Quick Start](#-quick-start)
+3. [How to Use](#-how-to-use)
+4. [File Organization](#-file-organization)
+5. [Technical Stack](#-technical-stack)
+6. [Coming in Next Update](#-coming-in-next-update)
+7. [Use Cases](#-use-cases)
+8. [Troubleshooting](#-troubleshooting)
+9. [License](#-license)
 
 ---
 
-## Features
+## ✨ Current Features
 
-- **File Upload & Storage:**  
-  Users can upload files, which are saved to a designated folder on the server (`mpp_files/` by default).
+### 🗂️ File Management & Universal Preview
+- **Upload & Store**: All files stored locally on your server (no cloud dependency)
+- **Automatic Revision Control**: When you upload the same filename, it creates a new revision with date stamps
+- **Universal File Preview**: View files directly in browser without external software:
+  - **3D Models**: STL files with interactive 3D viewer
+  - **Documents**: PDF, Excel (.xlsx, .xls), Markdown (.md)
+  - **Images**: PNG, JPG, GIF with full preview
+  - **Code**: Python (.py), C, JavaScript, HTML with syntax highlighting
+  - **CAD**: DXF files
+  - **Support for .kicad_sch, .kicad_pcb, STP, and DOCX coming in next update**
 
-- **Basic Metadata & Ownership:**  
-  Each file is linked to a user (owner), with optional JSON metadata.
+### 📊 Product Development Structure
+- **Create Products**: Organize your development projects
+- **Flexible Stages & Iterations**: 
+  - Add stages (⛩️ FaToriiGate) for major milestones and reviews
+  - Add iterations (🥁 FaDrumSteelpan) for development cycles
+  - Customize your process - one product might have 2 iterations → 1 stage → 4 iterations, another might follow a different pattern
+- **Click-to-Upload**: Click on any stage/iteration icon to upload files for that phase
 
-- **Simple RESTful API:**  
-  Built with Django REST Framework for listing, uploading, and retrieving files.
+### 💰 File Metadata & Tracking
+- **Cost Tracking**: Right-click on any file to add price and quantity information
+- **Change Documentation**: Add change descriptions when uploading files
+- **Revision History**: Full history of all file changes with dates and descriptions
 
-- **Lightweight UI (React):**  
-  - **Split Layout (30%/70%)** with independent scrolling columns.  
-  - **PDF Preview**: Displays `.pdf` files inline using an `<iframe>` in the right column.  
-  - **3D STL Preview**: Uses [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) to show `.stl` files with shadows and a ground plane.  
-  - **Code Syntax Highlighting**: For `.js`, `.py`, `.cpp`, `.java`, etc., using [react-syntax-highlighter](https://github.com/react-syntax-highlighter/react-syntax-highlighter).  
-  - **Markdown Rendering**: Renders `.md` or `.markdown` files via [react-markdown](https://github.com/remarkjs/react-markdown).  
-  - **Images & Other Files**: `.png`, `.jpg`, `.gif` displayed as images; fallback message for unknown file types.
-
----
-
-## Tech Stack
-
-- **Backend:**  
-  - [Django](https://www.djangoproject.com/)  
-  - [Django REST Framework](https://www.django-rest-framework.org/)  
-  - [django-cors-headers](https://pypi.org/project/django-cors-headers/)  
-
-- **Frontend:**  
-  - [React](https://reactjs.org/)  
-  - [Axios](https://axios-http.com/)  
-  - [React Bootstrap](https://react-bootstrap.github.io/) for styling/layout  
-  - [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) + [@react-three/drei](https://github.com/pmndrs/drei) for 3D previews  
-  - [react-syntax-highlighter](https://github.com/react-syntax-highlighter/react-syntax-highlighter) for code  
-  - [react-markdown](https://github.com/remarkjs/react-markdown) for markdown  
-
-- **Database:**  
-  - SQLite (default for development)
-
-- **Other:**  
-  - Python 3.9+  
-  - Node.js 16+  
-  - Virtual environment for Python (recommended)
+### 🎨 User Interface
+- **Flexible Split Layout**: Adjustable panels for file browsing and preview
+- **Right-Click Controls**: 
+  - Delete stages/iterations by right-clicking
+  - Add file metadata by right-clicking on files
+- **No User Management**: Open access system (user-specific features coming in next update)
 
 ---
 
-## Project Structure
+## 🚀 Quick Start
 
-```plaintext
-mini-plm/
-├── manage.py                 # Django management script
-├── mpp_backend/             # Django project settings & URLs
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── files/                   # Django app for file uploads & metadata
-│   ├── models.py
-│   ├── serializers.py
-│   └── views.py
-├── mpp_frontend/            # React app folder
-│   ├── src/
-│   │   └── App.js           # Main React code with previews
-│   ├── package.json
-│   └── ...
-├── venv/                    # Python virtual environment (ignored by Git)
-├── mpp_files/               # Uploaded files stored here (ignored by Git)
-└── README.md                # This file
+### Prerequisites
+- Docker and Docker Compose installed on your system
+- Git for cloning the repository
+
+### Installation
+
+1. **Download and run:**
+   ```bash
+   git clone https://github.com/t-veera/mini-plm.git
+   cd mini-plm
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+2. **Access the application:**
+   Open your browser: `http://localhost` (or `http://your-server-ip` from other devices)
+
+**That's it!** Pre-built images are automatically downloaded from GitHub Container Registry. No building or compilation required.
+
+### Data Storage
+- **Database**: All metadata stored in local PostgreSQL database
+- **Files**: All uploaded files stored in `./mpp_files/` directory on your host machine
+- **Persistence**: Data persists across container restarts and system reboots
+
+---
+
+## 💡 How to Use
+
+### Creating Your First Product
+1. Click "New Product" to create a product
+2. Add stages (🟢) for major milestones (concept, prototype, testing, production)
+3. Add iterations (🔵) for development cycles within each stage
+4. Click on any stage/iteration to upload relevant files
+
+### File Management
+- **Upload**: Click stage/iteration icon → upload files
+- **Preview**: Click any file to preview in the right panel
+- **Add Metadata**: Right-click file → enter price, quantity
+- **Revisions**: Upload same filename to create new revision automatically
+- **Delete**: Right-click stage/iteration → delete (removes all associated files)
+
+### Organizing Your Development Process
+Mini-PLM is flexible to match your workflow:
+- **Hardware Projects**: Concept → Schematic → PCB → Prototype → Testing → Production
+- **Software Projects**: Requirements → Design → Development → Testing → Release
+- **Mixed Projects**: Research → Proof of Concept → Development → Integration → Validation → Launch
+
+---
+
+## 📁 File Organization
+
+Files are automatically organized by stage/iteration with automatic revision tracking:
 
 ```
-
-
----
-
-## Getting Started
-
-### 1. Clone the Repository
-
-```bash
-git clone http://your-gitea-domain/username/mini-plm.git
-cd mini-plm
+mpp_files/
+├── iteration_1/
+│   ├── schematic_v1.pdf
+│   ├── firmware_code.py (Revision 1)
+│   ├── firmware_code.py (Revision 2)
+│   └── test_results.xlsx
+├── stage_1/
+│   ├── requirements.docx
+│   └── concept_design.stl
+├── iteration_2/
+│   ├── pcb_layout.kicad_pcb
+│   └── assembly_guide.pdf
+└── stage_2/
+    └── final_prototype.stl
 ```
 
-### 2. Set Up the Backend (Django)
+---
 
-1. **Create & Activate a Virtual Environment (Windows example):**
-   ```bash
-   python -m venv venv
-   venv\Scripts\activate
-   ```
-2. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-   (If you haven’t created a `requirements.txt`, install manually:  
-   `pip install django djangorestframework django-cors-headers` etc.)
+## 🛠️ Technical Stack
 
-3. **Run Migrations & Create a Superuser (optional):**
-   ```bash
-   python manage.py makemigrations
-   python manage.py migrate
-   python manage.py createsuperuser
-   ```
-
-4. **Start the Django Server:**
-   ```bash
-   python manage.py runserver
-   ```
-   The API should now be accessible at [http://127.0.0.1:8000/api/files/](http://127.0.0.1:8000/api/files/).
-
-### 3. Set Up the Frontend (React)
-
-1. **Navigate to the React Folder:**
-   ```bash
-   cd mpp_frontend
-   ```
-2. **Install Frontend Dependencies:**
-   ```bash
-   npm install
-   ```
-3. **Start the React Development Server:**
-   ```bash
-   npm start
-   ```
-   The frontend will be served at [http://localhost:3000](http://localhost:3000).
+- **Backend**: Django + Django REST Framework
+- **Frontend**: React with React Bootstrap
+- **Database**: PostgreSQL
+- **File Preview**: 
+  - React Three Fiber (3D models)
+  - React Syntax Highlighter (code)
+  - React Markdown (markdown)
+  - Native browser viewers (PDF, images, Excel)
+- **Deployment**: Docker Compose with Nginx reverse proxy
 
 ---
 
-## Usage
+## 🔄 Coming in Next Update
 
-1. **Visit the React App** at [http://localhost:3000](http://localhost:3000).  
-2. **Upload Files** via the simple form (images, PDFs, STL, code, markdown, etc.).  
-3. **Check the Django API** at [url](http://127.0.0.1:8000/api/files/) to see a JSON list of uploaded files.  
-4. **Click a file** in the left column to see its preview (PDF, STL, code, markdown, or image) in the right column.
+The following features are currently in development:
 
----
-
-## Troubleshooting
-
-1. **CORS Errors (React → Django)**  
-   - Make sure `'corsheaders'` is in `INSTALLED_APPS` and `'corsheaders.middleware.CorsMiddleware'` is the first item in `MIDDLEWARE`.  
-   - In `settings.py`, set `CORS_ALLOW_ALL_ORIGINS = True` (for development).
-
-2. **400 Bad Request on Upload**  
-   - Verify that your React `FormData` key matches the serializer’s file field name (e.g., `'uploaded_file'`).  
-   - Ensure you have at least one user in the database if your `owner` field is not nullable.
-
-3. **IntegrityError: NOT NULL constraint failed**  
-   - Add `null=True, blank=True, default=dict` to the `metadata` field in your `File` model.  
-   - Run `python manage.py makemigrations && python manage.py migrate`.
-
-4. **No File in Browsable API**  
-   - If you only store a path (no `FileField`), the DRF browsable API won’t automatically show a “Choose File” button.  
-   - Use a `uploaded_file = serializers.FileField(write_only=True)` in your serializer for easy file uploads.
-
-5. **PDFs Not Displaying in `<iframe>`**  
-   - If you see “Refused to display … X-Frame-Options: DENY,” remove or reorder `'django.middleware.clickjacking.XFrameOptionsMiddleware'` in `settings.py` for local dev.  
-   - Ensure you’re iFraming the **actual PDF** (`/media/filename.pdf`), not the root site.  
-   - Check DevTools → Network tab for 404 or redirect issues.
-
-6. **STL Preview**  
-   - If the STL appears too small or only partially visible, ensure you’re using absolute positioning and a proper camera. Check for geometry centering and scaling.
-
-7. **Code/Markdown Preview**  
-   - For code, ensure `react-syntax-highlighter` is installed.  
-   - For markdown, ensure `react-markdown` is installed.
+- **📊 BOM Dashboard**: Dedicated Bill of Materials view with component cost tracking and purchasing management
+- **⬇️ Download Options**: Bulk download of files, export project data
+- **👥 User Management**: User-specific file access, permissions, and collaboration features
+- **📈 Enhanced Analytics**: Project cost analysis, timeline tracking, and development metrics
+- **🔧 Additional File Support**: .kicad_sch, .kicad_pcb, STP, and DOCX preview capabilities
 
 ---
 
-## Roadmap
+## 🤝 Use Cases
 
-- [ ] **Authentication & Permissions**: Add real login and role-based access.  
-- [ ] **File Versioning**: Store multiple versions of the same file.  
-- [ ] **BOM & Metrics**: Extend the model to handle BOM relationships, basic metrics, etc.  
-- [ ] **Docker Deployment**: Containerize both Django and React for easy deployment on Synology NAS or any Docker host.
+Mini-PLM is perfect for:
+
+- **Hardware Development Teams**: Managing schematics, PCB files, firmware, and test data
+- **IoT Product Development**: Organizing hardware, software, and integration files
+- **Small Manufacturing**: Tracking product development from concept to production
+- **Engineering Consulting**: Managing multiple client projects with full file history
+- **R&D Teams**: Documenting research, prototyping, and validation processes
+- **Maker Spaces & Startups**: Affordable PLM without enterprise complexity
 
 ---
 
-## License
+## 🏗️ System Requirements
 
-[MIT License](LICENSE)  
-Feel free to use or modify this project for your own needs. Contributions are welcome!
-```
+- **Server**: Any system capable of running Docker (Linux, Windows, macOS)
+- **RAM**: 2GB minimum, 4GB recommended
+- **Storage**: Depends on your file storage needs
+- **Network**: Local network access for team collaboration
+
+---
+
+## 🔧 Troubleshooting
+
+### Application Won't Start
+- Ensure Docker and Docker Compose are installed and running
+- Check that port 80 is not in use by another application
+- Run `docker-compose -f docker-compose.prod.yml logs` to see error messages
+
+### Cannot Access from Other Devices
+- Check firewall settings on the host machine
+- Ensure other devices are on the same network
+- Try accessing via the host machine's IP address instead of localhost
+
+### Files Not Uploading
+- Check available disk space on the host system
+- Verify the `./mpp_files` directory has proper write permissions
+
+### Database Issues
+- Database data persists in Docker volume `postgres_data`
+- To reset database: `docker-compose -f docker-compose.prod.yml down -v`
+
+---
+
+## 📄 License
+
+[MIT License](LICENSE)
+
+Free to use, modify, and distribute. Contributions welcome!
+
+---
+
+## 🌟 Why Choose Mini-PLM?
+
+Unlike enterprise PLM systems that cost thousands per user or cloud solutions that lock your data away, Mini-PLM gives you:
+
+- **Data Ownership**: Your files stay on your infrastructure
+- **Zero Recurring Costs**: No monthly subscriptions or per-user fees
+- **Easy Setup**: Running in minutes, not months
+- **Flexible Process**: Adapts to your workflow, not the other way around
+- **Universal Access**: Works on any device with a web browser
+
+Perfect for teams who need more structure than shared folders but don't want the complexity and cost of enterprise PLM systems.

@@ -215,29 +215,38 @@ class FileSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Cross-field validation"""
-        stage_id = data.get('stage_id')
-        iteration_id = data.get('iteration_id')
-        
-        # Must provide either stage_id OR iteration_id, but not both
-        if not stage_id and not iteration_id:
-            raise serializers.ValidationError("Either stage_id or iteration_id must be provided.")
-        
-        if stage_id and iteration_id:
-            raise serializers.ValidationError("Cannot provide both stage_id and iteration_id. Choose one.")
-        
-        # Validate parent file relationship
-        parent_file = data.get('parent_file')
-        if parent_file:
-            if parent_file.parent_file:
-                raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
+        # Only validate stage_id/iteration_id and container relationships for new file creation
+        if not self.instance:  # CREATE operation
+            stage_id = data.get('stage_id')
+            iteration_id = data.get('iteration_id')
             
-            # Ensure parent file is in the same container
-            if stage_id and parent_file.content_object and isinstance(parent_file.content_object, Stage):
-                if parent_file.content_object.id != stage_id:
-                    raise serializers.ValidationError("Child file must be in the same stage as parent file.")
-            elif iteration_id and parent_file.content_object and isinstance(parent_file.content_object, Iteration):
-                if parent_file.content_object.id != iteration_id:
-                    raise serializers.ValidationError("Child file must be in the same iteration as parent file.")
+            # Must provide either stage_id OR iteration_id, but not both
+            if not stage_id and not iteration_id:
+                raise serializers.ValidationError("Either stage_id or iteration_id must be provided.")
+            
+            if stage_id and iteration_id:
+                raise serializers.ValidationError("Cannot provide both stage_id and iteration_id. Choose one.")
+            
+            # Validate parent file relationship (only during creation)
+            parent_file = data.get('parent_file')
+            if parent_file:
+                if parent_file.parent_file:
+                    raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
+                
+                # Ensure parent file is in the same container
+                if stage_id and parent_file.content_object and isinstance(parent_file.content_object, Stage):
+                    if parent_file.content_object.id != stage_id:
+                        raise serializers.ValidationError("Child file must be in the same stage as parent file.")
+                elif iteration_id and parent_file.content_object and isinstance(parent_file.content_object, Iteration):
+                    if parent_file.content_object.id != iteration_id:
+                        raise serializers.ValidationError("Child file must be in the same iteration as parent file.")
+        
+        else:  # UPDATE operation
+            # Only validate parent_file nesting if parent_file is being updated
+            parent_file = data.get('parent_file')
+            if parent_file is not None:  # Only if parent_file is explicitly being changed
+                if parent_file.parent_file:
+                    raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
         
         return data
 

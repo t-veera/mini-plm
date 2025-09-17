@@ -46,13 +46,13 @@ import { Canvas, useLoader } from '@react-three/fiber';
 import { STLLoader } from 'three-stdlib';
 import { OrbitControls, GridHelper } from '@react-three/drei';
 import * as THREE from 'three';
+import DxfParser from 'dxf-parser';
+import { Html } from '@react-three/drei';
 
 // For Excel/CSV
 import * as XLSX from 'xlsx';
 
 // Code Syntax Highlighting
-// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-// import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
@@ -115,7 +115,6 @@ const styles = {
 };
 
 
-
 /* ---------------- FILE ICON MAP ---------------- */
 const iconMap = {
   pdf: <FaRegFilePdf style={{ marginRight: '4px', color: '#ff3d3d', fontSize: '1.5rem' }} />,
@@ -140,17 +139,72 @@ const iconMap = {
 // Status options for files
 const FILE_STATUSES = ['In-Work', 'Review', 'Released'];
 
+// Reusable authenticated fetch with CSRF token
+// Updated authenticatedFetch function
+async function authenticatedFetch(url, options = {}) {
+  function getCsrfToken() {
+    return document.cookie
+      .split('; ')
+      .find(row => row.startsWith('csrftoken='))
+      ?.split('=')[1];
+  }
 
-/* ---------------- STL VIEWER (with grid and controls) ---------------- */
+  const defaultOptions = {
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+    },
+    credentials: 'include',
+  };
+
+  // Only set Content-Type for non-FormData requests
+  if (!(options.body instanceof FormData)) {
+    defaultOptions.headers['Content-Type'] = 'application/json';
+  }
+
+  // Merge options, allowing custom headers to override defaults
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options.headers,
+    },
+  };
+
+  return fetch(url, mergedOptions);
+}
+
+/* ---------------- STL VIEWER COMPONENT ---------------- */
 function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -2, materialColor = "#ccc" }) {
     const [geometry, setGeometry] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadingProgress, setLoadingProgress] = useState(0);
     
+    // Enhanced debug logging
+    console.log("=== STL VIEWER DEBUG ===");
+    console.log("Received fileUrl:", fileUrl);
+    console.log("Type of fileUrl:", typeof fileUrl);
+    console.log("fileUrl length:", fileUrl ? fileUrl.length : 'null');
+    console.log("fileUrl ends with .stl:", fileUrl ? fileUrl.toLowerCase().endsWith('.stl') : false);
+    console.log("========================");
+    
     // Force reload when component mounts or fileUrl changes
     useEffect(() => {
       console.log("StlViewer: Loading file from URL:", fileUrl);
+      
+      // Additional validation
+      if (!fileUrl) {
+        console.error("StlViewer: No fileUrl provided!");
+        setError(new Error("No file URL provided"));
+        setLoading(false);
+        return;
+      }
+      
+      if (!fileUrl.toLowerCase().endsWith('.stl')) {
+        console.warn("StlViewer: URL doesn't end with .stl:", fileUrl);
+      }
+      
       setLoading(true);
       setError(null);
       setGeometry(null);
@@ -160,11 +214,18 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
       const loader = new STLLoader();
       
       try {
+        console.log("StlViewer: Starting STL load with Three.js STLLoader...");
+        
         // Load directly from the URL
         loader.load(
           fileUrl,
           (loadedGeometry) => {
             console.log("STL loaded successfully");
+            console.log("Geometry details:", {
+              vertices: loadedGeometry.attributes.position.count,
+              hasNormals: !!loadedGeometry.attributes.normal,
+              boundingBox: loadedGeometry.boundingBox
+            });
             
             // Center geometry & compute bounding box for scaling
             loadedGeometry.center();
@@ -177,18 +238,31 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
           (xhr) => {
             if (xhr.lengthComputable) {
               const progress = Math.round((xhr.loaded / xhr.total) * 100);
-              console.log(`STL loading progress: ${progress}%`);
+              console.log(`STL loading progress: ${progress}% (${xhr.loaded}/${xhr.total} bytes)`);
               setLoadingProgress(progress);
+            } else {
+              console.log("STL loading in progress (size unknown)");
             }
           },
           (err) => {
             console.error('Error loading STL:', err);
+            console.error('Error details:', {
+              message: err.message,
+              stack: err.stack,
+              url: fileUrl,
+              status: err.status || 'unknown'
+            });
             setError(err);
             setLoading(false);
           }
         );
       } catch (err) {
         console.error('Exception loading STL:', err);
+        console.error('Exception details:', {
+          message: err.message,
+          stack: err.stack,
+          url: fileUrl
+        });
         setError(err);
         setLoading(false);
       }
@@ -196,6 +270,7 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
       return () => {
         // Cleanup geometry
         if (geometry) {
+          console.log("Cleaning up STL geometry");
           geometry.dispose();
         }
       };
@@ -219,10 +294,10 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
       }
       
       if (error) {
-        console.log("Rendering error state in ThreeScene");
+        console.log("Rendering error state in ThreeScene - Error:", error.message);
         return (
           <>
-            {/* Error indicator */}
+            {/* Error indicator - RED CUBE means STL loading failed */}
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[3, 3, 3]} />
               <meshStandardMaterial color="#FF5252" />
@@ -235,7 +310,7 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
       }
     
       if (!geometry) {
-        console.log("No geometry available in ThreeScene");
+        console.log("No geometry available in ThreeScene - showing gray sphere");
         return (
           <>
             {/* Empty state indicator */}
@@ -253,6 +328,12 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
       // Calculate appropriate scale based on bounding box
       const size = geometry.boundingBox?.getSize(new THREE.Vector3()).length() || 1;
       const scaleFactor = 10 / size;
+      
+      console.log("Rendering STL successfully:", {
+        size: size,
+        scaleFactor: scaleFactor,
+        vertices: geometry.attributes.position.count
+      });
       
       return (
         <>
@@ -314,67 +395,3277 @@ function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
         <ThreeScene />
       </group>
     );
-  }
+}
+
+
+
+/* ---------------- DXF VIEWER COMPONENT (Using dxf-parser) ---------------- */
+/* ---------------- IMPROVED DXF VIEWER COMPONENT ---------------- */
+// function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -2, materialColor = "#4285F4" }) {
+//     const [dxfEntities, setDxfEntities] = useState(null);
+//     const [error, setError] = useState(null);
+//     const [loading, setLoading] = useState(true);
+//     const [entityCount, setEntityCount] = useState(0);
+
+//     useEffect(() => {
+//         console.log("DxfViewer: Loading DXF file from URL:", fileUrl);
+        
+//         if (!fileUrl) {
+//             setError(new Error("No file URL provided"));
+//             setLoading(false);
+//             return;
+//         }
+
+//         setLoading(true);
+//         setError(null);
+//         setDxfEntities(null);
+//         setEntityCount(0);
+
+//         // Add cache busting and more robust fetching
+//         const fetchUrl = `${fileUrl}?t=${Date.now()}`;
+        
+//         fetch(fetchUrl, {
+//             method: 'GET',
+//             headers: {
+//                 'Cache-Control': 'no-cache',
+//                 'Pragma': 'no-cache'
+//             }
+//         })
+//             .then(response => {
+//                 if (!response.ok) {
+//                     throw new Error(`HTTP error! status: ${response.status}`);
+//                 }
+//                 return response.text();
+//             })
+//             .then(dxfString => {
+//                 console.log("DXF file fetched, length:", dxfString.length);
+                
+//                 if (dxfString.trim().length === 0) {
+//                     throw new Error("DXF file is empty");
+//                 }
+                
+//                 const parser = new DxfParser();
+//                 const dxf = parser.parseSync(dxfString);
+                
+//                 console.log("DXF parsed successfully:", dxf);
+//                 console.log("Entities found:", dxf.entities ? dxf.entities.length : 0);
+//                 console.log("Entity types:", dxf.entities ? [...new Set(dxf.entities.map(e => e.type))] : []);
+                
+//                 // Convert DXF entities to Three.js objects with improved parsing
+//                 const entities = createThreeJSEntities(dxf, materialColor);
+//                 setDxfEntities(entities);
+//                 setEntityCount(dxf.entities ? dxf.entities.length : 0);
+//                 setLoading(false);
+//             })
+//             .catch(err => {
+//                 console.error('Error loading/parsing DXF:', err);
+//                 setError(err);
+//                 setLoading(false);
+//             });
+//     }, [fileUrl, materialColor]); // Remove any dependencies that might cause unnecessary re-renders
+
+//     // Improved DXF entity parsing with more entity types
+//     const createThreeJSEntities = (dxf, color) => {
+//         const group = new THREE.Group();
+
+//         if (!dxf || !dxf.entities) {
+//             console.warn("No entities found in DXF");
+//             return group;
+//         }
+
+//         let processedCount = 0;
+        
+//         dxf.entities.forEach((entity, index) => {
+//             try {
+//                 let object = null;
+
+//                 console.log(`Processing entity ${index + 1}/${dxf.entities.length}:`, entity.type, entity);
+
+//                 switch (entity.type) {
+//                     case 'LINE':
+//                         object = createLine(entity, color);
+//                         break;
+//                     case 'POLYLINE':
+//                         object = createPolyline(entity, color);
+//                         break;
+//                     case 'LWPOLYLINE':
+//                         object = createLWPolyline(entity, color);
+//                         break;
+//                     case 'CIRCLE':
+//                         object = createCircle(entity, color);
+//                         break;
+//                     case 'ARC':
+//                         object = createArc(entity, color);
+//                         break;
+//                     case 'ELLIPSE':
+//                         object = createEllipse(entity, color);
+//                         break;
+//                     case 'TEXT':
+//                     case 'MTEXT':
+//                         object = createText(entity, color);
+//                         break;
+//                     case 'POINT':
+//                         object = createPoint(entity, color);
+//                         break;
+//                     case 'SPLINE':
+//                         object = createSpline(entity, color);
+//                         break;
+//                     case 'INSERT':
+//                         object = createInsert(entity, color, dxf);
+//                         break;
+//                     case 'DIMENSION':
+//                         object = createDimension(entity, color);
+//                         break;
+//                     case 'HATCH':
+//                         object = createHatch(entity, color);
+//                         break;
+//                     case 'SOLID':
+//                     case '3DFACE':
+//                         object = createSolid(entity, color);
+//                         break;
+//                     default:
+//                         console.warn("Unhandled DXF entity type:", entity.type, entity);
+//                 }
+
+//                 if (object) {
+//                     // Set layer information if available
+//                     if (entity.layer) {
+//                         object.userData.layer = entity.layer;
+//                     }
+                    
+//                     // Set color information
+//                     if (entity.colorNumber !== undefined && entity.colorNumber !== 256) {
+//                         // Use entity color if not "by layer"
+//                         object.userData.colorNumber = entity.colorNumber;
+//                     }
+                    
+//                     group.add(object);
+//                     processedCount++;
+//                 }
+//             } catch (entityError) {
+//                 console.error(`Error processing entity ${index}:`, entityError, entity);
+//             }
+//         });
+
+//         console.log(`Successfully processed ${processedCount}/${dxf.entities.length} entities`);
+        
+//         return group;
+//     };
+
+//     const createLine = (entity, color) => {
+//         if (!entity.startPoint || !entity.endPoint) {
+//             console.warn("LINE entity missing points:", entity);
+//             return null;
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         const points = [
+//             new THREE.Vector3(entity.startPoint.x || 0, entity.startPoint.y || 0, entity.startPoint.z || 0),
+//             new THREE.Vector3(entity.endPoint.x || 0, entity.endPoint.y || 0, entity.endPoint.z || 0)
+//         ];
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createPolyline = (entity, color) => {
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("POLYLINE entity has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         const points = entity.vertices.map(vertex => 
+//             new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0)
+//         );
+
+//         // Close the polyline if specified
+//         if (entity.closed && points.length > 2) {
+//             points.push(points[0]);
+//         }
+
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createLWPolyline = (entity, color) => {
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("LWPOLYLINE entity has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         const points = [];
+        
+//         // Handle bulge values for arcs in LWPOLYLINE
+//         for (let i = 0; i < entity.vertices.length; i++) {
+//             const vertex = entity.vertices[i];
+//             points.push(new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0));
+            
+//             // If this vertex has a bulge, create an arc to the next vertex
+//             if (vertex.bulge && vertex.bulge !== 0 && i < entity.vertices.length - 1) {
+//                 const nextVertex = entity.vertices[i + 1];
+//                 const arcPoints = createArcFromBulge(vertex, nextVertex, vertex.bulge);
+//                 points.push(...arcPoints);
+//             }
+//         }
+
+//         // Close if specified
+//         if (entity.closed && points.length > 2) {
+//             points.push(points[0]);
+//         }
+
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createCircle = (entity, color) => {
+//         if (!entity.center || !entity.radius) {
+//             console.warn("CIRCLE entity missing center or radius:", entity);
+//             return null;
+//         }
+
+//         // Create circle using curve
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,            // aX, aY
+//             entity.radius, entity.radius,   // xRadius, yRadius
+//             0, 2 * Math.PI,  // aStartAngle, aEndAngle
+//             false,           // aClockwise
+//             0                // aRotation
+//         );
+
+//         const points = curve.getPoints(64);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const circle = new THREE.Line(geometry, material);
+//         circle.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return circle;
+//     };
+
+//     const createArc = (entity, color) => {
+//         if (!entity.center || !entity.radius) {
+//             console.warn("ARC entity missing center or radius:", entity);
+//             return null;
+//         }
+
+//         const startAngle = entity.startAngle || 0;
+//         const endAngle = entity.endAngle || Math.PI * 2;
+        
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,                    // aX, aY
+//             entity.radius, entity.radius,   // xRadius, yRadius
+//             startAngle, endAngle,    // aStartAngle, aEndAngle
+//             false,                   // aClockwise
+//             0                        // aRotation
+//         );
+
+//         const points = curve.getPoints(32);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const arc = new THREE.Line(geometry, material);
+//         arc.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return arc;
+//     };
+
+//     const createEllipse = (entity, color) => {
+//         if (!entity.center || !entity.majorAxisEndPoint) {
+//             console.warn("ELLIPSE entity missing center or major axis:", entity);
+//             return null;
+//         }
+
+//         const majorRadius = Math.sqrt(
+//             Math.pow(entity.majorAxisEndPoint.x || 0, 2) + 
+//             Math.pow(entity.majorAxisEndPoint.y || 0, 2)
+//         );
+//         const minorRadius = majorRadius * (entity.axisRatio || 1);
+        
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,
+//             majorRadius, minorRadius,
+//             entity.startParameter || 0,
+//             entity.endParameter || 2 * Math.PI,
+//             false,
+//             0
+//         );
+
+//         const points = curve.getPoints(64);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const ellipse = new THREE.Line(geometry, material);
+//         ellipse.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return ellipse;
+//     };
+
+//     const createText = (entity, color) => {
+//         if (!entity.position && !entity.insertionPoint) {
+//             console.warn("TEXT entity missing position:", entity);
+//             return null;
+//         }
+
+//         const position = entity.position || entity.insertionPoint;
+//         const textHeight = entity.textHeight || entity.height || 1;
+        
+//         // Create a simple rectangle to represent text
+//         const geometry = new THREE.PlaneGeometry(textHeight * 3, textHeight);
+//         const material = new THREE.MeshBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             transparent: true,
+//             opacity: 0.8
+//         });
+        
+//         const textMesh = new THREE.Mesh(geometry, material);
+//         textMesh.position.set(position.x || 0, position.y || 0, position.z || 0);
+        
+//         return textMesh;
+//     };
+
+//     const createSpline = (entity, color) => {
+//         if (!entity.controlPoints || entity.controlPoints.length < 2) {
+//             console.warn("SPLINE entity has insufficient control points:", entity);
+//             return null;
+//         }
+
+//         const points = entity.controlPoints.map(point => 
+//             new THREE.Vector3(point.x || 0, point.y || 0, point.z || 0)
+//         );
+
+//         const curve = new THREE.CatmullRomCurve3(points);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(
+//             curve.getPoints(Math.max(50, points.length * 10))
+//         );
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createPoint = (entity, color) => {
+//         if (!entity.position) {
+//             console.warn("POINT entity missing position:", entity);
+//             return null;
+//         }
+
+//         const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+//         const material = new THREE.MeshBasicMaterial({ 
+//             color: getEntityColor(entity, color)
+//         });
+        
+//         const point = new THREE.Mesh(geometry, material);
+//         point.position.set(entity.position.x || 0, entity.position.y || 0, entity.position.z || 0);
+        
+//         return point;
+//     };
+
+//     const createInsert = (entity, color, dxf) => {
+//         // Handle block inserts - simplified version
+//         const group = new THREE.Group();
+        
+//         if (entity.position) {
+//             group.position.set(entity.position.x || 0, entity.position.y || 0, entity.position.z || 0);
+//         }
+        
+//         return group;
+//     };
+
+//     const createDimension = (entity, color) => {
+//         // Simplified dimension representation
+//         const group = new THREE.Group();
+//         return group;
+//     };
+
+//     const createHatch = (entity, color) => {
+//         // Simplified hatch representation
+//         if (entity.boundaryPaths && entity.boundaryPaths.length > 0) {
+//             const group = new THREE.Group();
+            
+//             entity.boundaryPaths.forEach(path => {
+//                 if (path.edges) {
+//                     path.edges.forEach(edge => {
+//                         const obj = createHatchEdge(edge, color);
+//                         if (obj) group.add(obj);
+//                     });
+//                 }
+//             });
+            
+//             return group;
+//         }
+//         return null;
+//     };
+
+//     const createHatchEdge = (edge, color) => {
+//         if (edge.type === 'line') {
+//             return createLine(edge, color);
+//         } else if (edge.type === 'arc') {
+//             return createArc(edge, color);
+//         }
+//         return null;
+//     };
+
+//     const createSolid = (entity, color) => {
+//         if (entity.points && entity.points.length >= 3) {
+//             const geometry = new THREE.BufferGeometry();
+//             const points = entity.points.map(point => 
+//                 new THREE.Vector3(point.x || 0, point.y || 0, point.z || 0)
+//             );
+//             geometry.setFromPoints(points);
+            
+//             const material = new THREE.MeshBasicMaterial({ 
+//                 color: getEntityColor(entity, color),
+//                 side: THREE.DoubleSide
+//             });
+            
+//             return new THREE.Mesh(geometry, material);
+//         }
+//         return null;
+//     };
+
+//     // Helper function to create arc points from bulge value
+//     const createArcFromBulge = (startVertex, endVertex, bulge) => {
+//         const points = [];
+//         // This is a simplified implementation - bulge geometry is complex
+//         // For now, just return intermediate points
+//         const steps = 8;
+//         for (let i = 1; i < steps; i++) {
+//             const t = i / steps;
+//             const x = startVertex.x + (endVertex.x - startVertex.x) * t;
+//             const y = startVertex.y + (endVertex.y - startVertex.y) * t;
+//             points.push(new THREE.Vector3(x, y, startVertex.z || 0));
+//         }
+//         return points;
+//     };
+
+//     // Helper function to get entity color
+//     const getEntityColor = (entity, defaultColor) => {
+//         if (entity.colorNumber !== undefined && entity.colorNumber !== 256) {
+//             // Convert AutoCAD color number to hex color
+//             return getACADColor(entity.colorNumber);
+//         }
+//         return defaultColor;
+//     };
+
+//     // AutoCAD standard colors
+//     const getACADColor = (colorNumber) => {
+//         const acadColors = {
+//             1: 0xFF0000, // Red
+//             2: 0xFFFF00, // Yellow
+//             3: 0x00FF00, // Green
+//             4: 0x00FFFF, // Cyan
+//             5: 0x0000FF, // Blue
+//             6: 0xFF00FF, // Magenta
+//             7: 0xFFFFFF, // White
+//             8: 0x808080, // Gray
+//             9: 0xC0C0C0, // Light Gray
+//         };
+        
+//         return acadColors[colorNumber] || 0x4285F4;
+//     };
+
+//     const ThreeScene = () => {
+//         if (loading) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]} rotation={[0, Date.now() * 0.001, 0]}>
+//                         <torusGeometry args={[2, 0.5, 16, 32]} />
+//                         <meshStandardMaterial color="#4285F4" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Loading DXF...</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (error) {
+//             console.log("Rendering error state in DXF ThreeScene - Error:", error.message);
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <boxGeometry args={[3, 3, 3]} />
+//                         <meshStandardMaterial color="#FF5252" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Error loading DXF:</div>
+//                             <div style={{ fontSize: '12px' }}>{error.message}</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (!dxfEntities || dxfEntities.children.length === 0) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <sphereGeometry args={[2, 16, 16]} />
+//                         <meshStandardMaterial color="#AAAAAA" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>No DXF entities found</div>
+//                             <div style={{ fontSize: '12px' }}>Parsed {entityCount} entities</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         // Calculate appropriate scale and center the group
+//         const box = new THREE.Box3().setFromObject(dxfEntities);
+//         if (!box.isEmpty()) {
+//             const center = box.getCenter(new THREE.Vector3());
+//             dxfEntities.position.sub(center);
+            
+//             const size = box.getSize(new THREE.Vector3()).length();
+//             const scaleFactor = size > 0 ? 10 / size : 1;
+            
+//             console.log("Rendering DXF successfully:", {
+//                 size: size,
+//                 scaleFactor: scaleFactor,
+//                 entities: dxfEntities.children.length,
+//                 entityCount: entityCount
+//             });
+
+//             return (
+//                 <>
+//                     {/* Grid positioned lower */}
+//                     <gridHelper
+//                         args={[50, 50, 'white', 'gray']}
+//                         position={[0, gridPosition, 0]}
+//                     />
+
+//                     {/* Lighting optimized for 2D drawings */}
+//                     <ambientLight intensity={0.8} />
+//                     <directionalLight
+//                         position={[0, 0, 10]}
+//                         intensity={brightness * 0.3}
+//                     />
+//                     <directionalLight
+//                         position={[10, 10, 5]}
+//                         intensity={brightness * 0.2}
+//                     />
+
+//                     {/* The DXF entities group */}
+//                     <primitive 
+//                         object={dxfEntities} 
+//                         scale={[scaleFactor, scaleFactor, scaleFactor]}
+//                     />
+
+//                     <OrbitControls
+//                         enableZoom={true}
+//                         enableRotate={true}
+//                         enablePan={true}
+//                         zoomSpeed={1.2}
+//                         rotateSpeed={1.0}
+//                         panSpeed={0.8}
+//                     />
+
+//                     <Html
+//                         position={[-8, 8, 0]}
+//                         style={{ 
+//                             color: 'white', 
+//                             fontSize: '12px',
+//                             backgroundColor: 'rgba(0,0,0,0.7)',
+//                             padding: '5px',
+//                             borderRadius: '3px'
+//                         }}
+//                     >
+//                         Entities: {dxfEntities.children.length}/{entityCount}
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         return (
+//             <>
+//                 <ambientLight intensity={0.5} />
+//                 <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//             </>
+//         );
+//     };
+
+//     return (
+//         <group>
+//             <ThreeScene />
+//         </group>
+//     );
+// }
+/* ---------------- ENHANCED DXF VIEWER WITH DEBUG LOGGING ---------------- */
+// function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -2, materialColor = "#4285F4" }) {
+//     const [dxfEntities, setDxfEntities] = useState(null);
+//     const [error, setError] = useState(null);
+//     const [loading, setLoading] = useState(true);
+//     const [debugInfo, setDebugInfo] = useState(null);
+
+//     useEffect(() => {
+//         console.log("DxfViewer: Loading DXF file from URL:", fileUrl);
+        
+//         if (!fileUrl) {
+//             setError(new Error("No file URL provided"));
+//             setLoading(false);
+//             return;
+//         }
+
+//         setLoading(true);
+//         setError(null);
+//         setDxfEntities(null);
+//         setDebugInfo(null);
+
+//         // Fetch with cache busting
+//         const fetchUrl = `${fileUrl}?t=${Date.now()}`;
+        
+//         fetch(fetchUrl, {
+//             method: 'GET',
+//             headers: {
+//                 'Cache-Control': 'no-cache',
+//                 'Pragma': 'no-cache'
+//             }
+//         })
+//             .then(response => {
+//                 if (!response.ok) {
+//                     throw new Error(`HTTP error! status: ${response.status}`);
+//                 }
+//                 return response.text();
+//             })
+//             .then(dxfString => {
+//                 console.log("DXF file fetched, length:", dxfString.length);
+                
+//                 if (dxfString.trim().length === 0) {
+//                     throw new Error("DXF file is empty");
+//                 }
+                
+//                 const parser = new DxfParser();
+//                 const dxf = parser.parseSync(dxfString);
+                
+//                 console.log("=== DXF PARSING RESULTS ===");
+//                 console.log("Full DXF object:", dxf);
+//                 console.log("Entities found:", dxf.entities ? dxf.entities.length : 0);
+                
+//                 if (dxf.entities) {
+//                     // Log all entity types and details
+//                     const entityTypes = {};
+//                     dxf.entities.forEach((entity, index) => {
+//                         if (!entityTypes[entity.type]) {
+//                             entityTypes[entity.type] = [];
+//                         }
+//                         entityTypes[entity.type].push({
+//                             index,
+//                             layer: entity.layer,
+//                             color: entity.colorNumber,
+//                             entity: entity
+//                         });
+                        
+//                         console.log(`Entity ${index}:`, {
+//                             type: entity.type,
+//                             layer: entity.layer,
+//                             color: entity.colorNumber,
+//                             data: entity
+//                         });
+//                     });
+                    
+//                     console.log("Entity types summary:", entityTypes);
+                    
+//                     // Set debug info for display
+//                     setDebugInfo({
+//                         totalEntities: dxf.entities.length,
+//                         entityTypes: Object.keys(entityTypes).map(type => ({
+//                             type,
+//                             count: entityTypes[type].length,
+//                             entities: entityTypes[type]
+//                         }))
+//                     });
+//                 }
+                
+//                 // Check for layers
+//                 if (dxf.layers) {
+//                     console.log("Layers found:", dxf.layers);
+//                 }
+                
+//                 // Check for blocks
+//                 if (dxf.blocks) {
+//                     console.log("Blocks found:", dxf.blocks);
+//                 }
+                
+//                 console.log("===============================");
+                
+//                 // Convert DXF entities to Three.js objects with enhanced parsing
+//                 const entities = createThreeJSEntities(dxf, materialColor);
+//                 setDxfEntities(entities);
+//                 setLoading(false);
+//             })
+//             .catch(err => {
+//                 console.error('Error loading/parsing DXF:', err);
+//                 setError(err);
+//                 setLoading(false);
+//             });
+//     }, [fileUrl, materialColor]);
+
+//     // Enhanced DXF entity parsing with comprehensive logging
+//     const createThreeJSEntities = (dxf, color) => {
+//         const group = new THREE.Group();
+
+//         if (!dxf || !dxf.entities) {
+//             console.warn("No entities found in DXF");
+//             return group;
+//         }
+
+//         let processedCount = 0;
+//         let skippedCount = 0;
+        
+//         dxf.entities.forEach((entity, index) => {
+//             try {
+//                 console.log(`\n--- Processing Entity ${index + 1}/${dxf.entities.length} ---`);
+//                 console.log("Type:", entity.type);
+//                 console.log("Layer:", entity.layer);
+//                 console.log("Color:", entity.colorNumber);
+//                 console.log("Full entity:", entity);
+                
+//                 let object = null;
+
+//                 switch (entity.type) {
+//                     case 'LINE':
+//                         object = createLine(entity, color, index);
+//                         break;
+//                     case 'POLYLINE':
+//                         object = createPolyline(entity, color, index);
+//                         break;
+//                     case 'LWPOLYLINE':
+//                         object = createLWPolyline(entity, color, index);
+//                         break;
+//                     case 'CIRCLE':
+//                         object = createCircle(entity, color, index);
+//                         break;
+//                     case 'ARC':
+//                         object = createArc(entity, color, index);
+//                         break;
+//                     case 'ELLIPSE':
+//                         object = createEllipse(entity, color, index);
+//                         break;
+//                     case 'SPLINE':
+//                         object = createSpline(entity, color, index);
+//                         break;
+//                     case 'TEXT':
+//                     case 'MTEXT':
+//                         object = createText(entity, color, index);
+//                         break;
+//                     case 'POINT':
+//                         object = createPoint(entity, color, index);
+//                         break;
+//                     case 'INSERT':
+//                         object = createInsert(entity, color, dxf, index);
+//                         break;
+//                     case 'DIMENSION':
+//                         object = createDimension(entity, color, index);
+//                         break;
+//                     case 'HATCH':
+//                         object = createHatch(entity, color, index);
+//                         break;
+//                     case 'SOLID':
+//                     case '3DFACE':
+//                         object = createSolid(entity, color, index);
+//                         break;
+//                     case 'LEADER':
+//                         object = createLeader(entity, color, index);
+//                         break;
+//                     default:
+//                         console.warn(`❌ UNHANDLED entity type: ${entity.type}`);
+//                         console.log("Entity data:", entity);
+//                         skippedCount++;
+//                 }
+
+//                 if (object) {
+//                     // Set metadata
+//                     object.userData = {
+//                         entityIndex: index,
+//                         entityType: entity.type,
+//                         layer: entity.layer,
+//                         colorNumber: entity.colorNumber,
+//                         originalEntity: entity
+//                     };
+                    
+//                     group.add(object);
+//                     processedCount++;
+//                     console.log(`✅ Successfully created ${entity.type} object`);
+//                 } else {
+//                     skippedCount++;
+//                     console.log(`❌ Failed to create object for ${entity.type}`);
+//                 }
+//             } catch (entityError) {
+//                 console.error(`❌ Error processing entity ${index} (${entity.type}):`, entityError);
+//                 console.log("Problematic entity:", entity);
+//                 skippedCount++;
+//             }
+//         });
+
+//         console.log(`\n=== PROCESSING SUMMARY ===`);
+//         console.log(`Total entities: ${dxf.entities.length}`);
+//         console.log(`Successfully processed: ${processedCount}`);
+//         console.log(`Skipped/Failed: ${skippedCount}`);
+//         console.log(`===========================\n`);
+        
+//         return group;
+//     };
+
+//     // Enhanced entity creation functions with detailed logging
+//     const createLine = (entity, color, index) => {
+//         console.log(`Creating LINE ${index}:`, entity);
+        
+//         if (!entity.startPoint || !entity.endPoint) {
+//             console.warn("❌ LINE missing start/end points:", entity);
+//             return null;
+//         }
+
+//         const start = new THREE.Vector3(entity.startPoint.x || 0, entity.startPoint.y || 0, entity.startPoint.z || 0);
+//         const end = new THREE.Vector3(entity.endPoint.x || 0, entity.endPoint.y || 0, entity.endPoint.z || 0);
+        
+//         console.log(`Line from ${start.x},${start.y} to ${end.x},${end.y}`);
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints([start, end]);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createLWPolyline = (entity, color, index) => {
+//         console.log(`Creating LWPOLYLINE ${index}:`, entity);
+        
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("❌ LWPOLYLINE has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         console.log(`LWPOLYLINE has ${entity.vertices.length} vertices`);
+        
+//         const points = [];
+        
+//         // Process each vertex, handling bulge values for arcs
+//         for (let i = 0; i < entity.vertices.length; i++) {
+//             const vertex = entity.vertices[i];
+//             const point = new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+//             points.push(point);
+            
+//             console.log(`Vertex ${i}: (${vertex.x}, ${vertex.y}) bulge: ${vertex.bulge || 0}`);
+            
+//             // Handle bulge for curved segments
+//             if (vertex.bulge && vertex.bulge !== 0 && i < entity.vertices.length - 1) {
+//                 const nextVertex = entity.vertices[i + 1];
+//                 console.log(`Creating arc segment with bulge ${vertex.bulge}`);
+                
+//                 const arcPoints = createArcFromBulge(vertex, nextVertex, vertex.bulge);
+//                 points.push(...arcPoints);
+//                 console.log(`Added ${arcPoints.length} arc interpolation points`);
+//             }
+//         }
+
+//         // Handle closed polylines
+//         if (entity.closed && points.length > 2) {
+//             points.push(points[0]);
+//             console.log("Closed polyline - added closing segment");
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createPolyline = (entity, color, index) => {
+//         console.log(`Creating POLYLINE ${index}:`, entity);
+        
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("❌ POLYLINE has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         const points = entity.vertices.map((vertex, i) => {
+//             console.log(`POLYLINE vertex ${i}: (${vertex.x}, ${vertex.y}, ${vertex.z || 0})`);
+//             return new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+//         });
+
+//         if (entity.closed && points.length > 2) {
+//             points.push(points[0]);
+//             console.log("Closed POLYLINE");
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createCircle = (entity, color, index) => {
+//         console.log(`Creating CIRCLE ${index}:`, entity);
+        
+//         if (!entity.center || !entity.radius) {
+//             console.warn("❌ CIRCLE missing center or radius:", entity);
+//             return null;
+//         }
+
+//         console.log(`Circle at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}`);
+
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,
+//             entity.radius, entity.radius,
+//             0, 2 * Math.PI,
+//             false,
+//             0
+//         );
+
+//         const points = curve.getPoints(64);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const circle = new THREE.Line(geometry, material);
+//         circle.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return circle;
+//     };
+
+//     const createArc = (entity, color, index) => {
+//         console.log(`Creating ARC ${index}:`, entity);
+        
+//         if (!entity.center || !entity.radius) {
+//             console.warn("❌ ARC missing center or radius:", entity);
+//             return null;
+//         }
+
+//         const startAngle = entity.startAngle || 0;
+//         const endAngle = entity.endAngle || Math.PI * 2;
+        
+//         console.log(`Arc at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}, angles: ${startAngle} to ${endAngle}`);
+
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,
+//             entity.radius, entity.radius,
+//             startAngle, endAngle,
+//             false,
+//             0
+//         );
+
+//         const points = curve.getPoints(32);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const arc = new THREE.Line(geometry, material);
+//         arc.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return arc;
+//     };
+
+//     const createSpline = (entity, color, index) => {
+//         console.log(`Creating SPLINE ${index}:`, entity);
+        
+//         if (!entity.controlPoints || entity.controlPoints.length < 2) {
+//             console.warn("❌ SPLINE has insufficient control points:", entity);
+//             return null;
+//         }
+
+//         console.log(`SPLINE has ${entity.controlPoints.length} control points`);
+
+//         const points = entity.controlPoints.map((point, i) => {
+//             console.log(`Control point ${i}: (${point.x}, ${point.y}, ${point.z || 0})`);
+//             return new THREE.Vector3(point.x || 0, point.y || 0, point.z || 0);
+//         });
+
+//         const curve = new THREE.CatmullRomCurve3(points);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(
+//             curve.getPoints(Math.max(50, points.length * 10))
+//         );
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     // Enhanced bulge calculation
+//     const createArcFromBulge = (startVertex, endVertex, bulge) => {
+//         console.log(`Creating arc from bulge: ${bulge}`);
+        
+//         const p1 = new THREE.Vector2(startVertex.x, startVertex.y);
+//         const p2 = new THREE.Vector2(endVertex.x, endVertex.y);
+        
+//         // Calculate arc parameters from bulge
+//         const distance = p1.distanceTo(p2);
+//         const sagitta = (distance / 2) * Math.abs(bulge);
+        
+//         // Calculate center point
+//         const midpoint = new THREE.Vector2().addVectors(p1, p2).multiplyScalar(0.5);
+//         const direction = new THREE.Vector2().subVectors(p2, p1).normalize();
+//         const perpendicular = new THREE.Vector2(-direction.y, direction.x);
+        
+//         const radius = (sagitta * sagitta + (distance / 2) * (distance / 2)) / (2 * sagitta);
+//         const centerOffset = radius - sagitta;
+        
+//         const center = new THREE.Vector2().addVectors(midpoint, perpendicular.multiplyScalar(bulge > 0 ? centerOffset : -centerOffset));
+        
+//         // Generate arc points
+//         const points = [];
+//         const segments = Math.max(8, Math.floor(Math.abs(bulge) * 16));
+        
+//         for (let i = 1; i < segments; i++) {
+//             const t = i / segments;
+            
+//             const angle1 = Math.atan2(p1.y - center.y, p1.x - center.x);
+//             const angle2 = Math.atan2(p2.y - center.y, p2.x - center.x);
+            
+//             let angleDiff = angle2 - angle1;
+//             if (bulge < 0) {
+//                 if (angleDiff > 0) angleDiff -= 2 * Math.PI;
+//             } else {
+//                 if (angleDiff < 0) angleDiff += 2 * Math.PI;
+//             }
+            
+//             const currentAngle = angle1 + t * angleDiff;
+//             const x = center.x + radius * Math.cos(currentAngle);
+//             const y = center.y + radius * Math.sin(currentAngle);
+            
+//             points.push(new THREE.Vector3(x, y, startVertex.z || 0));
+//         }
+        
+//         console.log(`Generated ${points.length} points for bulge arc`);
+//         return points;
+//     };
+
+//     // Additional entity creators for completeness
+//     const createEllipse = (entity, color, index) => {
+//         console.log(`Creating ELLIPSE ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createText = (entity, color, index) => {
+//         console.log(`Creating TEXT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createPoint = (entity, color, index) => {
+//         console.log(`Creating POINT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createInsert = (entity, color, dxf, index) => {
+//         console.log(`Creating INSERT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createDimension = (entity, color, index) => {
+//         console.log(`Creating DIMENSION ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createHatch = (entity, color, index) => {
+//         console.log(`Creating HATCH ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createSolid = (entity, color, index) => {
+//         console.log(`Creating SOLID ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createLeader = (entity, color, index) => {
+//         console.log(`Creating LEADER ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     // Helper function to get entity color
+//     const getEntityColor = (entity, defaultColor) => {
+//         if (entity.colorNumber !== undefined && entity.colorNumber !== 256) {
+//             return getACADColor(entity.colorNumber);
+//         }
+//         return defaultColor;
+//     };
+
+//     // AutoCAD standard colors
+//     const getACADColor = (colorNumber) => {
+//         const acadColors = {
+//             1: 0xFF0000, // Red
+//             2: 0xFFFF00, // Yellow
+//             3: 0x00FF00, // Green
+//             4: 0x00FFFF, // Cyan
+//             5: 0x0000FF, // Blue
+//             6: 0xFF00FF, // Magenta
+//             7: 0xFFFFFF, // White
+//             8: 0x808080, // Gray
+//             9: 0xC0C0C0, // Light Gray
+//         };
+        
+//         return acadColors[colorNumber] || 0x4285F4;
+//     };
+
+//     const ThreeScene = () => {
+//         if (loading) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]} rotation={[0, Date.now() * 0.001, 0]}>
+//                         <torusGeometry args={[2, 0.5, 16, 32]} />
+//                         <meshStandardMaterial color="#4285F4" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Loading DXF...</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (error) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <boxGeometry args={[3, 3, 3]} />
+//                         <meshStandardMaterial color="#FF5252" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Error loading DXF:</div>
+//                             <div style={{ fontSize: '12px' }}>{error.message}</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (!dxfEntities || dxfEntities.children.length === 0) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <sphereGeometry args={[2, 16, 16]} />
+//                         <meshStandardMaterial color="#AAAAAA" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>No DXF entities rendered</div>
+//                             {debugInfo && (
+//                                 <div style={{ fontSize: '12px', marginTop: '10px' }}>
+//                                     <div>Parsed: {debugInfo.totalEntities} entities</div>
+//                                     <div>Types: {debugInfo.entityTypes.map(et => `${et.type}(${et.count})`).join(', ')}</div>
+//                                 </div>
+//                             )}
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         // Calculate appropriate scale and center the group
+//         const box = new THREE.Box3().setFromObject(dxfEntities);
+//         if (!box.isEmpty()) {
+//             const center = box.getCenter(new THREE.Vector3());
+//             dxfEntities.position.sub(center);
+            
+//             const size = box.getSize(new THREE.Vector3()).length();
+//             const scaleFactor = size > 0 ? 10 / size : 1;
+            
+//             console.log("Rendering DXF successfully:", {
+//                 size: size,
+//                 scaleFactor: scaleFactor,
+//                 entities: dxfEntities.children.length,
+//                 debugInfo: debugInfo
+//             });
+
+//             return (
+//                 <>
+//                     <gridHelper
+//                         args={[50, 50, 'white', 'gray']}
+//                         position={[0, gridPosition, 0]}
+//                     />
+
+//                     <ambientLight intensity={0.8} />
+//                     <directionalLight
+//                         position={[0, 0, 10]}
+//                         intensity={brightness * 0.3}
+//                     />
+//                     <directionalLight
+//                         position={[10, 10, 5]}
+//                         intensity={brightness * 0.2}
+//                     />
+
+//                     <primitive 
+//                         object={dxfEntities} 
+//                         scale={[scaleFactor, scaleFactor, scaleFactor]}
+//                     />
+
+//                     <OrbitControls
+//                         enableZoom={true}
+//                         enableRotate={true}
+//                         enablePan={true}
+//                         zoomSpeed={1.2}
+//                         rotateSpeed={1.0}
+//                         panSpeed={0.8}
+//                     />
+
+//                     {/* Debug overlay */}
+//                     <Html
+//                         position={[-8, 8, 0]}
+//                         style={{ 
+//                             color: 'white', 
+//                             fontSize: '11px',
+//                             backgroundColor: 'rgba(0,0,0,0.8)',
+//                             padding: '8px',
+//                             borderRadius: '4px',
+//                             fontFamily: 'monospace'
+//                         }}
+//                     >
+//                         <div>Rendered: {dxfEntities.children.length}</div>
+//                         {debugInfo && (
+//                             <>
+//                                 <div>Parsed: {debugInfo.totalEntities}</div>
+//                                 <div>Types:</div>
+//                                 {debugInfo.entityTypes.map(et => (
+//                                     <div key={et.type}>• {et.type}: {et.count}</div>
+//                                 ))}
+//                             </>
+//                         )}
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         return (
+//             <>
+//                 <ambientLight intensity={0.5} />
+//                 <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//             </>
+//         );
+//     };
+
+//     return (
+//         <group>
+//             <ThreeScene />
+//         </group>
+//     );
+// }
+/* ---------------- ENHANCED DXF VIEWER WITH DEBUG LOGGING ---------------- */
+/* ---------------- ENHANCED DXF VIEWER WITH DEBUG LOGGING ---------------- */
+// function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -2, materialColor = "#4285F4" }) {
+//     const [dxfEntities, setDxfEntities] = useState(null);
+//     const [error, setError] = useState(null);
+//     const [loading, setLoading] = useState(true);
+//     const [debugInfo, setDebugInfo] = useState(null);
+
+//     useEffect(() => {
+//         console.log("DxfViewer: Loading DXF file from URL:", fileUrl);
+        
+//         if (!fileUrl) {
+//             setError(new Error("No file URL provided"));
+//             setLoading(false);
+//             return;
+//         }
+
+//         setLoading(true);
+//         setError(null);
+//         setDxfEntities(null);
+//         setDebugInfo(null);
+
+//         // Fetch with cache busting
+//         const fetchUrl = `${fileUrl}?t=${Date.now()}`;
+        
+//         fetch(fetchUrl, {
+//             method: 'GET',
+//             headers: {
+//                 'Cache-Control': 'no-cache',
+//                 'Pragma': 'no-cache'
+//             }
+//         })
+//             .then(response => {
+//                 if (!response.ok) {
+//                     throw new Error(`HTTP error! status: ${response.status}`);
+//                 }
+//                 return response.text();
+//             })
+//             .then(dxfString => {
+//                 console.log("DXF file fetched, length:", dxfString.length);
+                
+//                 if (dxfString.trim().length === 0) {
+//                     throw new Error("DXF file is empty");
+//                 }
+                
+//                 const parser = new DxfParser();
+//                 const dxf = parser.parseSync(dxfString);
+                
+//                 console.log("=== DXF PARSING RESULTS ===");
+//                 console.log("Full DXF object:", dxf);
+//                 console.log("Entities found:", dxf.entities ? dxf.entities.length : 0);
+                
+//                 if (dxf.entities) {
+//                     // Log all entity types and details
+//                     const entityTypes = {};
+//                     dxf.entities.forEach((entity, index) => {
+//                         if (!entityTypes[entity.type]) {
+//                             entityTypes[entity.type] = [];
+//                         }
+//                         entityTypes[entity.type].push({
+//                             index,
+//                             layer: entity.layer,
+//                             color: entity.colorNumber,
+//                             entity: entity
+//                         });
+                        
+//                         console.log(`Entity ${index}:`, {
+//                             type: entity.type,
+//                             layer: entity.layer,
+//                             color: entity.colorNumber,
+//                             data: entity
+//                         });
+//                     });
+                    
+//                     console.log("Entity types summary:", entityTypes);
+                    
+//                     // Set debug info for display
+//                     setDebugInfo({
+//                         totalEntities: dxf.entities.length,
+//                         entityTypes: Object.keys(entityTypes).map(type => ({
+//                             type,
+//                             count: entityTypes[type].length,
+//                             entities: entityTypes[type]
+//                         }))
+//                     });
+//                 }
+                
+//                 // Check for layers
+//                 if (dxf.layers) {
+//                     console.log("Layers found:", dxf.layers);
+//                 }
+                
+//                 // Check for blocks
+//                 if (dxf.blocks) {
+//                     console.log("Blocks found:", dxf.blocks);
+//                 }
+                
+//                 console.log("===============================");
+                
+//                 // Convert DXF entities to Three.js objects with enhanced parsing
+//                 const entities = createThreeJSEntities(dxf, materialColor);
+//                 setDxfEntities(entities);
+//                 setLoading(false);
+//             })
+//             .catch(err => {
+//                 console.error('Error loading/parsing DXF:', err);
+//                 setError(err);
+//                 setLoading(false);
+//             });
+//     }, [fileUrl, materialColor]);
+
+//     // Enhanced DXF entity parsing with comprehensive logging
+//     const createThreeJSEntities = (dxf, color) => {
+//         const group = new THREE.Group();
+
+//         if (!dxf || !dxf.entities) {
+//             console.warn("No entities found in DXF");
+//             return group;
+//         }
+
+//         let processedCount = 0;
+//         let skippedCount = 0;
+        
+//         dxf.entities.forEach((entity, index) => {
+//             try {
+//                 console.log(`\n--- Processing Entity ${index + 1}/${dxf.entities.length} ---`);
+//                 console.log("Type:", entity.type);
+//                 console.log("Layer:", entity.layer);
+//                 console.log("Color:", entity.colorNumber);
+//                 console.log("Full entity:", entity);
+                
+//                 let object = null;
+
+//                 switch (entity.type) {
+//                     case 'LINE':
+//                         object = createLine(entity, color, index);
+//                         break;
+//                     case 'POLYLINE':
+//                         object = createPolyline(entity, color, index);
+//                         break;
+//                     case 'LWPOLYLINE':
+//                         object = createLWPolyline(entity, color, index);
+//                         break;
+//                     case 'CIRCLE':
+//                         object = createCircle(entity, color, index);
+//                         break;
+//                     case 'ARC':
+//                         object = createArc(entity, color, index);
+//                         break;
+//                     case 'ELLIPSE':
+//                         object = createEllipse(entity, color, index);
+//                         break;
+//                     case 'SPLINE':
+//                         object = createSpline(entity, color, index);
+//                         break;
+//                     case 'TEXT':
+//                     case 'MTEXT':
+//                         object = createText(entity, color, index);
+//                         break;
+//                     case 'POINT':
+//                         object = createPoint(entity, color, index);
+//                         break;
+//                     case 'INSERT':
+//                         object = createInsert(entity, color, dxf, index);
+//                         break;
+//                     case 'DIMENSION':
+//                         object = createDimension(entity, color, index);
+//                         break;
+//                     case 'HATCH':
+//                         object = createHatch(entity, color, index);
+//                         break;
+//                     case 'SOLID':
+//                     case '3DFACE':
+//                         object = createSolid(entity, color, index);
+//                         break;
+//                     case 'LEADER':
+//                         object = createLeader(entity, color, index);
+//                         break;
+//                     default:
+//                         console.warn(`❌ UNHANDLED entity type: ${entity.type}`);
+//                         console.log("Entity data:", entity);
+//                         skippedCount++;
+//                 }
+
+//                 if (object) {
+//                     // Set metadata
+//                     object.userData = {
+//                         entityIndex: index,
+//                         entityType: entity.type,
+//                         layer: entity.layer,
+//                         colorNumber: entity.colorNumber,
+//                         originalEntity: entity
+//                     };
+                    
+//                     group.add(object);
+//                     processedCount++;
+//                     console.log(`✅ Successfully created ${entity.type} object`);
+//                 } else {
+//                     skippedCount++;
+//                     console.log(`❌ Failed to create object for ${entity.type}`);
+//                 }
+//             } catch (entityError) {
+//                 console.error(`❌ Error processing entity ${index} (${entity.type}):`, entityError);
+//                 console.log("Problematic entity:", entity);
+//                 skippedCount++;
+//             }
+//         });
+
+//         console.log(`\n=== PROCESSING SUMMARY ===`);
+//         console.log(`Total entities: ${dxf.entities.length}`);
+//         console.log(`Successfully processed: ${processedCount}`);
+//         console.log(`Skipped/Failed: ${skippedCount}`);
+//         console.log(`===========================\n`);
+        
+//         return group;
+//     };
+
+//     // Enhanced entity creation functions with detailed logging
+//     const createLine = (entity, color, index) => {
+//         console.log(`Creating LINE ${index}:`, entity);
+        
+//         if (!entity.startPoint || !entity.endPoint) {
+//             console.warn("❌ LINE missing start/end points:", entity);
+//             return null;
+//         }
+
+//         const start = new THREE.Vector3(entity.startPoint.x || 0, entity.startPoint.y || 0, entity.startPoint.z || 0);
+//         const end = new THREE.Vector3(entity.endPoint.x || 0, entity.endPoint.y || 0, entity.endPoint.z || 0);
+        
+//         console.log(`Line from ${start.x},${start.y} to ${end.x},${end.y}`);
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints([start, end]);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createLWPolyline = (entity, color, index) => {
+//         console.log(`Creating LWPOLYLINE ${index}:`, entity);
+        
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("❌ LWPOLYLINE has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         console.log(`LWPOLYLINE has ${entity.vertices.length} vertices, shape: ${entity.shape}`);
+        
+//         const points = [];
+//         let totalBulgeSegments = 0;
+        
+//         // Process each vertex, handling bulge values for arcs
+//         for (let i = 0; i < entity.vertices.length; i++) {
+//             const vertex = entity.vertices[i];
+//             const point = new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+//             points.push(point);
+            
+//             console.log(`Vertex ${i}: (${vertex.x?.toFixed(2)}, ${vertex.y?.toFixed(2)}) bulge: ${vertex.bulge || 0}`);
+            
+//             // Handle bulge for curved segments
+//             if (vertex.bulge && Math.abs(vertex.bulge) > 0.000001) {
+//                 const nextIndex = (i + 1) % entity.vertices.length;
+                
+//                 // Only create arc if we have a next vertex
+//                 if (nextIndex !== i && (nextIndex < entity.vertices.length || entity.shape)) {
+//                     const nextVertex = entity.vertices[nextIndex] || entity.vertices[0];
+//                     console.log(`→ Creating arc segment from vertex ${i} to vertex ${nextIndex}`);
+//                     console.log(`  From: (${vertex.x?.toFixed(2)}, ${vertex.y?.toFixed(2)})`);
+//                     console.log(`  To: (${nextVertex.x?.toFixed(2)}, ${nextVertex.y?.toFixed(2)})`);
+//                     console.log(`  Bulge: ${vertex.bulge}`);
+                    
+//                     try {
+//                         const arcPoints = createArcFromBulge(vertex, nextVertex, vertex.bulge);
+//                         if (arcPoints && arcPoints.length > 0) {
+//                             points.push(...arcPoints);
+//                             totalBulgeSegments++;
+//                             console.log(`  ✅ Added ${arcPoints.length} arc interpolation points`);
+//                         } else {
+//                             console.warn(`  ❌ No arc points generated for bulge ${vertex.bulge}`);
+//                         }
+//                     } catch (bulgeError) {
+//                         console.error(`  ❌ Error creating arc from bulge:`, bulgeError);
+//                     }
+//                 }
+//             }
+//         }
+
+//         // Handle closed polylines - add closing segment
+//         if (entity.shape && points.length > 2) {
+//             const firstPoint = points[0];
+//             const lastAddedPoint = points[points.length - 1];
+            
+//             // Only add closing segment if we're not already at the start point
+//             if (firstPoint.distanceTo(lastAddedPoint) > 0.001) {
+//                 points.push(firstPoint.clone());
+//                 console.log("Added closing segment for shape=true");
+//             }
+//         }
+
+//         console.log(`Final LWPOLYLINE: ${points.length} total points (${totalBulgeSegments} bulge segments processed)`);
+
+//         if (points.length < 2) {
+//             console.warn("❌ LWPOLYLINE resulted in insufficient points");
+//             return null;
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 3 // Make it thicker so we can see it better
+//         });
+        
+//         const line = new THREE.Line(geometry, material);
+//         console.log(`✅ Created LWPOLYLINE with ${points.length} points`);
+//         return line;
+//     };
+
+//     const createPolyline = (entity, color, index) => {
+//         console.log(`Creating POLYLINE ${index}:`, entity);
+        
+//         if (!entity.vertices || entity.vertices.length < 2) {
+//             console.warn("❌ POLYLINE has insufficient vertices:", entity);
+//             return null;
+//         }
+
+//         const points = entity.vertices.map((vertex, i) => {
+//             console.log(`POLYLINE vertex ${i}: (${vertex.x}, ${vertex.y}, ${vertex.z || 0})`);
+//             return new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+//         });
+
+//         if (entity.closed && points.length > 2) {
+//             points.push(points[0]);
+//             console.log("Closed POLYLINE");
+//         }
+
+//         const geometry = new THREE.BufferGeometry();
+//         geometry.setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     const createCircle = (entity, color, index) => {
+//         console.log(`Creating CIRCLE ${index}:`, entity);
+        
+//         if (!entity.center || !entity.radius) {
+//             console.warn("❌ CIRCLE missing center or radius:", entity);
+//             return null;
+//         }
+
+//         console.log(`Circle at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}`);
+
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,
+//             entity.radius, entity.radius,
+//             0, 2 * Math.PI,
+//             false,
+//             0
+//         );
+
+//         const points = curve.getPoints(64);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const circle = new THREE.Line(geometry, material);
+//         circle.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return circle;
+//     };
+
+//     const createArc = (entity, color, index) => {
+//         console.log(`Creating ARC ${index}:`, entity);
+        
+//         if (!entity.center || !entity.radius) {
+//             console.warn("❌ ARC missing center or radius:", entity);
+//             return null;
+//         }
+
+//         const startAngle = entity.startAngle || 0;
+//         const endAngle = entity.endAngle || Math.PI * 2;
+        
+//         console.log(`Arc at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}, angles: ${startAngle} to ${endAngle}`);
+
+//         const curve = new THREE.EllipseCurve(
+//             0, 0,
+//             entity.radius, entity.radius,
+//             startAngle, endAngle,
+//             false,
+//             0
+//         );
+
+//         const points = curve.getPoints(32);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         const arc = new THREE.Line(geometry, material);
+//         arc.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+//         return arc;
+//     };
+
+//     const createSpline = (entity, color, index) => {
+//         console.log(`Creating SPLINE ${index}:`, entity);
+        
+//         if (!entity.controlPoints || entity.controlPoints.length < 2) {
+//             console.warn("❌ SPLINE has insufficient control points:", entity);
+//             return null;
+//         }
+
+//         console.log(`SPLINE has ${entity.controlPoints.length} control points`);
+
+//         const points = entity.controlPoints.map((point, i) => {
+//             console.log(`Control point ${i}: (${point.x}, ${point.y}, ${point.z || 0})`);
+//             return new THREE.Vector3(point.x || 0, point.y || 0, point.z || 0);
+//         });
+
+//         const curve = new THREE.CatmullRomCurve3(points);
+//         const geometry = new THREE.BufferGeometry().setFromPoints(
+//             curve.getPoints(Math.max(50, points.length * 10))
+//         );
+        
+//         const material = new THREE.LineBasicMaterial({ 
+//             color: getEntityColor(entity, color),
+//             linewidth: 2
+//         });
+        
+//         return new THREE.Line(geometry, material);
+//     };
+
+//     // Fixed bulge calculation for proper arc generation
+//     const createArcFromBulge = (startVertex, endVertex, bulge) => {
+//         console.log(`Creating arc from bulge: ${bulge} from (${startVertex.x}, ${startVertex.y}) to (${endVertex.x}, ${endVertex.y})`);
+        
+//         if (Math.abs(bulge) < 0.000001) {
+//             console.log("Bulge too small, treating as straight line");
+//             return [];
+//         }
+
+//         const p1 = new THREE.Vector2(startVertex.x, startVertex.y);
+//         const p2 = new THREE.Vector2(endVertex.x, endVertex.y);
+        
+//         // Calculate chord length and angle
+//         const chord = p1.distanceTo(p2);
+//         if (chord < 0.000001) {
+//             console.log("Chord too short");
+//             return [];
+//         }
+
+//         // Calculate arc parameters from bulge
+//         // bulge = tan(angle/4) where angle is the included angle of the arc
+//         const angle = 4 * Math.atan(Math.abs(bulge));
+//         const radius = chord / (2 * Math.sin(angle / 2));
+//         const sagitta = radius * (1 - Math.cos(angle / 2));
+        
+//         console.log(`Arc parameters: angle=${angle * 180/Math.PI}°, radius=${radius}, sagitta=${sagitta}`);
+        
+//         // Calculate center point
+//         const midpoint = new THREE.Vector2().addVectors(p1, p2).multiplyScalar(0.5);
+//         const chordDirection = new THREE.Vector2().subVectors(p2, p1).normalize();
+//         const perpendicular = new THREE.Vector2(-chordDirection.y, chordDirection.x);
+        
+//         // Distance from midpoint to center
+//         const centerDistance = Math.sqrt(radius * radius - (chord / 2) * (chord / 2));
+        
+//         // Center is on the opposite side of the chord for negative bulge
+//         const centerOffset = bulge > 0 ? centerDistance : -centerDistance;
+//         const center = new THREE.Vector2().addVectors(midpoint, perpendicular.multiplyScalar(centerOffset));
+        
+//         console.log(`Center: (${center.x}, ${center.y}), centerDistance: ${centerDistance}`);
+        
+//         // Calculate start and end angles
+//         const startAngle = Math.atan2(p1.y - center.y, p1.x - center.x);
+//         const endAngle = Math.atan2(p2.y - center.y, p2.x - center.x);
+        
+//         // Determine arc direction and angle sweep
+//         let angleDiff = endAngle - startAngle;
+        
+//         // Normalize angle difference
+//         if (bulge > 0) {
+//             // Counter-clockwise arc
+//             if (angleDiff <= 0) angleDiff += 2 * Math.PI;
+//         } else {
+//             // Clockwise arc  
+//             if (angleDiff >= 0) angleDiff -= 2 * Math.PI;
+//         }
+        
+//         console.log(`Start angle: ${startAngle * 180/Math.PI}°, End angle: ${endAngle * 180/Math.PI}°, Sweep: ${angleDiff * 180/Math.PI}°`);
+        
+//         // Generate intermediate points
+//         const points = [];
+//         const segments = Math.max(8, Math.floor(Math.abs(angleDiff) * 8)); // More segments for better curves
+        
+//         for (let i = 1; i < segments; i++) {
+//             const t = i / segments;
+//             const currentAngle = startAngle + t * angleDiff;
+            
+//             const x = center.x + radius * Math.cos(currentAngle);
+//             const y = center.y + radius * Math.sin(currentAngle);
+            
+//             points.push(new THREE.Vector3(x, y, startVertex.z || 0));
+//         }
+        
+//         console.log(`Generated ${points.length} points for bulge arc (${segments} segments)`);
+//         return points;
+//     };
+
+//     // Additional entity creators for completeness
+//     const createEllipse = (entity, color, index) => {
+//         console.log(`Creating ELLIPSE ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createText = (entity, color, index) => {
+//         console.log(`Creating TEXT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createPoint = (entity, color, index) => {
+//         console.log(`Creating POINT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createInsert = (entity, color, dxf, index) => {
+//         console.log(`Creating INSERT ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createDimension = (entity, color, index) => {
+//         console.log(`Creating DIMENSION ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createHatch = (entity, color, index) => {
+//         console.log(`Creating HATCH ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createSolid = (entity, color, index) => {
+//         console.log(`Creating SOLID ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     const createLeader = (entity, color, index) => {
+//         console.log(`Creating LEADER ${index}:`, entity);
+//         return null; // Placeholder - implement if needed
+//     };
+
+//     // Helper function to get entity color
+//     const getEntityColor = (entity, defaultColor) => {
+//         if (entity.colorNumber !== undefined && entity.colorNumber !== 256) {
+//             return getACADColor(entity.colorNumber);
+//         }
+//         return defaultColor;
+//     };
+
+//     // AutoCAD standard colors
+//     const getACADColor = (colorNumber) => {
+//         const acadColors = {
+//             1: 0xFF0000, // Red
+//             2: 0xFFFF00, // Yellow
+//             3: 0x00FF00, // Green
+//             4: 0x00FFFF, // Cyan
+//             5: 0x0000FF, // Blue
+//             6: 0xFF00FF, // Magenta
+//             7: 0xFFFFFF, // White
+//             8: 0x808080, // Gray
+//             9: 0xC0C0C0, // Light Gray
+//         };
+        
+//         return acadColors[colorNumber] || 0x4285F4;
+//     };
+
+//     const ThreeScene = () => {
+//         if (loading) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]} rotation={[0, Date.now() * 0.001, 0]}>
+//                         <torusGeometry args={[2, 0.5, 16, 32]} />
+//                         <meshStandardMaterial color="#4285F4" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Loading DXF...</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (error) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <boxGeometry args={[3, 3, 3]} />
+//                         <meshStandardMaterial color="#FF5252" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>Error loading DXF:</div>
+//                             <div style={{ fontSize: '12px' }}>{error.message}</div>
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         if (!dxfEntities || dxfEntities.children.length === 0) {
+//             return (
+//                 <>
+//                     <mesh position={[0, 0, 0]}>
+//                         <sphereGeometry args={[2, 16, 16]} />
+//                         <meshStandardMaterial color="#AAAAAA" />
+//                     </mesh>
+//                     <ambientLight intensity={0.5} />
+//                     <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//                     <Html center>
+//                         <div style={{ color: 'white', textAlign: 'center' }}>
+//                             <div>No DXF entities rendered</div>
+//                             {debugInfo && (
+//                                 <div style={{ fontSize: '12px', marginTop: '10px' }}>
+//                                     <div>Parsed: {debugInfo.totalEntities} entities</div>
+//                                     <div>Types: {debugInfo.entityTypes.map(et => `${et.type}(${et.count})`).join(', ')}</div>
+//                                 </div>
+//                             )}
+//                         </div>
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         // Calculate appropriate scale and center the group
+//         const box = new THREE.Box3().setFromObject(dxfEntities);
+//         if (!box.isEmpty()) {
+//             const center = box.getCenter(new THREE.Vector3());
+//             dxfEntities.position.sub(center);
+            
+//             const size = box.getSize(new THREE.Vector3()).length();
+//             const scaleFactor = size > 0 ? 10 / size : 1;
+            
+//             console.log("Rendering DXF successfully:", {
+//                 size: size,
+//                 scaleFactor: scaleFactor,
+//                 entities: dxfEntities.children.length,
+//                 debugInfo: debugInfo
+//             });
+
+//             return (
+//                 <>
+//                     <gridHelper
+//                         args={[50, 50, 'white', 'gray']}
+//                         position={[0, gridPosition, 0]}
+//                     />
+
+//                     <ambientLight intensity={0.8} />
+//                     <directionalLight
+//                         position={[0, 0, 10]}
+//                         intensity={brightness * 0.3}
+//                     />
+//                     <directionalLight
+//                         position={[10, 10, 5]}
+//                         intensity={brightness * 0.2}
+//                     />
+
+//                     <primitive 
+//                         object={dxfEntities} 
+//                         scale={[scaleFactor, scaleFactor, scaleFactor]}
+//                     />
+
+//                     <OrbitControls
+//                         enableZoom={true}
+//                         enableRotate={true}
+//                         enablePan={true}
+//                         zoomSpeed={1.2}
+//                         rotateSpeed={1.0}
+//                         panSpeed={0.8}
+//                     />
+
+//                     {/* Debug overlay */}
+//                     <Html
+//                         position={[-8, 8, 0]}
+//                         style={{ 
+//                             color: 'white', 
+//                             fontSize: '11px',
+//                             backgroundColor: 'rgba(0,0,0,0.8)',
+//                             padding: '8px',
+//                             borderRadius: '4px',
+//                             fontFamily: 'monospace'
+//                         }}
+//                     >
+//                         <div>Rendered: {dxfEntities.children.length}</div>
+//                         {debugInfo && (
+//                             <>
+//                                 <div>Parsed: {debugInfo.totalEntities}</div>
+//                                 <div>Types:</div>
+//                                 {debugInfo.entityTypes.map(et => (
+//                                     <div key={et.type}>• {et.type}: {et.count}</div>
+//                                 ))}
+//                             </>
+//                         )}
+//                     </Html>
+//                 </>
+//             );
+//         }
+
+//         return (
+//             <>
+//                 <ambientLight intensity={0.5} />
+//                 <directionalLight position={[10, 10, 10]} intensity={0.8} />
+//             </>
+//         );
+//     };
+
+//     return (
+//         <group>
+//             <ThreeScene />
+//         </group>
+//     );
+// }
+/* ---------------- ENHANCED DXF VIEWER WITH DEBUG LOGGING ---------------- */
+/* ---------------- ENHANCED DXF VIEWER WITH DEBUG LOGGING ---------------- */
+function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -2, materialColor = "#4285F4" }) {
+    const [dxfEntities, setDxfEntities] = useState(null);
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [debugInfo, setDebugInfo] = useState(null);
+
+    useEffect(() => {
+        console.log("DxfViewer: Loading DXF file from URL:", fileUrl);
+        
+        if (!fileUrl) {
+            setError(new Error("No file URL provided"));
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        setDxfEntities(null);
+        setDebugInfo(null);
+
+        // Fetch with cache busting
+        const fetchUrl = `${fileUrl}?t=${Date.now()}`;
+        
+        fetch(fetchUrl, {
+            method: 'GET',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(dxfString => {
+                console.log("DXF file fetched, length:", dxfString.length);
+                
+                if (dxfString.trim().length === 0) {
+                    throw new Error("DXF file is empty");
+                }
+                
+                const parser = new DxfParser();
+                const dxf = parser.parseSync(dxfString);
+                
+                console.log("=== DXF PARSING RESULTS ===");
+                console.log("Full DXF object:", dxf);
+                console.log("Entities found:", dxf.entities ? dxf.entities.length : 0);
+                
+                if (dxf.entities) {
+                    // Log all entity types and details
+                    const entityTypes = {};
+                    dxf.entities.forEach((entity, index) => {
+                        if (!entityTypes[entity.type]) {
+                            entityTypes[entity.type] = [];
+                        }
+                        entityTypes[entity.type].push({
+                            index,
+                            layer: entity.layer,
+                            color: entity.colorNumber,
+                            entity: entity
+                        });
+                        
+                        console.log(`Entity ${index}:`, {
+                            type: entity.type,
+                            layer: entity.layer,
+                            color: entity.colorNumber,
+                            data: entity
+                        });
+                    });
+                    
+                    console.log("Entity types summary:", entityTypes);
+                    
+                    // Set debug info for display
+                    setDebugInfo({
+                        totalEntities: dxf.entities.length,
+                        entityTypes: Object.keys(entityTypes).map(type => ({
+                            type,
+                            count: entityTypes[type].length,
+                            entities: entityTypes[type]
+                        }))
+                    });
+                }
+                
+                // Check for layers
+                if (dxf.layers) {
+                    console.log("Layers found:", dxf.layers);
+                }
+                
+                // Check for blocks
+                if (dxf.blocks) {
+                    console.log("Blocks found:", dxf.blocks);
+                }
+                
+                console.log("===============================");
+                
+                // Convert DXF entities to Three.js objects with enhanced parsing
+                const entities = createThreeJSEntities(dxf, materialColor);
+                setDxfEntities(entities);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error('Error loading/parsing DXF:', err);
+                setError(err);
+                setLoading(false);
+            });
+    }, [fileUrl, materialColor]);
+
+    // Enhanced DXF entity parsing with comprehensive logging
+    const createThreeJSEntities = (dxf, color) => {
+        const group = new THREE.Group();
+
+        if (!dxf || !dxf.entities) {
+            console.warn("No entities found in DXF");
+            return group;
+        }
+
+        let processedCount = 0;
+        let skippedCount = 0;
+        
+        dxf.entities.forEach((entity, index) => {
+            try {
+                console.log(`\n--- Processing Entity ${index + 1}/${dxf.entities.length} ---`);
+                console.log("Type:", entity.type);
+                console.log("Layer:", entity.layer);
+                console.log("Color:", entity.colorNumber);
+                console.log("Full entity:", entity);
+                
+                let object = null;
+
+                switch (entity.type) {
+                    case 'LINE':
+                        object = createLine(entity, color, index);
+                        break;
+                    case 'POLYLINE':
+                        object = createPolyline(entity, color, index);
+                        break;
+                    case 'LWPOLYLINE':
+                        object = createLWPolyline(entity, color, index);
+                        break;
+                    case 'CIRCLE':
+                        object = createCircle(entity, color, index);
+                        break;
+                    case 'ARC':
+                        object = createArc(entity, color, index);
+                        break;
+                    case 'ELLIPSE':
+                        object = createEllipse(entity, color, index);
+                        break;
+                    case 'SPLINE':
+                        object = createSpline(entity, color, index);
+                        break;
+                    case 'TEXT':
+                    case 'MTEXT':
+                        object = createText(entity, color, index);
+                        break;
+                    case 'POINT':
+                        object = createPoint(entity, color, index);
+                        break;
+                    case 'INSERT':
+                        object = createInsert(entity, color, dxf, index);
+                        break;
+                    case 'DIMENSION':
+                        object = createDimension(entity, color, index);
+                        break;
+                    case 'HATCH':
+                        object = createHatch(entity, color, index);
+                        break;
+                    case 'SOLID':
+                    case '3DFACE':
+                        object = createSolid(entity, color, index);
+                        break;
+                    case 'LEADER':
+                        object = createLeader(entity, color, index);
+                        break;
+                    default:
+                        console.warn(`❌ UNHANDLED entity type: ${entity.type}`);
+                        console.log("Entity data:", entity);
+                        skippedCount++;
+                }
+
+                if (object) {
+                    // Set metadata
+                    object.userData = {
+                        entityIndex: index,
+                        entityType: entity.type,
+                        layer: entity.layer,
+                        colorNumber: entity.colorNumber,
+                        originalEntity: entity
+                    };
+                    
+                    group.add(object);
+                    processedCount++;
+                    console.log(`✅ Successfully created ${entity.type} object`);
+                } else {
+                    skippedCount++;
+                    console.log(`❌ Failed to create object for ${entity.type}`);
+                }
+            } catch (entityError) {
+                console.error(`❌ Error processing entity ${index} (${entity.type}):`, entityError);
+                console.log("Problematic entity:", entity);
+                skippedCount++;
+            }
+        });
+
+        console.log(`\n=== PROCESSING SUMMARY ===`);
+        console.log(`Total entities: ${dxf.entities.length}`);
+        console.log(`Successfully processed: ${processedCount}`);
+        console.log(`Skipped/Failed: ${skippedCount}`);
+        console.log(`===========================\n`);
+        
+        return group;
+    };
+
+    // Enhanced entity creation functions with detailed logging
+    const createLine = (entity, color, index) => {
+        console.log(`Creating LINE ${index}:`, entity);
+        
+        let start, end;
+        
+        // Handle different LINE entity formats
+        if (entity.startPoint && entity.endPoint) {
+            // Standard format: startPoint/endPoint
+            start = new THREE.Vector3(entity.startPoint.x || 0, entity.startPoint.y || 0, entity.startPoint.z || 0);
+            end = new THREE.Vector3(entity.endPoint.x || 0, entity.endPoint.y || 0, entity.endPoint.z || 0);
+            console.log(`LINE format: startPoint/endPoint`);
+        } else if (entity.vertices && entity.vertices.length >= 2) {
+            // Alternative format: vertices array
+            const v1 = entity.vertices[0];
+            const v2 = entity.vertices[1];
+            start = new THREE.Vector3(v1.x || 0, v1.y || 0, v1.z || 0);
+            end = new THREE.Vector3(v2.x || 0, v2.y || 0, v2.z || 0);
+            console.log(`LINE format: vertices array`);
+        } else {
+            console.warn("❌ LINE missing start/end points and vertices:", entity);
+            return null;
+        }
+        
+        console.log(`Line from (${start.x.toFixed(2)}, ${start.y.toFixed(2)}) to (${end.x.toFixed(2)}, ${end.y.toFixed(2)})`);
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setFromPoints([start, end]);
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 3 // Thicker lines for better visibility
+        });
+        
+        console.log(`✅ Created LINE from vertices`);
+        return new THREE.Line(geometry, material);
+    };
+
+    const createLWPolyline = (entity, color, index) => {
+        console.log(`Creating LWPOLYLINE ${index}:`, entity);
+        
+        if (!entity.vertices || entity.vertices.length < 2) {
+            console.warn("❌ LWPOLYLINE has insufficient vertices:", entity);
+            return null;
+        }
+
+        console.log(`LWPOLYLINE has ${entity.vertices.length} vertices, shape: ${entity.shape}`);
+        
+        const points = [];
+        let totalBulgeSegments = 0;
+        
+        // Process each vertex, handling bulge values for arcs
+        for (let i = 0; i < entity.vertices.length; i++) {
+            const vertex = entity.vertices[i];
+            const point = new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+            points.push(point);
+            
+            console.log(`Vertex ${i}: (${vertex.x?.toFixed(2)}, ${vertex.y?.toFixed(2)}) bulge: ${vertex.bulge || 0}`);
+            
+            // Handle bulge for curved segments
+            if (vertex.bulge && Math.abs(vertex.bulge) > 0.000001) {
+                const nextIndex = (i + 1) % entity.vertices.length;
+                
+                // Only create arc if we have a next vertex
+                if (nextIndex !== i && (nextIndex < entity.vertices.length || entity.shape)) {
+                    const nextVertex = entity.vertices[nextIndex] || entity.vertices[0];
+                    console.log(`→ Creating arc segment from vertex ${i} to vertex ${nextIndex}`);
+                    console.log(`  From: (${vertex.x?.toFixed(2)}, ${vertex.y?.toFixed(2)})`);
+                    console.log(`  To: (${nextVertex.x?.toFixed(2)}, ${nextVertex.y?.toFixed(2)})`);
+                    console.log(`  Bulge: ${vertex.bulge}`);
+                    
+                    try {
+                        const arcPoints = createArcFromBulge(vertex, nextVertex, vertex.bulge);
+                        if (arcPoints && arcPoints.length > 0) {
+                            points.push(...arcPoints);
+                            totalBulgeSegments++;
+                            console.log(`  ✅ Added ${arcPoints.length} arc interpolation points`);
+                        } else {
+                            console.warn(`  ❌ No arc points generated for bulge ${vertex.bulge}`);
+                        }
+                    } catch (bulgeError) {
+                        console.error(`  ❌ Error creating arc from bulge:`, bulgeError);
+                    }
+                }
+            }
+        }
+
+        // Handle closed polylines - add closing segment
+        if (entity.shape && points.length > 2) {
+            const firstPoint = points[0];
+            const lastAddedPoint = points[points.length - 1];
+            
+            // Only add closing segment if we're not already at the start point
+            if (firstPoint.distanceTo(lastAddedPoint) > 0.001) {
+                points.push(firstPoint.clone());
+                console.log("Added closing segment for shape=true");
+            }
+        }
+
+        console.log(`Final LWPOLYLINE: ${points.length} total points (${totalBulgeSegments} bulge segments processed)`);
+
+        if (points.length < 2) {
+            console.warn("❌ LWPOLYLINE resulted in insufficient points");
+            return null;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setFromPoints(points);
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 3 // Make it thicker so we can see it better
+        });
+        
+        const line = new THREE.Line(geometry, material);
+        console.log(`✅ Created LWPOLYLINE with ${points.length} points`);
+        return line;
+    };
+
+    const createPolyline = (entity, color, index) => {
+        console.log(`Creating POLYLINE ${index}:`, entity);
+        
+        if (!entity.vertices || entity.vertices.length < 2) {
+            console.warn("❌ POLYLINE has insufficient vertices:", entity);
+            return null;
+        }
+
+        const points = entity.vertices.map((vertex, i) => {
+            console.log(`POLYLINE vertex ${i}: (${vertex.x}, ${vertex.y}, ${vertex.z || 0})`);
+            return new THREE.Vector3(vertex.x || 0, vertex.y || 0, vertex.z || 0);
+        });
+
+        if (entity.closed && points.length > 2) {
+            points.push(points[0]);
+            console.log("Closed POLYLINE");
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setFromPoints(points);
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 2
+        });
+        
+        return new THREE.Line(geometry, material);
+    };
+
+    const createCircle = (entity, color, index) => {
+        console.log(`Creating CIRCLE ${index}:`, entity);
+        
+        if (!entity.center || !entity.radius) {
+            console.warn("❌ CIRCLE missing center or radius:", entity);
+            return null;
+        }
+
+        console.log(`Circle at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}`);
+
+        const curve = new THREE.EllipseCurve(
+            0, 0,
+            entity.radius, entity.radius,
+            0, 2 * Math.PI,
+            false,
+            0
+        );
+
+        const points = curve.getPoints(64);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 2
+        });
+        
+        const circle = new THREE.Line(geometry, material);
+        circle.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+        return circle;
+    };
+
+    const createArc = (entity, color, index) => {
+        console.log(`Creating ARC ${index}:`, entity);
+        
+        if (!entity.center || !entity.radius) {
+            console.warn("❌ ARC missing center or radius:", entity);
+            return null;
+        }
+
+        const startAngle = entity.startAngle || 0;
+        const endAngle = entity.endAngle || Math.PI * 2;
+        
+        console.log(`Arc at (${entity.center.x}, ${entity.center.y}) radius: ${entity.radius}, angles: ${startAngle} to ${endAngle}`);
+
+        const curve = new THREE.EllipseCurve(
+            0, 0,
+            entity.radius, entity.radius,
+            startAngle, endAngle,
+            false,
+            0
+        );
+
+        const points = curve.getPoints(32);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 2
+        });
+        
+        const arc = new THREE.Line(geometry, material);
+        arc.position.set(entity.center.x || 0, entity.center.y || 0, entity.center.z || 0);
+        
+        return arc;
+    };
+
+    const createSpline = (entity, color, index) => {
+        console.log(`Creating SPLINE ${index}:`, entity);
+        
+        if (!entity.controlPoints || entity.controlPoints.length < 2) {
+            console.warn("❌ SPLINE has insufficient control points:", entity);
+            return null;
+        }
+
+        console.log(`SPLINE has ${entity.controlPoints.length} control points`);
+
+        const points = entity.controlPoints.map((point, i) => {
+            console.log(`Control point ${i}: (${point.x}, ${point.y}, ${point.z || 0})`);
+            return new THREE.Vector3(point.x || 0, point.y || 0, point.z || 0);
+        });
+
+        const curve = new THREE.CatmullRomCurve3(points);
+        const geometry = new THREE.BufferGeometry().setFromPoints(
+            curve.getPoints(Math.max(50, points.length * 10))
+        );
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: getEntityColor(entity, color),
+            linewidth: 2
+        });
+        
+        return new THREE.Line(geometry, material);
+    };
+
+    // Fixed bulge calculation for proper arc generation
+    const createArcFromBulge = (startVertex, endVertex, bulge) => {
+        console.log(`Creating arc from bulge: ${bulge} from (${startVertex.x}, ${startVertex.y}) to (${endVertex.x}, ${endVertex.y})`);
+        
+        if (Math.abs(bulge) < 0.000001) {
+            console.log("Bulge too small, treating as straight line");
+            return [];
+        }
+
+        const p1 = new THREE.Vector2(startVertex.x, startVertex.y);
+        const p2 = new THREE.Vector2(endVertex.x, endVertex.y);
+        
+        // Calculate chord length and angle
+        const chord = p1.distanceTo(p2);
+        if (chord < 0.000001) {
+            console.log("Chord too short");
+            return [];
+        }
+
+        // Calculate arc parameters from bulge
+        // bulge = tan(angle/4) where angle is the included angle of the arc
+        const angle = 4 * Math.atan(Math.abs(bulge));
+        const radius = chord / (2 * Math.sin(angle / 2));
+        const sagitta = radius * (1 - Math.cos(angle / 2));
+        
+        console.log(`Arc parameters: angle=${angle * 180/Math.PI}°, radius=${radius}, sagitta=${sagitta}`);
+        
+        // Calculate center point
+        const midpoint = new THREE.Vector2().addVectors(p1, p2).multiplyScalar(0.5);
+        const chordDirection = new THREE.Vector2().subVectors(p2, p1).normalize();
+        const perpendicular = new THREE.Vector2(-chordDirection.y, chordDirection.x);
+        
+        // Distance from midpoint to center
+        const centerDistance = Math.sqrt(radius * radius - (chord / 2) * (chord / 2));
+        
+        // Center is on the opposite side of the chord for negative bulge
+        const centerOffset = bulge > 0 ? centerDistance : -centerDistance;
+        const center = new THREE.Vector2().addVectors(midpoint, perpendicular.multiplyScalar(centerOffset));
+        
+        console.log(`Center: (${center.x}, ${center.y}), centerDistance: ${centerDistance}`);
+        
+        // Calculate start and end angles
+        const startAngle = Math.atan2(p1.y - center.y, p1.x - center.x);
+        const endAngle = Math.atan2(p2.y - center.y, p2.x - center.x);
+        
+        // Determine arc direction and angle sweep
+        let angleDiff = endAngle - startAngle;
+        
+        // Normalize angle difference
+        if (bulge > 0) {
+            // Counter-clockwise arc
+            if (angleDiff <= 0) angleDiff += 2 * Math.PI;
+        } else {
+            // Clockwise arc  
+            if (angleDiff >= 0) angleDiff -= 2 * Math.PI;
+        }
+        
+        console.log(`Start angle: ${startAngle * 180/Math.PI}°, End angle: ${endAngle * 180/Math.PI}°, Sweep: ${angleDiff * 180/Math.PI}°`);
+        
+        // Generate intermediate points
+        const points = [];
+        const segments = Math.max(8, Math.floor(Math.abs(angleDiff) * 8)); // More segments for better curves
+        
+        for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            const currentAngle = startAngle + t * angleDiff;
+            
+            const x = center.x + radius * Math.cos(currentAngle);
+            const y = center.y + radius * Math.sin(currentAngle);
+            
+            points.push(new THREE.Vector3(x, y, startVertex.z || 0));
+        }
+        
+        console.log(`Generated ${points.length} points for bulge arc (${segments} segments)`);
+        return points;
+    };
+
+    // Additional entity creators for completeness
+    const createEllipse = (entity, color, index) => {
+        console.log(`Creating ELLIPSE ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createText = (entity, color, index) => {
+        console.log(`Creating TEXT ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createPoint = (entity, color, index) => {
+        console.log(`Creating POINT ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createInsert = (entity, color, dxf, index) => {
+        console.log(`Creating INSERT ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createDimension = (entity, color, index) => {
+        console.log(`Creating DIMENSION ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createHatch = (entity, color, index) => {
+        console.log(`Creating HATCH ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createSolid = (entity, color, index) => {
+        console.log(`Creating SOLID ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    const createLeader = (entity, color, index) => {
+        console.log(`Creating LEADER ${index}:`, entity);
+        return null; // Placeholder - implement if needed
+    };
+
+    // Helper function to get entity color
+    const getEntityColor = (entity, defaultColor) => {
+        if (entity.colorNumber !== undefined && entity.colorNumber !== 256) {
+            return getACADColor(entity.colorNumber);
+        }
+        return defaultColor;
+    };
+
+    // AutoCAD standard colors
+    const getACADColor = (colorNumber) => {
+        const acadColors = {
+            1: 0xFF0000, // Red
+            2: 0xFFFF00, // Yellow
+            3: 0x00FF00, // Green
+            4: 0x00FFFF, // Cyan
+            5: 0x0000FF, // Blue
+            6: 0xFF00FF, // Magenta
+            7: 0xFFFFFF, // White
+            8: 0x808080, // Gray
+            9: 0xC0C0C0, // Light Gray
+        };
+        
+        return acadColors[colorNumber] || 0x4285F4;
+    };
+
+    const ThreeScene = () => {
+        if (loading) {
+            return (
+                <>
+                    <mesh position={[0, 0, 0]} rotation={[0, Date.now() * 0.001, 0]}>
+                        <torusGeometry args={[2, 0.5, 16, 32]} />
+                        <meshStandardMaterial color="#4285F4" />
+                    </mesh>
+                    <ambientLight intensity={0.5} />
+                    <directionalLight position={[10, 10, 10]} intensity={0.8} />
+                    <Html center>
+                        <div style={{ color: 'white', textAlign: 'center' }}>
+                            <div>Loading DXF...</div>
+                        </div>
+                    </Html>
+                </>
+            );
+        }
+
+        if (error) {
+            return (
+                <>
+                    <mesh position={[0, 0, 0]}>
+                        <boxGeometry args={[3, 3, 3]} />
+                        <meshStandardMaterial color="#FF5252" />
+                    </mesh>
+                    <ambientLight intensity={0.5} />
+                    <directionalLight position={[10, 10, 10]} intensity={0.8} />
+                    <Html center>
+                        <div style={{ color: 'white', textAlign: 'center' }}>
+                            <div>Error loading DXF:</div>
+                            <div style={{ fontSize: '12px' }}>{error.message}</div>
+                        </div>
+                    </Html>
+                </>
+            );
+        }
+
+        if (!dxfEntities || dxfEntities.children.length === 0) {
+            return (
+                <>
+                    <mesh position={[0, 0, 0]}>
+                        <sphereGeometry args={[2, 16, 16]} />
+                        <meshStandardMaterial color="#AAAAAA" />
+                    </mesh>
+                    <ambientLight intensity={0.5} />
+                    <directionalLight position={[10, 10, 10]} intensity={0.8} />
+                    <Html center>
+                        <div style={{ color: 'white', textAlign: 'center' }}>
+                            <div>No DXF entities rendered</div>
+                            {debugInfo && (
+                                <div style={{ fontSize: '12px', marginTop: '10px' }}>
+                                    <div>Parsed: {debugInfo.totalEntities} entities</div>
+                                    <div>Types: {debugInfo.entityTypes.map(et => `${et.type}(${et.count})`).join(', ')}</div>
+                                </div>
+                            )}
+                        </div>
+                    </Html>
+                </>
+            );
+        }
+
+        // Calculate appropriate scale and center the group
+        const box = new THREE.Box3().setFromObject(dxfEntities);
+        if (!box.isEmpty()) {
+            const center = box.getCenter(new THREE.Vector3());
+            dxfEntities.position.sub(center);
+            
+            const size = box.getSize(new THREE.Vector3()).length();
+            const scaleFactor = size > 0 ? 10 / size : 1;
+            
+            console.log("Rendering DXF successfully:", {
+                size: size,
+                scaleFactor: scaleFactor,
+                entities: dxfEntities.children.length,
+                debugInfo: debugInfo
+            });
+
+            return (
+                <>
+                    <gridHelper
+                        args={[50, 50, 'white', 'gray']}
+                        position={[0, gridPosition, 0]}
+                    />
+
+                    <ambientLight intensity={0.8} />
+                    <directionalLight
+                        position={[0, 0, 10]}
+                        intensity={brightness * 0.3}
+                    />
+                    <directionalLight
+                        position={[10, 10, 5]}
+                        intensity={brightness * 0.2}
+                    />
+
+                    <primitive 
+                        object={dxfEntities} 
+                        scale={[scaleFactor, scaleFactor, scaleFactor]}
+                    />
+
+                    <OrbitControls
+                        enableZoom={true}
+                        enableRotate={true}
+                        enablePan={true}
+                        zoomSpeed={1.2}
+                        rotateSpeed={1.0}
+                        panSpeed={0.8}
+                    />
+
+                    {/* Debug overlay */}
+                    <Html
+                        position={[-8, 8, 0]}
+                        style={{ 
+                            color: 'white', 
+                            fontSize: '11px',
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            fontFamily: 'monospace'
+                        }}
+                    >
+                        <div>Rendered: {dxfEntities.children.length}</div>
+                        {debugInfo && (
+                            <>
+                                <div>Parsed: {debugInfo.totalEntities}</div>
+                                <div>Types:</div>
+                                {debugInfo.entityTypes.map(et => (
+                                    <div key={et.type}>• {et.type}: {et.count}</div>
+                                ))}
+                            </>
+                        )}
+                    </Html>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <ambientLight intensity={0.5} />
+                <directionalLight position={[10, 10, 10]} intensity={0.8} />
+            </>
+        );
+    };
+
+    return (
+        <group>
+            <ThreeScene />
+        </group>
+    );
+}
+
 
 /* ---------------- 3D MODEL PREVIEW COMPONENT ---------------- */
+// function Model3DPreview({ fileUrl }) {
+//   const [brightness, setBrightness] = useState(1.5);
+//   const [contrast, setContrast] = useState(1.2);
+//   const [gridPosition, setGridPosition] = useState(-2);
+//   const [materialColor, setMaterialColor] = useState("#cccccc"); // Default gray color
+//   const [showControls, setShowControls] = useState(false); // Show controls by default
+//   const [fileType, setFileType] = useState('stl'); // Default to STL
+  
+//   // Force re-render when fileUrl changes
+//   const [key, setKey] = useState(0);
+//   useEffect(() => {
+//     // Generate a new key when fileUrl changes to force complete re-render
+//     setKey(prevKey => prevKey + 1);
+//     console.log("Model3DPreview: fileUrl changed, forcing re-render with key:", key + 1);
+    
+//     // Determine file type from URL
+//     const lowerUrl = fileUrl.toLowerCase();
+//     if (lowerUrl.endsWith('.dxf')) {
+//       setFileType('dxf');
+//     } else if (lowerUrl.endsWith('.stp') || lowerUrl.endsWith('.step')) {
+//       setFileType('step');
+//     } else {
+//       setFileType('stl'); // Default to STL for other formats
+//     }
+//   }, [fileUrl]);
+  
+//   // Render different viewers based on file type
+//   const renderViewer = () => {
+//     if (fileType === 'dxf') {
+//       return (
+//         <div style={{
+//           width: '100%',
+//           height: '100%',
+//           position: 'relative',
+//           backgroundColor: '${styles.colors.text.light}',
+//           overflow: 'hidden'
+//         }}>
+//           <iframe
+//             src={`https://sharecad.org/cadframe/load?url=${encodeURIComponent(fileUrl)}`}
+//             style={{
+//               position: 'absolute',
+//               top: 0,
+//               left: 0,
+//               width: '100%',
+//               maxWidth: '100%',
+//               height: '100%',
+//               border: 'none'
+//             }}
+//             title="DXF Preview"
+//             frameBorder="0"
+//           />
+//         </div>
+//       );
+//     } else {
+//       // For STL and other 3D formats
+//       return (
+//         <Canvas
+//           key={key} // Force complete re-creation of canvas when key changes
+//           shadows
+//           style={{
+//             position: 'absolute',
+//             top: 0,
+//             left: 0,
+//             width: '100%',
+//             maxWidth: '100%',
+//             height: '100%',
+//             background: '#222'
+//           }}
+//           camera={{ position: [0, 10, 15], fov: 40 }}
+//         >
+//           <Suspense fallback={null}>
+//             <StlViewer
+//               key={key} // Also force re-creation of the StlViewer
+//               fileUrl={fileUrl}
+//               brightness={brightness}
+//               contrast={contrast}
+//               gridPosition={gridPosition}
+//               materialColor={materialColor}
+//             />
+//           </Suspense>
+//         </Canvas>
+//       );
+//     }
+//   };
+  
+//   return (
+//     <div
+//       style={{
+//         position: 'relative',
+//         width: '100%',
+//         maxWidth: '100%',
+//         height: '600px',
+//         border: '1px solid #888',
+//         overflow: 'hidden'
+//       }}
+//     >
+//       {/* Render appropriate viewer based on file type */}
+//       {renderViewer()}
+      
+//       {/* Only show 3D controls for 3D models */}
+//       {fileType !== 'dxf' && (
+//         <StlViewerControls
+//           brightness={brightness}
+//           setBrightness={setBrightness}
+//           contrast={contrast}
+//           setContrast={setContrast}
+//           gridPosition={gridPosition}
+//           setGridPosition={setGridPosition}
+//           materialColor={materialColor}
+//           setMaterialColor={setMaterialColor}
+//           showControls={showControls}
+//           setShowControls={setShowControls}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
+/* ---------------- UPDATED MODEL 3D PREVIEW COMPONENT ---------------- */
+// function Model3DPreview({ fileUrl }) {
+//     const [brightness, setBrightness] = useState(1.5);
+//     const [contrast, setContrast] = useState(1.2);
+//     const [gridPosition, setGridPosition] = useState(-2);
+//     const [materialColor, setMaterialColor] = useState("#cccccc");
+//     const [showControls, setShowControls] = useState(false);
+//     const [fileType, setFileType] = useState('stl');
+    
+//     const [key, setKey] = useState(0);
+//     useEffect(() => {
+//         setKey(prevKey => prevKey + 1);
+//         console.log("Model3DPreview: fileUrl changed, forcing re-render with key:", key + 1);
+        
+//         // Determine file type from URL
+//         const lowerUrl = fileUrl.toLowerCase();
+//         if (lowerUrl.endsWith('.dxf')) {
+//             setFileType('dxf');
+//         } else if (lowerUrl.endsWith('.stp') || lowerUrl.endsWith('.step')) {
+//             setFileType('step');
+//         } else {
+//             setFileType('stl');
+//         }
+//     }, [fileUrl]);
+    
+//     const renderViewer = () => {
+//         if (fileType === 'dxf') {
+//             // Use the new DXF viewer instead of iframe
+//             return (
+//                 <Canvas
+//                     key={key}
+//                     style={{
+//                         position: 'absolute',
+//                         top: 0,
+//                         left: 0,
+//                         width: '100%',
+//                         maxWidth: '100%',
+//                         height: '100%',
+//                         background: '#222'
+//                     }}
+//                     camera={{ position: [0, 0, 20], fov: 40 }}
+//                 >
+//                     <Suspense fallback={null}>
+//                         <DxfViewer
+//                             key={key}
+//                             fileUrl={fileUrl}
+//                             brightness={brightness}
+//                             contrast={contrast}
+//                             gridPosition={gridPosition}
+//                             materialColor={materialColor}
+//                         />
+//                     </Suspense>
+//                 </Canvas>
+//             );
+//         } else {
+//             // For STL and other 3D formats (existing code)
+//             return (
+//                 <Canvas
+//                     key={key}
+//                     shadows
+//                     style={{
+//                         position: 'absolute',
+//                         top: 0,
+//                         left: 0,
+//                         width: '100%',
+//                         maxWidth: '100%',
+//                         height: '100%',
+//                         background: '#222'
+//                     }}
+//                     camera={{ position: [0, 10, 15], fov: 40 }}
+//                 >
+//                     <Suspense fallback={null}>
+//                         <StlViewer
+//                             key={key}
+//                             fileUrl={fileUrl}
+//                             brightness={brightness}
+//                             contrast={contrast}
+//                             gridPosition={gridPosition}
+//                             materialColor={materialColor}
+//                         />
+//                     </Suspense>
+//                 </Canvas>
+//             );
+//         }
+//     };
+    
+//     return (
+//         <div
+//             style={{
+//                 position: 'relative',
+//                 width: '100%',
+//                 maxWidth: '100%',
+//                 height: '600px',
+//                 border: '1px solid #888',
+//                 overflow: 'hidden'
+//             }}
+//         >
+//             {renderViewer()}
+            
+//             {/* Show controls for all 3D/2D CAD files */}
+//             <StlViewerControls
+//                 brightness={brightness}
+//                 setBrightness={setBrightness}
+//                 contrast={contrast}
+//                 setContrast={setContrast}
+//                 gridPosition={gridPosition}
+//                 setGridPosition={setGridPosition}
+//                 materialColor={materialColor}
+//                 setMaterialColor={setMaterialColor}
+//                 showControls={showControls}
+//                 setShowControls={setShowControls}
+//             />
+//         </div>
+//     );
+// }
+
+
+// Separate component for 3D viewer controls (outside of Three.js context)
+// function Model3DPreview({ fileUrl }) {
+//   const [brightness, setBrightness] = useState(1.5);
+//   const [contrast, setContrast] = useState(1.2);
+//   const [gridPosition, setGridPosition] = useState(-2);
+//   const [materialColor, setMaterialColor] = useState("#cccccc");
+//   const [showControls, setShowControls] = useState(false);
+//   const [fileType, setFileType] = useState('stl');
+  
+//   // Force re-render when fileUrl changes
+//   const [key, setKey] = useState(0);
+//   useEffect(() => {
+//     setKey(prevKey => prevKey + 1);
+//     console.log("Model3DPreview: fileUrl changed, forcing re-render with key:", key + 1);
+    
+//     // Determine file type from URL
+//     const lowerUrl = fileUrl.toLowerCase();
+//     if (lowerUrl.endsWith('.dxf')) {
+//       setFileType('dxf');
+//       setMaterialColor('#4285F4'); // Blue for DXF lines
+//     } else if (lowerUrl.endsWith('.stp') || lowerUrl.endsWith('.step')) {
+//       setFileType('step');
+//       setMaterialColor('#cccccc'); // Gray for 3D models
+//     } else {
+//       setFileType('stl');
+//       setMaterialColor('#cccccc'); // Gray for 3D models
+//     }
+//   }, [fileUrl]);
+  
+//   // Render different viewers based on file type
+//   const renderViewer = () => {
+//     if (fileType === 'dxf') {
+//       return (
+//         <Canvas
+//           key={key}
+//           style={{
+//             position: 'absolute',
+//             top: 0,
+//             left: 0,
+//             width: '100%',
+//             maxWidth: '100%',
+//             height: '100%',
+//             background: '#222'
+//           }}
+//           camera={{ position: [0, 0, 20], fov: 40 }}
+//         >
+//           <Suspense fallback={null}>
+//             <DxfViewer
+//               key={key}
+//               fileUrl={fileUrl}
+//               brightness={brightness}
+//               contrast={contrast}
+//               gridPosition={gridPosition}
+//               materialColor={materialColor}
+//             />
+//           </Suspense>
+//         </Canvas>
+//       );
+//     } else {
+//       // For STL and other 3D formats (your existing code)
+//       return (
+//         <Canvas
+//           key={key}
+//           shadows
+//           style={{
+//             position: 'absolute',
+//             top: 0,
+//             left: 0,
+//             width: '100%',
+//             maxWidth: '100%',
+//             height: '100%',
+//             background: '#222'
+//           }}
+//           camera={{ position: [0, 10, 15], fov: 40 }}
+//         >
+//           <Suspense fallback={null}>
+//             <StlViewer
+//               key={key}
+//               fileUrl={fileUrl}
+//               brightness={brightness}
+//               contrast={contrast}
+//               gridPosition={gridPosition}
+//               materialColor={materialColor}
+//             />
+//           </Suspense>
+//         </Canvas>
+//       );
+//     }
+//   };
+  
+//   return (
+//     <div
+//       style={{
+//         position: 'relative',
+//         width: '100%',
+//         maxWidth: '100%',
+//         height: '600px',
+//         border: '1px solid #888',
+//         overflow: 'hidden'
+//       }}
+//     >
+//       {/* Render appropriate viewer based on file type */}
+//       {renderViewer()}
+      
+//       {/* Show controls for all file types */}
+//       <StlViewerControls
+//         brightness={brightness}
+//         setBrightness={setBrightness}
+//         contrast={contrast}
+//         setContrast={setContrast}
+//         gridPosition={gridPosition}
+//         setGridPosition={setGridPosition}
+//         materialColor={materialColor}
+//         setMaterialColor={setMaterialColor}
+//         showControls={showControls}
+//         setShowControls={setShowControls}
+//       />
+//     </div>
+//   );
+// }
+
+/* ---------------- UPDATED Model3DPreview COMPONENT ---------------- */
 function Model3DPreview({ fileUrl }) {
   const [brightness, setBrightness] = useState(1.5);
   const [contrast, setContrast] = useState(1.2);
   const [gridPosition, setGridPosition] = useState(-2);
-  const [materialColor, setMaterialColor] = useState("#cccccc"); // Default gray color
-  const [showControls, setShowControls] = useState(false); // Show controls by default
-  const [fileType, setFileType] = useState('stl'); // Default to STL
+  const [materialColor, setMaterialColor] = useState("#cccccc");
+  const [showControls, setShowControls] = useState(false);
+  const [fileType, setFileType] = useState('stl');
   
-  // Force re-render when fileUrl changes
+  // Force re-render when fileUrl changes - more aggressive re-rendering
   const [key, setKey] = useState(0);
+  const [lastFileUrl, setLastFileUrl] = useState('');
+
   useEffect(() => {
-    // Generate a new key when fileUrl changes to force complete re-render
-    setKey(prevKey => prevKey + 1);
-    console.log("Model3DPreview: fileUrl changed, forcing re-render with key:", key + 1);
+    // Force complete re-render when file URL changes
+    if (fileUrl !== lastFileUrl) {
+      const newKey = Date.now(); // Use timestamp for uniqueness
+      setKey(newKey);
+      setLastFileUrl(fileUrl);
+      
+      console.log("Model3DPreview: fileUrl changed from", lastFileUrl, "to", fileUrl);
+      console.log("Forcing re-render with key:", newKey);
+    }
     
     // Determine file type from URL
-    const lowerUrl = fileUrl.toLowerCase();
-    if (lowerUrl.endsWith('.dxf')) {
-      setFileType('dxf');
-    } else if (lowerUrl.endsWith('.stp') || lowerUrl.endsWith('.step')) {
-      setFileType('step');
-    } else {
-      setFileType('stl'); // Default to STL for other formats
+    if (fileUrl) {
+      const lowerUrl = fileUrl.toLowerCase();
+      if (lowerUrl.endsWith('.dxf')) {
+        setFileType('dxf');
+        setMaterialColor('#4285F4'); // Blue for DXF lines
+      } else if (lowerUrl.endsWith('.stp') || lowerUrl.endsWith('.step')) {
+        setFileType('step');
+        setMaterialColor('#cccccc'); // Gray for 3D models
+      } else {
+        setFileType('stl');
+        setMaterialColor('#cccccc'); // Gray for 3D models
+      }
     }
-  }, [fileUrl]);
+  }, [fileUrl, lastFileUrl]);
   
   // Render different viewers based on file type
   const renderViewer = () => {
-    if (fileType === 'dxf') {
+    if (!fileUrl) {
       return (
         <div style={{
           width: '100%',
           height: '100%',
-          position: 'relative',
-          backgroundColor: '${styles.colors.text.light}',
-          overflow: 'hidden'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#666',
+          backgroundColor: '#f5f5f5'
         }}>
-          <iframe
-            src={`https://sharecad.org/cadframe/load?url=${encodeURIComponent(fileUrl)}`}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              maxWidth: '100%',
-              height: '100%',
-              border: 'none'
-            }}
-            title="DXF Preview"
-            frameBorder="0"
-          />
+          No file selected
         </div>
+      );
+    }
+
+    if (fileType === 'dxf') {
+      return (
+        <Canvas
+          key={`dxf-${key}`} // Include file type in key for extra uniqueness
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            maxWidth: '100%',
+            height: '100%',
+            background: '#222'
+          }}
+          camera={{ position: [0, 0, 20], fov: 40 }}
+          onCreated={(state) => {
+            // Log when canvas is created/recreated
+            console.log('DXF Canvas created/recreated for:', fileUrl);
+          }}
+        >
+          <Suspense fallback={
+            <Html center>
+              <div style={{ color: 'white', textAlign: 'center' }}>
+                <div>Loading DXF viewer...</div>
+              </div>
+            </Html>
+          }>
+            <DxfViewer
+              key={`dxf-viewer-${key}`}
+              fileUrl={fileUrl}
+              brightness={brightness}
+              contrast={contrast}
+              gridPosition={gridPosition}
+              materialColor={materialColor}
+            />
+          </Suspense>
+        </Canvas>
       );
     } else {
       // For STL and other 3D formats
       return (
         <Canvas
-          key={key} // Force complete re-creation of canvas when key changes
+          key={`stl-${key}`}
           shadows
           style={{
             position: 'absolute',
@@ -386,10 +3677,19 @@ function Model3DPreview({ fileUrl }) {
             background: '#222'
           }}
           camera={{ position: [0, 10, 15], fov: 40 }}
+          onCreated={(state) => {
+            console.log('STL Canvas created/recreated for:', fileUrl);
+          }}
         >
-          <Suspense fallback={null}>
+          <Suspense fallback={
+            <Html center>
+              <div style={{ color: 'white', textAlign: 'center' }}>
+                <div>Loading 3D viewer...</div>
+              </div>
+            </Html>
+          }>
             <StlViewer
-              key={key} // Also force re-creation of the StlViewer
+              key={`stl-viewer-${key}`}
               fileUrl={fileUrl}
               brightness={brightness}
               contrast={contrast}
@@ -413,29 +3713,41 @@ function Model3DPreview({ fileUrl }) {
         overflow: 'hidden'
       }}
     >
+      {/* Debug info - remove this in production */}
+      <div style={{
+        position: 'absolute',
+        top: '5px',
+        right: '5px',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        color: 'white',
+        padding: '2px 5px',
+        fontSize: '10px',
+        borderRadius: '3px',
+        zIndex: 1000
+      }}>
+        Key: {key} | Type: {fileType}
+      </div>
+
       {/* Render appropriate viewer based on file type */}
       {renderViewer()}
       
-      {/* Only show 3D controls for 3D models */}
-      {fileType !== 'dxf' && (
-        <StlViewerControls
-          brightness={brightness}
-          setBrightness={setBrightness}
-          contrast={contrast}
-          setContrast={setContrast}
-          gridPosition={gridPosition}
-          setGridPosition={setGridPosition}
-          materialColor={materialColor}
-          setMaterialColor={setMaterialColor}
-          showControls={showControls}
-          setShowControls={setShowControls}
-        />
-      )}
+      {/* Show controls for all file types */}
+      <StlViewerControls
+        brightness={brightness}
+        setBrightness={setBrightness}
+        contrast={contrast}
+        setContrast={setContrast}
+        gridPosition={gridPosition}
+        setGridPosition={setGridPosition}
+        materialColor={materialColor}
+        setMaterialColor={setMaterialColor}
+        showControls={showControls}
+        setShowControls={setShowControls}
+      />
     </div>
   );
 }
 
-// Separate component for 3D viewer controls (outside of Three.js context)
 function StlViewerControls({ brightness, setBrightness, contrast, setContrast, gridPosition, setGridPosition, materialColor, setMaterialColor, showControls, setShowControls }) {
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
@@ -832,7 +4144,7 @@ function ResizableColumn({ leftContent, rightContent }) {
 
   /* ---------------- MAIN APP ---------------- */
   export default function App() {
-     // 1. ALL useState declarations FIRST (in any order)
+     // 1. ALL useState declarations 
   const [viewMode, setViewMode] = useState('normal');
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -858,55 +4170,18 @@ function ResizableColumn({ leftContent, rightContent }) {
   const [tempChangeDescription, setTempChangeDescription] = useState('');
   const [toastMsg, setToastMsg] = useState('');
   
-  // 2. THEN derived values (AFTER all useState)
+  // 2. Derived values (AFTER all useState)
   const prod = products[selectedProductIndex] || {};
   
-  // 3. THEN refs
+  // 3. Refs
   const hiddenFileInput = useRef(null);
   const revisionFileInput = useRef(null);
   const contextMenuFileInput = useRef(null);
   const childFileInput = useRef(null);
 
     
-    //load products from your Django backend when the app starts, and fall back to local storage if the backend is unavailable
-    // useEffect(() => {
-    //   const loadData = async () => {
-    //     setIsLoading(true);
-    //     try {
-    //       // Try to load from backend first
-    //       const response = await fetch('/api/products/');
-    //       if (response.ok) {
-    //         const backendProducts = await response.json();
-    //         setProducts(backendProducts);
-    //         if (backendProducts.length > 0) {
-    //           setSelectedProductIndex(0);
-    //         }
-    //       } else {
-    //         // Fallback to local storage
-    //         const loadedProducts = await hybridStorage.loadProducts();
-    //         setProducts(loadedProducts);
-    //         setSelectedProductIndex(0);
-    //       }
-    //     } catch (error) {
-    //       console.error('Failed to load products:', error);
-    //       // Fallback to default
-    //       setProducts([{
-    //         id: 1,
-    //         name: 'Sample Product',
-    //         stages: [],
-    //         iterations: [],
-    //         selectedContainer: null,
-    //         containerType: null,
-    //         filesByContainer: {}
-    //       }]);
-    //     } finally {
-    //       setIsLoading(false);
-    //     }
-    //   };
-      
-    //   loadData();
-    // }, []);
-    useEffect(() => {
+  //load products from your Django backend when the app starts, and fall back to local storage if the backend is unavailable
+  useEffect(() => {
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -953,7 +4228,7 @@ function ResizableColumn({ leftContent, rightContent }) {
   loadData();
 }, []);
     
-    
+  
     
     useEffect(() => {
       if (products.length === 0 || isLoading) return;
@@ -992,28 +4267,8 @@ function ResizableColumn({ leftContent, rightContent }) {
       };
     }, [contextMenu.visible]);
   
-  /* CREATE NEW PRODUCT */
-  //   function handleCreateProduct() {
-  //   const prodName = prompt('Enter new product name:');
-  //   if (!prodName) return;
-  
-  //   const newProd = {
-  //     name: prodName,
-  //     stageIcons: [],
-  //     selectedStage: null,
-  //     filesByStage: {}
-  //   };
-  
-  //   const updatedProducts = [...products, newProd];
-  //   setProducts(updatedProducts);
-  //   setSelectedProductIndex(products.length);
-  //   setSelectedFileObj(null);
-  
-  //   // Persist immediately
-  //   hybridStorage.saveProducts(updatedProducts)
-  //     .catch(err => console.error("Error saving product after creation:", err));
-  // }
-  async function handleCreateProduct() {
+
+async function handleCreateProduct() {
   const prodName = prompt('Enter new product name:');
   console.log('📝 Product name entered:', prodName);
   if (!prodName){
@@ -1024,17 +4279,17 @@ function ResizableColumn({ leftContent, rightContent }) {
   try {
     // Create product on backend
     console.log('🚀 About to make API call to /api/products/');
-    const response = await fetch('/api/products/', {
+    
+    // ✅ SIMPLE: Just use authenticatedFetch (it handles CSRF automatically)
+    const response = await authenticatedFetch('/api/products/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         name: prodName,
         description: '' // Optional description
       })
     });
-     console.log('📡 API Response received:', response);
+    
+    console.log('📡 API Response received:', response);
 
     if (!response.ok) {
       throw new Error(`Failed to create product: ${response.statusText}`);
@@ -1077,46 +4332,9 @@ function ResizableColumn({ leftContent, rightContent }) {
     console.error('Error creating product:', error);
     alert(`Failed to create product: ${error.message}`);
   }
-}
-  
+} 
 
   /* SWITCH PRODUCT */
-  // function handleSelectProduct(e) {
-  //   const index = parseInt(e.target.value, 10);
-  //   setSelectedProductIndex(index);
-  //   setSelectedFileObj(null); // clear preview
-  // }
-
-//   function handleSelectProduct(e) {
-//   console.log('🟢 PRODUCT CLICK HANDLER CALLED!');
-//   const index = parseInt(e.target.value, 10);
-//   setSelectedProductIndex(index);
-//   setSelectedFileObj(null); // clear preview
-  
-//   // Clear container selection when switching products
-//   setSelectedContainer(null);
-//   setContainerType(null);
-  
-//   // Optional: Load fresh data for the selected product from backend
-//   if (products[index]?.id) {
-//     loadProductDetails(products[index].id);
-//   }
-// }
-// function handleSelectProduct(e) {
-//   console.log('🟢 PRODUCT CLICK HANDLER CALLED!');
-//   const index = parseInt(e.target.value, 10);
-//   setSelectedProductIndex(index);
-//   setSelectedFileObj(null); // clear preview
-  
-//   // Clear container selection when switching products
-//   setSelectedContainer(null);
-//   setContainerType(null);
-  
-//   // CRITICAL FIX: Pass the index directly instead of relying on selectedProductIndex state
-//   if (products[index]?.id) {
-//     loadProductDetails(products[index].id, index);
-//   }
-// }
 function handleSelectProduct(e) {
   console.log('🟢 PRODUCT CLICK HANDLER CALLED!');
   const index = parseInt(e.target.value, 10);
@@ -1134,32 +4352,6 @@ function handleSelectProduct(e) {
 }
 
   // Helper function to load fresh product details from backend
-  // async function loadProductDetails(productId) {
-  //   try {
-  //     const response = await fetch(`/api/products/${productId}/`);
-  //     if (response.ok) {
-  //       const productData = await response.json();
-        
-  //       // Update the specific product in the products array
-  //       setProducts(prevProducts => 
-  //         prevProducts.map((product, idx) => 
-  //           idx === selectedProductIndex ? {
-  //             ...product,
-  //             stages: productData.stages || [],
-  //             iterations: productData.iterations || [],
-  //             // Keep existing local state but update backend data
-  //             selectedContainer: product.selectedContainer,
-  //             containerType: product.containerType,
-  //             filesByContainer: product.filesByContainer || {}
-  //           } : product
-  //         )
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error('Failed to load product details:', error);
-  //     // Continue with existing data if backend fails
-  //   }
-  // }
 async function loadProductDetails(productId, targetIndex = null) {
   try {
     const response = await fetch(`/api/products/${productId}/`);
@@ -1189,191 +4381,9 @@ async function loadProductDetails(productId, targetIndex = null) {
     // Continue with existing data if backend fails
   }
 }
-  // Adding Stages and Iterations
-    // function handleAddStage() {
-    //   // Create deep copies to ensure proper React state updates
-    //   const updatedProducts = [...products];
-    //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-    //   updatedProducts[selectedProductIndex] = updatedProduct;
-    
-    //   // Count existing stage icons (type 'S')
-    //   const sCount = (updatedProduct.stageIcons || []).filter(icon => icon.type === 'S').length;
-    //   const newNumber = sCount + 1; // numeric part
-    //   const newLabel = `S${newNumber}`; // full label for file mapping, etc.
-    //   const color = styles.colors.stage; // e.g., Amber
-    
-    //   // Create a new icon object that stores both the full label and numeric value
-    //   const newIcon = { type: 'S', label: newLabel, number: newNumber, color };
-    
-    //   // Update the product with the new stage icon and initialize its file group
-    //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
-    //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
-    //   updatedProduct.selectedStage = newLabel; // auto-select the new stage
-    
-    //   setProducts(updatedProducts);
-    //   setSelectedFileObj(null);
-    // }
-    
-    // function handleAddIteration() {
-    //   // Create deep copies to ensure proper React state updates
-    //   const updatedProducts = [...products];
-    //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-    //   updatedProducts[selectedProductIndex] = updatedProduct;
-    
-    //   // Count existing iteration icons (type 'I')
-    //   const iCount = (updatedProduct.stageIcons || []).filter(icon => icon.type === 'I').length;
-    //   const newNumber = iCount + 1; // numeric part
-    //   const newLabel = `i${newNumber}`; // full label for file mapping, etc.
-    //   const color = styles.colors.iteration;
-    
-    //   // Create a new icon object that stores both the full label and numeric value
-    //   const newIcon = { type: 'I', label: newLabel, number: newNumber, color };
-    
-    //   // Update the product with the new iteration icon and initialize its file group
-    //   updatedProduct.stageIcons = [...(updatedProduct.stageIcons || []), newIcon];
-    //   updatedProduct.filesByStage = { ...updatedProduct.filesByStage, [newLabel]: [] };
-    //   updatedProduct.selectedStage = newLabel; // auto-select the new iteration
-    
-    //   setProducts(updatedProducts);
-    //   setSelectedFileObj(null);
-    // }
-  // async function handleAddStage() {
-  //   if (selectedProductIndex === null || !products[selectedProductIndex]?.id) {
-  //     alert('Please select a valid product first');
-  //     return;
-  //   }
+  
 
-  //   const currentProduct = products[selectedProductIndex];
-  //   const stageCount = (currentProduct.stages?.length || 0) + 1;
-  //   const stageName = `Stage ${stageCount}`;
-
-  //   try {
-  //     // Create stage on backend
-  //     const response = await fetch('/api/stages/', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         product: currentProduct.id,
-  //         name: stageName,
-  //         type: 'workflow', // default type
-  //         color: styles.colors.stage // Use your existing stage color
-  //       })
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`Failed to create stage: ${response.statusText}`);
-  //     }
-
-  //     const newStage = await response.json();
-  //     console.log('Created stage:', newStage);
-
-  //     // Update local state
-  //     const updatedProducts = [...products];
-  //     const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-  //     updatedProducts[selectedProductIndex] = updatedProduct;
-
-  //     // Add new stage to the stages array
-  //     updatedProduct.stages = [...(updatedProduct.stages || []), newStage];
-      
-  //     // Initialize file storage for this stage
-  //     const stageKey = `stage_${newStage.id}`;
-  //     updatedProduct.filesByContainer = { 
-  //       ...updatedProduct.filesByContainer, 
-  //       [stageKey]: [] 
-  //     };
-
-  //     // Auto-select the new stage
-  //     updatedProduct.selectedContainer = newStage;
-  //     updatedProduct.containerType = 'stage';
-
-  //     // Update state
-  //     setProducts(updatedProducts);
-  //     setSelectedContainer(newStage);
-  //     setContainerType('stage');
-  //     setSelectedFileObj(null);
-
-  //     // Persist changes
-  //     hybridStorage.saveProducts(updatedProducts)
-  //       .catch(err => console.error("Error saving after stage creation:", err));
-
-  //     console.log(`Stage "${stageName}" created successfully with ID: ${newStage.stage_id}`);
-
-  //   } catch (error) {
-  //     console.error('Error creating stage:', error);
-  //     alert(`Failed to create stage: ${error.message}`);
-  //   }
-  // }
-
-  // async function handleAddIteration() {
-  //   if (selectedProductIndex === null || !products[selectedProductIndex]?.id) {
-  //     alert('Please select a valid product first');
-  //     return;
-  //   }
-
-  //   const currentProduct = products[selectedProductIndex];
-  //   const iterationName = prompt('Enter iteration name:') || `Iteration ${(currentProduct.iterations?.length || 0) + 1}`;
-
-  //   try {
-  //     // Create iteration on backend
-  //     const response = await fetch('/api/iterations/', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         product: currentProduct.id,
-  //         name: iterationName,
-  //         type: 'design', // default type
-  //         color: styles.colors.iteration // Use your existing iteration color
-  //       })
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`Failed to create iteration: ${response.statusText}`);
-  //     }
-
-  //     const newIteration = await response.json();
-  //     console.log('Created iteration:', newIteration);
-
-  //     // Update local state
-  //     const updatedProducts = [...products];
-  //     const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-  //     updatedProducts[selectedProductIndex] = updatedProduct;
-
-  //     // Add new iteration to the iterations array
-  //     updatedProduct.iterations = [...(updatedProduct.iterations || []), newIteration];
-      
-  //     // Initialize file storage for this iteration
-  //     const iterationKey = `iteration_${newIteration.id}`;
-  //     updatedProduct.filesByContainer = { 
-  //       ...updatedProduct.filesByContainer, 
-  //       [iterationKey]: [] 
-  //     };
-
-  //     // Auto-select the new iteration
-  //     updatedProduct.selectedContainer = newIteration;
-  //     updatedProduct.containerType = 'iteration';
-
-  //     // Update state
-  //     setProducts(updatedProducts);
-  //     setSelectedContainer(newIteration);
-  //     setContainerType('iteration');
-  //     setSelectedFileObj(null);
-
-  //     // Persist changes
-  //     hybridStorage.saveProducts(updatedProducts)
-  //       .catch(err => console.error("Error saving after iteration creation:", err));
-
-  //     console.log(`Iteration "${iterationName}" created successfully with ID: ${newIteration.iteration_id}`);
-
-  //   } catch (error) {
-  //     console.error('Error creating iteration:', error);
-  //     alert(`Failed to create iteration: ${error.message}`);
-  //   }
-  // }
-
+// Adding Stages and Iterations
 async function handleAddStage() {
   if (selectedProductIndex === null || !products[selectedProductIndex]?.id) {
     alert('Please select a valid product first');
@@ -1388,6 +4398,7 @@ async function handleAddStage() {
   const stageName = `Stage ${stageNumber}`;
 
   console.log(`Creating ${stageName} for product: ${currentProduct.name}`);
+
 
   try {
     // Prepare the request payload
@@ -1482,7 +4493,7 @@ async function handleAddStage() {
     console.log('Creating iteration with payload:', requestPayload);
 
     // Create iteration on backend
-    const response = await fetch('/api/iterations/', {
+    const response = await authenticatedFetch('/api/iterations/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1538,36 +4549,6 @@ async function handleAddStage() {
   
   /* STAGE ICON LEFT-CLICK => SELECT THAT STAGE */
   /* NEED TO CHANGE THE UI ACCORDINGLY */
-  // function handleStageIconClick(label) {
-  //   const updatedProducts = [...products];
-  //   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-  //   updatedProducts[selectedProductIndex] = updatedProduct;
-  
-  //   updatedProduct.selectedStage = label;
-  
-  //   setProducts(updatedProducts);
-  //   setSelectedFileObj(null);
-  // }
-//   function handleContainerClick(container, type) {
-//   // container is the stage or iteration object
-//   // type is 'stage' or 'iteration'
-  
-//   const updatedProducts = [...products];
-//   const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-//   updatedProducts[selectedProductIndex] = updatedProduct;
-
-//   // Update the selected container and type
-//   updatedProduct.selectedContainer = container;
-//   updatedProduct.containerType = type;
-
-//   setProducts(updatedProducts);
-//   setSelectedContainer(container);
-//   setContainerType(type);
-//   setSelectedFileObj(null);
-
-//   // Optional: Load files for this container from backend
-//   loadContainerFiles(container, type);
-// }
 function handleContainerClick(container, type) {
   // container is the stage or iteration object
   // type is 'stage' or 'iteration'
@@ -1593,37 +4574,9 @@ function handleContainerClick(container, type) {
   // Optional: Load files for this container from backend
   loadContainerFiles(container, type);
 }
-// Helper function to load files for the selected container
-  // async function loadContainerFiles(container, type) {
-  //   try {
-  //     let endpoint;
-  //     if (type === 'stage') {
-  //       endpoint = `/api/stages/${container.id}/files/`;
-  //     } else if (type === 'iteration') {
-  //       endpoint = `/api/iterations/${container.id}/files/`;
-  //     }
 
-  //     const response = await fetch(endpoint);
-  //     if (response.ok) {
-  //       const files = await response.json();
-        
-  //       // Update the files for this container in local state
-  //       const containerKey = `${type}_${container.id}`;
-  //       const updatedProducts = [...products];
-  //       const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-  //       updatedProduct.filesByContainer = {
-  //         ...updatedProduct.filesByContainer,
-  //         [containerKey]: files
-  //       };
-  //       updatedProducts[selectedProductIndex] = updatedProduct;
-  //       setProducts(updatedProducts);
-  //     }
-  //   } catch (error) {
-  //     console.error(`Failed to load ${type} files:`, error);
-  //     // Continue with existing data if backend fails
-  //   }
-  // }
-  async function loadContainerFiles(container, type) {
+// Helper function to load files for the selected container
+async function loadContainerFiles(container, type) {
   try {
     let endpoint;
     if (type === 'stage') {
@@ -1638,20 +4591,24 @@ function handleContainerClick(container, type) {
       
       // Update the files for this container in local state
       const containerKey = `${type}_${container.id}`;
-      const updatedProducts = [...products];
-      const currentProduct = updatedProducts[selectedProductIndex];
       
-      // CRITICAL FIX: Ensure filesByContainer exists before spreading
-      const updatedProduct = {
-        ...currentProduct,
-        filesByContainer: {
-          ...(currentProduct.filesByContainer || {}), // Safe spread with fallback
-          [containerKey]: files
-        }
-      };
-      
-      updatedProducts[selectedProductIndex] = updatedProduct;
-      setProducts(updatedProducts);
+      // ✅ FIXED: Use functional state update to avoid stale closure
+      setProducts(prevProducts => {
+        const updatedProducts = [...prevProducts];
+        const currentProduct = updatedProducts[selectedProductIndex];
+        
+        // CRITICAL FIX: Ensure filesByContainer exists before spreading
+        const updatedProduct = {
+          ...currentProduct,
+          filesByContainer: {
+            ...(currentProduct.filesByContainer || {}), // Safe spread with fallback
+            [containerKey]: files
+          }
+        };
+        
+        updatedProducts[selectedProductIndex] = updatedProduct;
+        return updatedProducts;
+      });
     }
   } catch (error) {
     console.error(`Failed to load ${type} files:`, error);
@@ -1659,43 +4616,7 @@ function handleContainerClick(container, type) {
   }
 }
   
-  
-  /* STAGE ICON RIGHT-CLICK => DELETE IF EMPTY */
-  // function handleStageIconRightClick(e, label) {
-  //   e.preventDefault(); // no default context menu
-    
-  //   // Create deep copies for React state updates
-  //   const updatedProducts = [...products];
-  //   const updatedProduct = {...updatedProducts[selectedProductIndex]};
-  //   updatedProducts[selectedProductIndex] = updatedProduct;
-
-  //   // Check if this stage/iteration has files
-  //   const fileList = updatedProduct.filesByStage[label] || [];
-  //   if (fileList.length > 0) {
-  //     // has files => do nothing or show alert
-  //     setToastMsg('Cannot delete a stage/iteration with files!');
-  //     return;
-  //   }
-
-  //   // If empty => ask user
-  //   const confirmDel = window.confirm(`Delete ${label}? It's empty and will be removed.`);
-  //   if (!confirmDel) return;
-
-  //   // remove from stageIcons
-  //   updatedProduct.stageIcons = updatedProduct.stageIcons.filter(icon => icon.label !== label);
-    
-  //   // remove from filesByStage
-  //   updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-  //   delete updatedProduct.filesByStage[label];
-
-  //   // If the user is currently selected that stage, reset selectedStage
-  //   if (updatedProduct.selectedStage === label) {
-  //     updatedProduct.selectedStage = null;
-  //   }
-
-  //   setProducts(updatedProducts);
-  // }
-  /* CONTAINER RIGHT-CLICK => DELETE IF EMPTY */
+/* CONTAINER RIGHT-CLICK => DELETE IF EMPTY */
   async function handleContainerRightClick(e, container, type) {
     e.preventDefault(); // no default context menu
     
@@ -1771,16 +4692,7 @@ function handleContainerClick(container, type) {
     }
   }
 
-  // /* UPLOAD => check stage is selected, else show toast */
-  // function handlePlusClick() {
-  //   const prod = products[selectedProductIndex];
-  //   if (!prod.selectedStage) {
-  //     setToastMsg('Please select a Stage/Iteration first!');
-  //     return;
-  //   }
-  //   hiddenFileInput.current.click();
-  // }
-  /* UPLOAD => check container is selected, else show toast */
+ /* UPLOAD => check container is selected, else show toast */
   function handlePlusClick() {
     const prod = products[selectedProductIndex];
     
@@ -1799,19 +4711,6 @@ function handleContainerClick(container, type) {
     hiddenFileInput.current.click();
   }
 
-  // /* Handle right-click on file name */
-  // function handleFileRightClick(e, fileObj) {
-  //   e.preventDefault(); // Prevent default context menu
-  //   e.stopPropagation(); // Prevent row click
-    
-  //   // Show custom context menu
-  //   setContextMenu({
-  //     visible: true,
-  //     x: e.clientX,
-  //     y: e.clientY,
-  //     fileObj: fileObj
-  //   });
-  // }
   /* Handle right-click on file name */
   function handleFileRightClick(e, fileObj) {
     e.preventDefault(); // Prevent default context menu
@@ -1821,7 +4720,7 @@ function handleContainerClick(container, type) {
     setContextMenu({
       visible: true,
       x: e.clientX,
-      y: e.clientY,
+      y: e.clientY + 10,
       fileObj: fileObj
     });
     
@@ -1829,129 +4728,6 @@ function handleContainerClick(container, type) {
     console.log('Context menu opened for file:', fileObj.name, 'Container:', fileObj.container_type, fileObj.container_id);
   }
 
-//   /* Handle move option */
-// function handleMoveOption() {
-//   if (contextMenu.fileObj) {
-//     // Store the file to be moved
-//     const fileToMove = contextMenu.fileObj;
-//     hideContextMenu();
-    
-//     // Ask which stage to move to
-//     const targetStage = prompt('Enter stage to move file to (e.g., S1, i2):');
-//     if (!targetStage) return;
-    
-//     // Check if target stage exists
-//     const prod = products[selectedProductIndex];
-//     if (!prod.filesByStage.hasOwnProperty(targetStage)) {
-//       setToastMsg(`Stage ${targetStage} does not exist!`);
-//       return;
-//     }
-    
-//     // Create proper deep copies
-//     const updatedProducts = [...products];
-//     const updatedProduct = {...updatedProducts[selectedProductIndex]};
-//     updatedProducts[selectedProductIndex] = updatedProduct;
-    
-//     const currentStage = updatedProduct.selectedStage;
-//     updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-    
-//     // Copy array references
-//     updatedProduct.filesByStage[currentStage] = [...updatedProduct.filesByStage[currentStage]];
-//     if (!updatedProduct.filesByStage[targetStage]) {
-//       updatedProduct.filesByStage[targetStage] = [];
-//     } else {
-//       updatedProduct.filesByStage[targetStage] = [...updatedProduct.filesByStage[targetStage]];
-//     }
-    
-//     // Find file and its child files (if any)
-//     const filesToMove = [];
-    
-//     // If this is a parent file, also move its children
-//     if (!fileToMove.isChildFile) {
-//       // Get the file index
-//       const fileIndex = updatedProduct.filesByStage[currentStage].findIndex(
-//         f => f.id === fileToMove.id
-//       );
-      
-//       if (fileIndex === -1) {
-//         setToastMsg('File not found.');
-//         return;
-//       }
-      
-//       // Copy the file
-//       const fileCopy = {...updatedProduct.filesByStage[currentStage][fileIndex]};
-//       filesToMove.push(fileCopy);
-      
-//       // Find any child files
-//       const childFiles = updatedProduct.filesByStage[currentStage].filter(
-//         f => f.parentId === fileToMove.id
-//       );
-      
-//       // Copy the child files
-//       filesToMove.push(...childFiles.map(f => ({...f})));
-      
-//       // Remove the files from current stage (in reverse to not mess up indices)
-//       const fileIdsToRemove = [fileToMove.id, ...childFiles.map(f => f.id)];
-//       updatedProduct.filesByStage[currentStage] = updatedProduct.filesByStage[currentStage].filter(
-//         f => !fileIdsToRemove.includes(f.id)
-//       );
-//     } else {
-//       // For child files, just move the single file
-//       const fileIndex = updatedProduct.filesByStage[currentStage].findIndex(
-//         f => f.id === fileToMove.id
-//       );
-      
-//       if (fileIndex === -1) {
-//         setToastMsg('File not found.');
-//         return;
-//       }
-      
-//       // Copy the file
-//       const fileCopy = {...updatedProduct.filesByStage[currentStage][fileIndex]};
-//       filesToMove.push(fileCopy);
-      
-//       // Remove from current stage
-//       updatedProduct.filesByStage[currentStage] = updatedProduct.filesByStage[currentStage].filter(
-//         f => f.id !== fileToMove.id
-//       );
-      
-//       // Also update parent's childFiles array if necessary
-//       const parentFile = updatedProduct.filesByStage[currentStage].find(
-//         f => f.id === fileToMove.parentId
-//       );
-      
-//       if (parentFile) {
-//         const updatedParentFile = {...parentFile};
-//         updatedParentFile.childFiles = updatedParentFile.childFiles.filter(
-//           id => id !== fileToMove.id
-//         );
-        
-//         // Replace parent file in the stage
-//         const parentIndex = updatedProduct.filesByStage[currentStage].findIndex(
-//           f => f.id === fileToMove.parentId
-//         );
-        
-//         if (parentIndex !== -1) {
-//           updatedProduct.filesByStage[currentStage][parentIndex] = updatedParentFile;
-//         }
-//       }
-//     }
-    
-//     // Add files to target stage
-//     updatedProduct.filesByStage[targetStage].push(...filesToMove);
-    
-//     // Update state
-//     setProducts(updatedProducts);
-    
-//     // Clear selected file if it was moved
-//     if (selectedFileObj && selectedFileObj.id === fileToMove.id) {
-//       setSelectedFileObj(null);
-//     }
-    
-//     setToastMsg(`File moved to ${targetStage}`);
-//   }
-//   hideContextMenu();
-// }
 /* Handle move option */
   async function handleMoveOption() {
     if (!contextMenu.fileObj) {
@@ -2294,54 +5070,6 @@ function getCurrentContainerIdFromFile(fileObj) {
   }
   
   /* Handle status change */
-  // function handleStatusChange(fileObj, newStatus) {
-  //   // Create proper deep copies
-  //   const updatedProducts = [...products];
-  //   const updatedProduct = {...updatedProducts[selectedProductIndex]};
-  //   updatedProducts[selectedProductIndex] = updatedProduct;
-    
-  //   const stage = updatedProduct.selectedStage;
-  //   updatedProduct.filesByStage = {...updatedProduct.filesByStage};
-  //   updatedProduct.filesByStage[stage] = [...updatedProduct.filesByStage[stage]];
-    
-  //   // Find the file
-  //   const fileIndex = updatedProduct.filesByStage[stage].findIndex(f => f.id === fileObj.id);
-  //   if (fileIndex === -1) return;
-    
-  //   // Update the file with new status
-  //   const updatedFile = {...updatedProduct.filesByStage[stage][fileIndex]};
-  //   updatedFile.status = newStatus;
-  //   updatedProduct.filesByStage[stage][fileIndex] = updatedFile;
-    
-  //   // If this is a parent file, update its selected_revision_obj as well
-  //   if (updatedFile.revisions && updatedFile.selected_revision_obj) {
-  //     updatedFile.revisions = [...updatedFile.revisions]; // Create a new array
-  //     const revIndex = updatedFile.revisions.findIndex(
-  //       rev => rev.rev_number === updatedFile.current_revision
-  //     );
-  //     if (revIndex !== -1) {
-  //       updatedFile.revisions[revIndex] = {
-  //         ...updatedFile.revisions[revIndex],
-  //         status: newStatus
-  //       };
-  //       updatedFile.selected_revision_obj = {
-  //         ...updatedFile.selected_revision_obj,
-  //         status: newStatus
-  //       };
-  //     }
-  //   }
-    
-  //   // Update state
-  //   setProducts(updatedProducts);
-    
-  //   // If this is the selected file, update it
-  //   if (selectedFileObj && selectedFileObj.id === fileObj.id) {
-  //     setSelectedFileObj(updatedFile);
-  //   }
-    
-  //   setToastMsg(`Status updated to ${newStatus}`);
-  // }
-  /* Handle status change */
   async function handleStatusChange(fileObj, newStatus) {
     try {
       // Update status on backend
@@ -2406,7 +5134,6 @@ function getCurrentContainerIdFromFile(fileObj) {
     }
   }
 
-  // /* Handle adding child file */
  
 /* Handle adding child file */
   function handleAddChildClick(e, fileObj) {
@@ -2431,127 +5158,127 @@ function getCurrentContainerIdFromFile(fileObj) {
   }
 
    /* Handle child file upload */
-  async function handleChildFileChange(e) {
-    const file = e.target.files[0];
-    if (!file || !parentFileForChild) {
-      e.target.value = '';
-      return;
-    }
 
-    const prod = products[selectedProductIndex];
-    if (!prod.selectedContainer || !prod.containerType) {
-      setToastMsg('No container (stage/iteration) selected yet.');
-      e.target.value = '';
-      return;
-    }
-
-    setIsLoading(true);
-    setToastMsg('');
-
-    try {
-      // Upload to server first (no placeholder needed)
-      const formData = new FormData();
-      formData.append('uploaded_file', file);
-      formData.append('original_name', file.name);
-      formData.append('is_child_file', 'true');
-      formData.append('parent_id', parentFileForChild.id);
-      
-      // Add container ID based on type
-      if (prod.containerType === 'stage') {
-        formData.append('stage_id', prod.selectedContainer.id);
-      } else if (prod.containerType === 'iteration') {
-        formData.append('iteration_id', prod.selectedContainer.id);
-      }
-      
-      formData.append('change_description', 'Initial child file upload');
-
-      const response = await fetch('/api/files/', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const savedChildFile = await response.json();
-      console.log('Child file uploaded successfully:', savedChildFile);
-
-      // Update local state with the new child file
-      const updatedProducts = [...products];
-      const updatedProduct = { ...updatedProducts[selectedProductIndex] };
-      updatedProducts[selectedProductIndex] = updatedProduct;
-
-      updatedProduct.filesByContainer = { ...updatedProduct.filesByContainer };
-      
-      // Build container key
-      const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
-      
-      if (!updatedProduct.filesByContainer[containerKey]) {
-        updatedProduct.filesByContainer[containerKey] = [];
-      } else {
-        updatedProduct.filesByContainer[containerKey] = [...updatedProduct.filesByContainer[containerKey]];
-      }
-
-      // Create child file object from backend response
-      const childFileObj = {
-        ...savedChildFile,
-        // Add dataUrl for preview if needed
-        dataUrl: await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        })
-      };
-
-      // Add child file to container
-      updatedProduct.filesByContainer[containerKey].push(childFileObj);
-
-      // Update parent file's child_files array
-      const parentFileIndex = updatedProduct.filesByContainer[containerKey].findIndex(
-        f => f.id === parentFileForChild.id && !f.is_child_file
-      );
-
-      if (parentFileIndex !== -1) {
-        const updatedParentFile = { ...updatedProduct.filesByContainer[containerKey][parentFileIndex] };
-        
-        // Ensure child_files array exists and add new child
-        if (!updatedParentFile.child_files) {
-          updatedParentFile.child_files = [];
-        }
-        updatedParentFile.child_files = [...updatedParentFile.child_files, childFileObj];
-        
-        updatedProduct.filesByContainer[containerKey][parentFileIndex] = updatedParentFile;
-      }
-
-      // Update state
-      setProducts(updatedProducts);
-      setSelectedFileObj(childFileObj);
-
-      // Persist changes
-      hybridStorage.saveProducts(updatedProducts)
-        .catch(err => console.error("Error saving after child file upload:", err));
-
-      setToastMsg(`Child file "${file.name}" added to "${parentFileForChild.name}"`);
-
-      // Optional: Open change description modal for additional details
-      setTimeout(() => {
-        setCurrentFileForModal(childFileObj);
-        setTempChangeDescription('');
-        setShowChangeDescriptionModal(true);
-        console.log('Opening change description modal for new child file');
-      }, 100);
-
-    } catch (err) {
-      console.error('Error uploading child file:', err);
-      setToastMsg(`Error uploading child file: ${err.message}`);
-    } finally {
-      setIsLoading(false);
-      e.target.value = '';
-      setParentFileForChild(null);
-    }
+async function handleChildFileChange(e) {
+  const file = e.target.files[0];
+  if (!file || !parentFileForChild) {
+    e.target.value = '';
+    return;
   }
+
+  const prod = products[selectedProductIndex];
+  if (!prod.selectedContainer || !prod.containerType) {
+    setToastMsg('No container (stage/iteration) selected yet.');
+    e.target.value = '';
+    return;
+  }
+
+  setIsLoading(true);
+  setToastMsg('');
+
+  try {
+    // Upload to server first (no placeholder needed)
+    const formData = new FormData();
+    formData.append('uploaded_file', file);
+    formData.append('original_name', file.name);
+    formData.append('is_child_file', 'true');
+    formData.append('parent_id', parentFileForChild.id);
+    
+    // Add container ID based on type
+    if (prod.containerType === 'stage') {
+      formData.append('stage_id', prod.selectedContainer.id);
+    } else if (prod.containerType === 'iteration') {
+      formData.append('iteration_id', prod.selectedContainer.id);
+    }
+    
+    formData.append('change_description', 'Initial child file upload');
+
+    const response = await authenticatedFetch('/api/files/', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.statusText}`);
+    }
+
+    const savedChildFile = await response.json();
+    console.log('Child file uploaded successfully:', savedChildFile);
+
+    // Update local state with the new child file
+    const updatedProducts = [...products];
+    const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+    updatedProducts[selectedProductIndex] = updatedProduct;
+
+    updatedProduct.filesByContainer = { ...updatedProduct.filesByContainer };
+    
+    // Build container key
+    const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
+    
+    if (!updatedProduct.filesByContainer[containerKey]) {
+      updatedProduct.filesByContainer[containerKey] = [];
+    } else {
+      updatedProduct.filesByContainer[containerKey] = [...updatedProduct.filesByContainer[containerKey]];
+    }
+
+    // ✅ Clean: Create child file object from backend response (backend now provides complete data)
+    const childFileObj = {
+      ...savedChildFile,
+      dataUrl: await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })
+    };
+
+    // Add child file to container
+    updatedProduct.filesByContainer[containerKey].push(childFileObj);
+
+    // Update parent file's child_files array
+    const parentFileIndex = updatedProduct.filesByContainer[containerKey].findIndex(
+      f => f.id === parentFileForChild.id && !f.is_child_file
+    );
+
+    if (parentFileIndex !== -1) {
+      const updatedParentFile = { ...updatedProduct.filesByContainer[containerKey][parentFileIndex] };
+      
+      // Ensure child_files array exists and add new child
+      if (!updatedParentFile.child_files) {
+        updatedParentFile.child_files = [];
+      }
+      updatedParentFile.child_files = [...updatedParentFile.child_files, childFileObj];
+      
+      updatedProduct.filesByContainer[containerKey][parentFileIndex] = updatedParentFile;
+    }
+
+    // Update state
+    setProducts(updatedProducts);
+    setSelectedFileObj(childFileObj);
+
+    // Persist changes
+    hybridStorage.saveProducts(updatedProducts)
+      .catch(err => console.error("Error saving after child file upload:", err));
+
+    setToastMsg(`Child file "${file.name}" added to "${parentFileForChild.name}"`);
+
+    // Optional: Open change description modal for additional details
+    setTimeout(() => {
+      setCurrentFileForModal(childFileObj);
+      setTempChangeDescription('');
+      setShowChangeDescriptionModal(true);
+      console.log('Opening change description modal for new child file');
+    }, 100);
+
+  } catch (err) {
+    console.error('Error uploading child file:', err);
+    setToastMsg(`Error uploading child file: ${err.message}`);
+  } finally {
+    setIsLoading(false);
+    e.target.value = '';
+    setParentFileForChild(null);
+  }
+}
   
   /* Handle child file revision change */
    function handleChildRevisionChange(childFileObj, revisionNumber) {
@@ -2600,7 +5327,8 @@ function getCurrentContainerIdFromFile(fileObj) {
 }
 
   /* FILE SELECT (UPLOAD) - Fixed version that properly handles all file types */
-  async function handleFileChange(e) {
+
+async function handleFileChange(e) {
   const file = e.target.files[0];
   if (!file) {
     e.target.value = '';
@@ -2635,7 +5363,7 @@ function getCurrentContainerIdFromFile(fileObj) {
     formData.append('status', 'in_work');
     formData.append('quantity', '1');
 
-    const response = await fetch('/api/files/', {
+    const response = await authenticatedFetch('/api/files/', {
       method: 'POST',
       body: formData
     });
@@ -2679,7 +5407,7 @@ function getCurrentContainerIdFromFile(fileObj) {
       f => f.name === file.name && !f.is_child_file
     );
 
-    // Create file object from backend response
+    // ✅ Clean: Create file object from backend response (backend now provides complete data)
     const fileObj = {
       ...savedFile,
       dataUrl, // Add dataURL for preview
@@ -2688,27 +5416,30 @@ function getCurrentContainerIdFromFile(fileObj) {
     let fileToSelect;
     let isNewRevision = false;
 
-    if (existingFileIndex !== -1 && savedFile.revision > 1) {
+    if (existingFileIndex !== -1 && savedFile.current_revision > 1) {
       // This is a revision - update existing file
       const existingFile = { ...updatedProduct.filesByContainer[containerKey][existingFileIndex] };
       
-      // Update with new revision data
-      existingFile.current_revision = savedFile.revision;
+      // ✅ Clean: Backend now provides complete revision data
+      existingFile.current_revision = savedFile.current_revision;
       existingFile.dataUrl = dataUrl;
-      existingFile.updated_at = savedFile.created_at;
+      existingFile.updated_at = savedFile.updated_at;
       existingFile.file_path = savedFile.file_path;
       existingFile.latest_revision = savedFile.latest_revision;
       
       // Add to revisions array if it exists
       if (existingFile.revisions) {
         existingFile.revisions = [...existingFile.revisions, savedFile.latest_revision];
+      } else {
+        // Use revisions from backend response
+        existingFile.revisions = savedFile.revisions || [];
       }
 
       updatedProduct.filesByContainer[containerKey][existingFileIndex] = existingFile;
       fileToSelect = existingFile;
       isNewRevision = true;
 
-      setToastMsg(`New revision (Rev ${savedFile.revision}) created!`);
+      setToastMsg(`New revision (Rev ${savedFile.current_revision}) created!`);
     } else {
       // This is a new file
       updatedProduct.filesByContainer[containerKey].push(fileObj);
@@ -2789,7 +5520,7 @@ function getCurrentContainerIdFromFile(fileObj) {
         formData.append('price', currentFileForModal.price);
       }
 
-      const response = await fetch('/api/files/', {
+      const response = await authenticatedFetch('/api/files/', {
         method: 'POST',
         body: formData
       });
@@ -2846,13 +5577,22 @@ function getCurrentContainerIdFromFile(fileObj) {
       // Update existing file with new revision data
       const existingFile = {...updatedProduct.filesByContainer[containerKey][existingFileIndex]};
       
+      // // Update with backend response data
+      // existingFile.current_revision = savedFile.revision || savedFile.current_revision;
+      // existingFile.dataUrl = dataUrl; // Add preview
+      // existingFile.updated_at = savedFile.created_at || savedFile.updated_at;
+      // existingFile.file_path = savedFile.file_path;
+      // existingFile.latest_revision = savedFile.latest_revision;
       // Update with backend response data
       existingFile.current_revision = savedFile.revision || savedFile.current_revision;
       existingFile.dataUrl = dataUrl; // Add preview
       existingFile.updated_at = savedFile.created_at || savedFile.updated_at;
+      existingFile.created_at = new Date().toISOString(); // Update to current date for new revision
+      existingFile.upload_date = new Date().toISOString(); // Also update upload_date
       existingFile.file_path = savedFile.file_path;
       existingFile.latest_revision = savedFile.latest_revision;
       
+      // Add to revisions array if it exists and is new
       // Add to revisions array if it exists and is new
       if (existingFile.revisions && savedFile.latest_revision) {
         // Check if this revision already exists
@@ -2861,7 +5601,12 @@ function getCurrentContainerIdFromFile(fileObj) {
         );
         
         if (!revisionExists) {
-          existingFile.revisions = [...existingFile.revisions, savedFile.latest_revision];
+          // Set current date for the new revision
+          const newRevision = {
+            ...savedFile.latest_revision,
+            created_at: new Date().toISOString()
+          };
+          existingFile.revisions = [...existingFile.revisions, newRevision];
         }
       }
 
@@ -3070,55 +5815,33 @@ function getCurrentContainerIdFromFile(fileObj) {
     setCurrentFileForModal(null);
   }
 }
-  /* Handle price update */
-  async function handlePriceUpdate(price) {
+
+/* Handle price update */
+async function handlePriceUpdate(price) {
   if (!currentFileForModal) return;
   
   try {
-    // Update price on both file and latest revision
-    const updatePromises = [];
-    
-    // Update file price
-    updatePromises.push(
-      fetch(`/api/files/${currentFileForModal.id}/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          price: price
-        })
+    // Only update the file - the revision will be updated automatically
+    const response = await fetch(`/api/files/${currentFileForModal.id}/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        price: parseFloat(price) // Ensure it's a number
       })
-    );
-    
-    // Update latest revision price if it exists
-    if (currentFileForModal.latest_revision?.id) {
-      updatePromises.push(
-        fetch(`/api/file-revisions/${currentFileForModal.latest_revision.id}/`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            price: price
-          })
-        })
-      );
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text(); // Get raw response
+      console.log('Raw error response:', errorText); // This will show us the HTML error page
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      throw new Error(`Failed to update price: ${response.statusText}`);
     }
 
-    const responses = await Promise.all(updatePromises);
-    
-    // Check if all updates were successful
-    const failedUpdates = responses.filter(response => !response.ok);
-    if (failedUpdates.length > 0) {
-      throw new Error(`Failed to update price: ${failedUpdates.length} update(s) failed`);
-    }
-
-    const [updatedFile, updatedRevision] = await Promise.all(
-      responses.map(response => response.json())
-    );
-    
-    console.log('Price updated on backend:', { file: updatedFile, revision: updatedRevision });
+    const updatedFile = await response.json();
+    console.log('Price updated on backend:', updatedFile);
 
     // Update local state
     const updatedProducts = [...products];
@@ -3137,29 +5860,10 @@ function getCurrentContainerIdFromFile(fileObj) {
       const fileIndex = updatedProduct.filesByContainer[containerKey].findIndex(f => f.id === currentFileForModal.id);
       if (fileIndex !== -1) {
         // Update with fresh data from backend
-        const fileToUpdate = {
+        updatedProduct.filesByContainer[containerKey][fileIndex] = {
           ...updatedProduct.filesByContainer[containerKey][fileIndex],
           ...updatedFile
         };
-        
-        // Update latest revision if we have updated revision data
-        if (updatedRevision && fileToUpdate.latest_revision) {
-          fileToUpdate.latest_revision = {
-            ...fileToUpdate.latest_revision,
-            ...updatedRevision
-          };
-        }
-        
-        // Update revisions array if it exists
-        if (fileToUpdate.revisions && updatedRevision) {
-          fileToUpdate.revisions = fileToUpdate.revisions.map(rev => 
-            rev.id === updatedRevision.id 
-              ? { ...rev, ...updatedRevision }
-              : rev
-          );
-        }
-        
-        updatedProduct.filesByContainer[containerKey][fileIndex] = fileToUpdate;
       }
     }
     
@@ -3175,7 +5879,8 @@ function getCurrentContainerIdFromFile(fileObj) {
     hybridStorage.saveProducts(updatedProducts)
       .catch(err => console.error("Error saving after price update:", err));
     
-    setToastMsg(`Price updated to $${price} for ${updatedFile.name}`);
+    //setToastMsg(`Price updated to $${parseFloat(price).toFixed(2)} for ${updatedFile.name}`);
+    setToastMsg(`Price updated to ₹${parseFloat(price).toFixed(2)} for ${updatedFile.name}`);
     setShowPriceModal(false);
     setCurrentFileForModal(null);
 
@@ -3184,6 +5889,7 @@ function getCurrentContainerIdFromFile(fileObj) {
     setToastMsg(`Failed to update price: ${error.message}`);
   }
 }
+
 
   /* Handle revision change */
   function handleRevisionChange(fileObj, revisionNumber) {
@@ -3237,10 +5943,27 @@ function getCurrentContainerIdFromFile(fileObj) {
   // Determine which revision to show
   const selectedRevision = fileObj.selected_revision_obj || fileObj.latest_revision || fileObj;
   
-  // Construct server URL using file_path or file name
+ 
+  // const filePath = selectedRevision.file_path || fileObj.file_path || fileObj.name;
   const filePath = selectedRevision.file_path || fileObj.file_path || fileObj.name;
-  const serverUrl = `/media/${filePath}`;
+  //const filePath = "uploads/product_10_solar_mill_test/iteration_1/sword-1.stl";
+  //const serverUrl = `/media/${filePath}`;
+  const serverUrl = selectedRevision.uploaded_file || 
+                  fileObj.uploaded_file || 
+                  `/media/${selectedRevision.file_path || fileObj.file_path || fileObj.name}`;
+
   const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl || serverUrl;
+
+   // Construct server URL using file_path or file name
+  console.log("=== FILE PATH DEBUG ===");
+  console.log("selectedRevision:", selectedRevision);
+  console.log("selectedRevision.file_path:", selectedRevision?.file_path);
+  console.log("fileObj:", fileObj);
+  console.log("fileObj.file_path:", fileObj?.file_path);
+  console.log("fileObj.name:", fileObj?.name);
+  console.log("Final filePath used:", filePath);
+  console.log("Final serverUrl:", serverUrl);
+  console.log("=======================");
   
   const fileToDisplay = selectedRevision;
 
@@ -3521,30 +6244,52 @@ function renderFileList(prod) {
                         >
                           <FaPlus size={10} />
                         </div>
-                        <div className="ms-2">
-                          {fileObj.quantity && (
-                            <span 
-                              className="badge bg-warning me-1" 
-                              style={{ cursor: 'pointer', fontSize: '0.7rem' }}
-                              onClick={(e) => handleQuantityClick(e, fileObj)}
-                            >
-                              Qty: {fileObj.quantity}
-                            </span>
-                          )}
-                          {fileObj.price && (
-                            <span 
-                              className="badge bg-success" 
-                              style={{ cursor: 'pointer', fontSize: '0.7rem' }}
-                              onClick={(e) => handlePriceClick(e, fileObj)}
-                            >
-                              ₹{fileObj.price}
-                            </span>
-                          )}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          minWidth: '120px',
+                          justifyContent: 'flex-end',
+                          gap: '4px'
+                        }}>
+                          <span 
+                            className="badge bg-warning" 
+                            style={{ 
+                              cursor: 'pointer', 
+                              fontSize: '0.7rem',
+                              minWidth: '45px',
+                              visibility: fileObj.quantity ? 'visible' : 'hidden'
+                            }}
+                            onClick={(e) => handleQuantityClick(e, fileObj)}
+                          >
+                            {fileObj.quantity ? `Qty: ${fileObj.quantity}` : 'Qty: 0'}
+                          </span>
+                          <span 
+                            className="badge bg-success" 
+                            style={{ 
+                              cursor: 'pointer', 
+                              fontSize: '0.7rem',
+                              minWidth: '55px',
+                              visibility: fileObj.price ? 'visible' : 'hidden'
+                            }}
+                            onClick={(e) => handlePriceClick(e, fileObj)}
+                          >
+                            {fileObj.price ? `₹${fileObj.price}` : '₹0'}
+                          </span>
                         </div>
                       </div>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      {new Date(fileObj.created_at || fileObj.upload_date).toLocaleDateString()}
+                      {(() => {
+                        // If there are revisions and a current revision is selected, use revision date
+                        if (fileObj.revisions && fileObj.current_revision) {
+                          const currentRev = fileObj.revisions.find(rev => rev.revision_number === fileObj.current_revision);
+                          if (currentRev && currentRev.created_at) {
+                            return new Date(currentRev.created_at).toLocaleDateString('en-GB');
+                          }
+                        }
+                        // Fall back to main file date
+                        return new Date(fileObj.created_at || fileObj.upload_date).toLocaleDateString('en-GB');
+                      })()}
                     </td>
                     <td>
                       <Form.Select 
@@ -3605,32 +6350,51 @@ function renderFileList(prod) {
                           style={{ 
                             whiteSpace: 'normal', 
                             wordBreak: 'break-word',
-                            paddingLeft: '24px' // Indent child files
+                            paddingLeft: '32px', // Increased indent
+                            position: 'relative'
                           }}
                           onContextMenu={(e) => handleFileRightClick(e, childFile)}
                         >
                           <div className="d-flex align-items-center">
+                            <span style={{ 
+                              position: 'absolute', 
+                              left: '8px', 
+                              color: '#6c757d', 
+                              fontSize: '0.7rem' 
+                            }}>└</span>
                             {childIcon}
-                            <span>{childFile.name}</span>
-                            <div className="ms-2">
-                              {childFile.quantity && (
-                                <span 
-                                  className="badge bg-warning me-1" 
-                                  style={{ cursor: 'pointer', fontSize: '0.7rem' }}
-                                  onClick={(e) => handleQuantityClick(e, childFile)}
-                                >
-                                  Qty: {childFile.quantity}
-                                </span>
-                              )}
-                              {childFile.price && (
-                                <span 
-                                  className="badge bg-success" 
-                                  style={{ cursor: 'pointer', fontSize: '0.7rem' }}
-                                  onClick={(e) => handlePriceClick(e, childFile)}
-                                >
-                                  ₹{childFile.price}
-                                </span>
-                              )}
+                            <span style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto' }}>{childFile.name}</span>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              minWidth: '120px',
+                              justifyContent: 'flex-end',
+                              gap: '4px'
+                            }}>
+                              <span 
+                                className="badge bg-warning" 
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  fontSize: '0.7rem',
+                                  minWidth: '45px',
+                                  visibility: childFile.quantity ? 'visible' : 'hidden'
+                                }}
+                                onClick={(e) => handleQuantityClick(e, childFile)}
+                              >
+                                {childFile.quantity ? `Qty: ${childFile.quantity}` : 'Qty: 0'}
+                              </span>
+                              <span 
+                                className="badge bg-success" 
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  fontSize: '0.7rem',
+                                  minWidth: '55px',
+                                  visibility: childFile.price ? 'visible' : 'hidden'
+                                }}
+                                onClick={(e) => handlePriceClick(e, childFile)}
+                              >
+                                {childFile.price ? `₹${childFile.price}` : '₹0'}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -4087,2796 +6851,7 @@ function handleViewChange() {
       .catch(err => console.error("Error saving after file update:", err));
   }
 
-  // const renderFileBrowser = () => {
-  //   return (
-  //     <>
-  //       {/* Top Row: Product dropdown, add product, and header icons */}
-  //       <div className="d-flex justify-content-between align-items-center mb-2">
-    
-  //         {/* Left Side: Product Dropdown + Add Product */}
-  //         <div className="d-flex align-items-center gap-2">
-  //           <Form.Select
-  //             size="sm"
-  //             value={selectedProductIndex}
-  //             onChange={handleSelectProduct}
-  //             style={{
-  //               width: 'fit-content',
-  //               backgroundColor: styles.colors.dark,
-  //               color: styles.colors.text.light,
-  //               border: `1px solid ${styles.colors.border}`,
-  //               fontSize: '0.85rem',
-  //               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
-  //             }}
-  //             className="shadow-none"
-  //           >
-  //             {products.map((p, idx) => (
-  //               <option key={idx} value={idx}>
-  //                 {p.name.toUpperCase()}
-  //               </option>
-  //             ))}
-  //           </Form.Select>
-
-               
-
-
-  //           <div
-  //             style={{
-  //               cursor: 'pointer',
-  //               color: styles.colors.text.light,
-  //               display: 'flex',
-  //               alignItems: 'center',
-  //               justifyContent: 'center',
-  //               width: '24px',
-  //               height: '24px'
-  //             }}
-  //             //onClick={() => console.log('🔥 PLUS BUTTON CLICKED!')}
-  //             onClick={handleCreateProduct}
-  //           >
-  //             <FaPlus size={20} style={{ transform: 'scale(0.9)', pointerEvents: 'none' }} />
-  //           </div>
-  //         </div>
-
-  //         {/* Right Side: Icons */}
-  //         <div className="d-flex align-items-center gap-2">
-            
-  //           <div style={{ cursor: 'pointer' }}
-  //           //onClick={() => console.log('🔥 ITERATION BUTTON CLICKED!')}
-  //           //onMouseDown={() => console.log('🔥 MOUSE DOWN!')}
-  //           onClick={handleAddIteration}
-  //           >
-  //             <FaDrumSteelpan size={20} color={styles.colors.iteration} style={{pointerEvents: 'none'}} />
-  //           </div>
-  //           <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
-  //             <FaToriiGate size={20} color={styles.colors.stage} style={{pointerEvents: 'none'}} />
-  //           </div>
-  //           <div
-  //             style={{
-  //               width: '24px',
-  //               height: '24px',
-  //               display: 'flex',
-  //               alignItems: 'center',
-  //               justifyContent: 'center',
-  //               background: 'transparent',
-  //               color: '#ffffff',
-  //               cursor: 'pointer',
-  //               borderRadius: '4px'
-  //             }}
-  //             onClick={handlePlusClick}
-  //           >
-  //             <FaUpload size={20} style={{pointerEvents: 'none'}} />
-  //           </div>
-  //           <div
-  //             style={{
-  //               width: '24px',
-  //               height: '24px',
-  //               display: 'flex',
-  //               alignItems: 'center',
-  //               justifyContent: 'center',
-  //               background: 'transparent',
-  //               color: '#ffffff',
-  //               cursor: 'pointer',
-  //               borderRadius: '4px'
-  //             }}
-  //             onClick={handleViewChange}
-  //           >
-  //             <FaEye size={20} />
-  //           </div>
-  //           <div
-  //             style={{
-  //               width: '24px',
-  //               height: '24px',
-  //               display: 'flex',
-  //               alignItems: 'center',
-  //               justifyContent: 'center',
-  //               background: 'transparent',
-  //               color: '#ffffff',
-  //               cursor: 'pointer',
-  //               borderRadius: '4px'
-  //             }}
-  //             onClick={handleShowBOM}
-  //           >
-  //             <FaTable size={20} />
-  //           </div>
-  //         </div>
-  //       </div>
-
-  //       {/* Render content based on viewMode */}
-  //       {viewMode === 'normal' ? (
-  //         renderFileList(prod)
-  //       ) : (
-  //         <BOMView prod={prod} updateFile={updateFile} />
-  //       )}
-
-  //       {/* Hidden file input for uploads */}
-  //       <input
-  //         type="file"
-  //         ref={hiddenFileInput}
-  //         onChange={handleFileChange}
-  //         style={{ display: 'none' }}
-  //       />
-  //     </>
-  //   );
-  // };
-
-// Add the BOMView component (place this outside of your App component)
-// function BOMView({ prod, updateFile }) {
-//   if (!prod.selectedStage) {
-//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
-//   }
-  
-//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
-  
-//   // Helper function to get the latest version of each file
-//   const getLatestVersionFiles = () => {
-//     return stageFiles.map(file => {
-//       if (file.revisions && file.selected_revision_obj) {
-//         return {...file, ...file.selected_revision_obj};
-//       }
-//       return file;
-//     });
-//   };
-  
-//   const latestFiles = getLatestVersionFiles();
-  
-//   // Group files by type
-//   const fileGroups = {};
-  
-//   // First, group non-child files by extension
-//   latestFiles.forEach(file => {
-//     if (file.isChildFile) return; // Skip child files for now
-    
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     if (!fileGroups[ext]) {
-//       fileGroups[ext] = [];
-//     }
-//     fileGroups[ext].push(file);
-//   });
-  
-//   // Then, group child files by parent file's extension
-//   latestFiles.forEach(file => {
-//     if (!file.isChildFile) return; // Skip non-child files
-    
-//     // Find parent file
-//     const parentFile = latestFiles.find(f => f.id === file.parentId);
-//     if (!parentFile) return; // Skip if parent not found
-    
-//     const parentExt = parentFile.name.split('.').pop().toLowerCase();
-//     const ext = file.name.split('.').pop().toLowerCase();
-    
-//     // Create a group for child files if it doesn't exist
-//     const groupName = `${parentExt}_children`;
-//     if (!fileGroups[groupName]) {
-//       fileGroups[groupName] = [];
-//     }
-    
-//     fileGroups[groupName].push({...file, parentName: parentFile.name});
-//   });
-  
-//   // Special handling for spreadsheet files (treat as their own category)
-//   const spreadsheetFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return ext === 'xls' || ext === 'xlsx' || ext === 'csv';
-//   });
-  
-//   if (spreadsheetFiles.length > 0) {
-//     fileGroups['spreadsheets'] = spreadsheetFiles;
-//   }
-  
-//   // Calculate grand total across all tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-    
-//     latestFiles.forEach(file => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       total += quantity * price;
-//     });
-    
-//     return total.toFixed(2);
-//   };
-  
-//   // Function to calculate total for a group of files
-//   const calculateGroupTotal = (files) => {
-//     return files.reduce((sum, file) => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       return sum + (quantity * price);
-//     }, 0).toFixed(2);
-//   };
-  
-//   // Function to handle label changes
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-  
-//   // Function to handle quantity changes
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity) || 1;
-//     updateFile(fileId, { quantity: quantity });
-//   };
-  
-//   // Function to handle price changes
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price: price });
-//   };
-  
-//   return (
-//     <div className="p-3">
-//       <h4>Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
-      
-//       {Object.entries(fileGroups).map(([groupKey, files]) => {
-//         if (files.length === 0) return null;
-        
-//         // Format the group title
-//         let groupTitle;
-//         if (groupKey.includes('_children')) {
-//           const parentExt = groupKey.split('_')[0].toUpperCase();
-//           groupTitle = `${parentExt} Child Components`;
-//         } else if (groupKey === 'spreadsheets') {
-//           groupTitle = 'Spreadsheets';
-//         } else {
-//           groupTitle = `${groupKey.toUpperCase()} Components`;
-//         }
-        
-//         return (
-//           <div key={groupKey} className="mb-4">
-//             <h5>{groupTitle}</h5>
-//             <Table striped bordered hover variant="dark" className="mb-2">
-//               <thead>
-//                 <tr>
-//                   <th>Component</th>
-//                   <th>Label</th>
-//                   <th>Qty</th>
-//                   <th>Price (₹)</th>
-//                   <th>Total (₹)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {files.map(file => {
-//                   const quantity = file.quantity || 1;
-//                   const price = parseFloat(file.price) || 0;
-//                   const total = quantity * price;
-                  
-//                   return (
-//                     <tr key={file.id}>
-//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-//                         {file.isChildFile && file.parentName && (
-//                           <span style={{ opacity: 0.7, marginRight: '5px' }}>
-//                             ↳ {file.parentName} / 
-//                           </span>
-//                         )}
-//                         {file.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={file.label || ''}
-//                           onBlur={(e) => handleLabelChange(file.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="1"
-//                           value={quantity}
-//                           onChange={(e) => handleQuantityChange(file.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '60px'
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={file.price === '' ? '' : price}
-//                           onChange={(e) => handlePriceChange(file.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '80px'
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: '80px' }}>{total.toFixed(2)}</td>
-//                     </tr>
-//                   );
-//                 })}
-//               </tbody>
-//               <tfoot>
-//                 <tr>
-//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                   <td><strong>{calculateGroupTotal(files)}</strong></td>
-//                 </tr>
-//               </tfoot>
-//             </Table>
-//           </div>
-//         );
-//       })}
-      
-//       {/* Grand Total */}
-//       <div className="mt-4 p-3" style={{ backgroundColor: styles.colors.darkAlt, borderRadius: '4px' }}>
-//         <h5>Grand Total: ₹ {calculateGrandTotal()}</h5>
-//       </div>
-//     </div>
-//   );
-// }
-// function BOMView({ prod, updateFile }) {
-//   const [showFilters, setShowFilters] = useState(false);
-//   const [visibleGroups, setVisibleGroups] = useState({});
-  
-//   if (!prod.selectedStage) {
-//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
-//   }
-  
-//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
-  
-//   // Helper function to get the latest version of each file
-//   const getLatestVersionFiles = () => {
-//     return stageFiles.map(file => {
-//       if (file.revisions && file.selected_revision_obj) {
-//         return {...file, ...file.selected_revision_obj};
-//       }
-//       return file;
-//     });
-//   };
-  
-//   const latestFiles = getLatestVersionFiles();
-  
-//   // Group files by parent for DXF files
-//   const parentFileMap = {};
-//   const dxfParentFiles = [];
-//   const spreadsheetFiles = [];
-  
-//   // First, identify all DXF parent files and spreadsheets
-//   latestFiles.forEach(file => {
-//     if (file.isChildFile) return;
-    
-//     const ext = file.name.split('.').pop().toLowerCase();
-    
-//     if (ext === 'dxf') {
-//       dxfParentFiles.push(file);
-//       // Initialize child array
-//       parentFileMap[file.id] = [];
-//     } else if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
-//       spreadsheetFiles.push(file);
-//     }
-//   });
-  
-//   // Then, group child files by their parent
-//   latestFiles.forEach(file => {
-//     if (!file.isChildFile) return;
-    
-//     // Only process child files whose parent is in our parent map
-//     if (parentFileMap.hasOwnProperty(file.parentId)) {
-//       parentFileMap[file.parentId].push(file);
-//     }
-//   });
-  
-//   // Initialize visible groups if first render
-//   useEffect(() => {
-//     if (Object.keys(visibleGroups).length === 0) {
-//       const initialGroups = {};
-      
-//       // Set all DXF parent files to visible
-//       dxfParentFiles.forEach(file => {
-//         initialGroups[file.id] = true;
-//       });
-      
-//       // Set spreadsheet group to visible
-//       initialGroups['spreadsheets'] = true;
-      
-//       setVisibleGroups(initialGroups);
-//     }
-//   }, [dxfParentFiles]);
-  
-//   // Function to toggle group visibility
-//   const toggleGroupVisibility = (groupId) => {
-//     setVisibleGroups(prev => ({
-//       ...prev,
-//       [groupId]: !prev[groupId]
-//     }));
-//   };
-  
-//   // Function to toggle all groups
-//   const toggleAllGroups = (value) => {
-//     const updatedGroups = {};
-//     dxfParentFiles.forEach(file => {
-//       updatedGroups[file.id] = value;
-//     });
-//     updatedGroups['spreadsheets'] = value;
-//     setVisibleGroups(updatedGroups);
-//   };
-  
-//   // Calculate grand total across all tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-    
-//     // Add up totals from DXF parent files
-//     dxfParentFiles.forEach(file => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       total += quantity * price;
-      
-//       // Add child files if parent is in our map
-//       if (parentFileMap[file.id]) {
-//         parentFileMap[file.id].forEach(childFile => {
-//           const childQuantity = childFile.quantity || 1;
-//           const childPrice = parseFloat(childFile.price) || 0;
-//           total += childQuantity * childPrice;
-//         });
-//       }
-//     });
-    
-//     // Add spreadsheet files
-//     spreadsheetFiles.forEach(file => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       total += quantity * price;
-//     });
-    
-//     return total.toFixed(2);
-//   };
-  
-//   // Function to calculate total for a parent and its children
-//   const calculateGroupTotal = (parentFile) => {
-//     let total = 0;
-    
-//     // Add parent file
-//     const parentQuantity = parentFile.quantity || 1;
-//     const parentPrice = parseFloat(parentFile.price) || 0;
-//     total += parentQuantity * parentPrice;
-    
-//     // Add child files
-//     if (parentFileMap[parentFile.id]) {
-//       parentFileMap[parentFile.id].forEach(childFile => {
-//         const childQuantity = childFile.quantity || 1;
-//         const childPrice = parseFloat(childFile.price) || 0;
-//         total += childQuantity * childPrice;
-//       });
-//     }
-    
-//     return total.toFixed(2);
-//   };
-  
-//   // Function to calculate total for spreadsheets
-//   const calculateSpreadsheetTotal = () => {
-//     return spreadsheetFiles.reduce((sum, file) => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       return sum + (quantity * price);
-//     }, 0).toFixed(2);
-//   };
-  
-//   // Function handlers
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-  
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity) || 1;
-//     updateFile(fileId, { quantity: quantity });
-//   };
-  
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price: price });
-//   };
-  
-//   return (
-//     <div className="p-3">
-//       <div className="d-flex justify-content-between align-items-center mb-3">
-//         <h4 className="mb-0">Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
-        
-//         <div className="d-flex align-items-center">
-//           <Button 
-//             variant="outline-secondary" 
-//             size="sm" 
-//             className="me-2" 
-//             onClick={() => setShowFilters(!showFilters)}
-//           >
-//             <FaFilter className="me-1" /> Filters
-//           </Button>
-//         </div>
-//       </div>
-      
-//       {/* Filters Panel */}
-//       {showFilters && (
-//         <div className="mb-3 p-3" style={{ backgroundColor: `${styles.colors.darkAlt}44`, borderRadius: '4px' }}>
-//           <h6>Toggle Visibility:</h6>
-//           <div className="d-flex flex-wrap gap-2 mt-2">
-//             <Button 
-//               variant="outline-secondary" 
-//               size="sm"
-//               onClick={() => toggleAllGroups(true)}
-//             >
-//               Show All
-//             </Button>
-//             <Button 
-//               variant="outline-secondary" 
-//               size="sm"
-//               onClick={() => toggleAllGroups(false)}
-//             >
-//               Hide All
-//             </Button>
-            
-//             {dxfParentFiles.map(file => (
-//               <Button
-//                 key={file.id} 
-//                 variant={visibleGroups[file.id] ? "outline-success" : "outline-danger"}
-//                 size="sm"
-//                 onClick={() => toggleGroupVisibility(file.id)}
-//               >
-//                 {file.name.split('.')[0]}
-//               </Button>
-//             ))}
-            
-//             {spreadsheetFiles.length > 0 && (
-//               <Button
-//                 variant={visibleGroups['spreadsheets'] ? "outline-success" : "outline-danger"}
-//                 size="sm"
-//                 onClick={() => toggleGroupVisibility('spreadsheets')}
-//               >
-//                 Spreadsheets
-//               </Button>
-//             )}
-//           </div>
-//         </div>
-//       )}
-      
-//       {/* DXF Parent Files and their children */}
-//       {dxfParentFiles.map(parentFile => {
-//         // Skip if not visible
-//         if (!visibleGroups[parentFile.id]) return null;
-        
-//         // Get parent name without extension for the header
-//         const parentName = parentFile.name.split('.')[0];
-//         const childFiles = parentFileMap[parentFile.id] || [];
-        
-//         return (
-//           <div key={parentFile.id} className="mb-4">
-//             <h5 style={{ 
-//               backgroundColor: styles.colors.darkAlt, 
-//               padding: '10px 15px', 
-//               borderRadius: '4px 4px 0 0', 
-//               marginBottom: 0,
-//               borderBottom: `1px solid ${styles.colors.border}`
-//             }}>
-//               {parentName}
-//             </h5>
-//             <Table 
-//               striped 
-//               bordered 
-//               hover 
-//               variant="dark" 
-//               className="mb-0"
-//               style={{ 
-//                 borderCollapse: 'collapse',
-//                 borderRadius: '0 0 4px 4px',
-//                 overflow: 'hidden',
-//                 border: `1px solid ${styles.colors.border}`
-//               }}
-//             >
-//               <thead>
-//                 <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
-//                   <th style={{ width: '40%' }}>Component</th>
-//                   <th style={{ width: '25%' }}>Label</th>
-//                   <th style={{ width: '10%' }}>Qty</th>
-//                   <th style={{ width: '12%' }}>Price (₹)</th>
-//                   <th style={{ width: '13%' }}>Total (₹)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {/* Parent file row */}
-//                 <tr key={parentFile.id}>
-//                   <td style={{ 
-//                     whiteSpace: 'normal', 
-//                     wordBreak: 'break-word',
-//                     fontWeight: '500'
-//                   }}>
-//                     {parentFile.name}
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="text"
-//                       placeholder="Add label"
-//                       defaultValue={parentFile.label || ''}
-//                       onBlur={(e) => handleLabelChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`,
-//                       }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="1"
-//                       value={parentFile.quantity || 1}
-//                       onChange={(e) => handleQuantityChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`,
-//                         width: '100%'
-//                       }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="0"
-//                       step="0.01"
-//                       value={parentFile.price === '' ? '' : (parseFloat(parentFile.price) || 0)}
-//                       onChange={(e) => handlePriceChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`,
-//                         width: '100%'
-//                       }}
-//                     />
-//                   </td>
-//                   <td style={{ 
-//                     minWidth: '80px',
-//                     textAlign: 'right'
-//                   }}>
-//                     {((parentFile.quantity || 1) * (parseFloat(parentFile.price) || 0)).toFixed(2)}
-//                   </td>
-//                 </tr>
-                
-//                 {/* Child file rows */}
-//                 {childFiles.map(childFile => {
-//                   const quantity = childFile.quantity || 1;
-//                   const price = parseFloat(childFile.price) || 0;
-//                   const total = quantity * price;
-                  
-//                   return (
-//                     <tr 
-//                       key={childFile.id}
-//                       style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}
-//                     >
-//                       <td style={{ 
-//                         whiteSpace: 'normal', 
-//                         wordBreak: 'break-word',
-//                         paddingLeft: '25px'
-//                       }}>
-//                         <span style={{ opacity: 0.8 }}>↳</span> {childFile.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={childFile.label || ''}
-//                           onBlur={(e) => handleLabelChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="1"
-//                           value={quantity}
-//                           onChange={(e) => handleQuantityChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '100%'
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={childFile.price === '' ? '' : price}
-//                           onChange={(e) => handlePriceChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '100%'
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ 
-//                         minWidth: '80px',
-//                         textAlign: 'right'
-//                       }}>
-//                         {total.toFixed(2)}
-//                       </td>
-//                     </tr>
-//                   );
-//                 })}
-//               </tbody>
-//               <tfoot>
-//                 <tr style={{ backgroundColor: styles.colors.darkAlt }}>
-//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                   <td style={{ textAlign: 'right' }}>
-//                     <strong>{calculateGroupTotal(parentFile)}</strong>
-//                   </td>
-//                 </tr>
-//               </tfoot>
-//             </Table>
-//           </div>
-//         );
-//       })}
-      
-//       {/* Spreadsheet Files */}
-//       {spreadsheetFiles.length > 0 && visibleGroups['spreadsheets'] && (
-//         <div className="mb-4">
-//           <h5 style={{ 
-//             backgroundColor: styles.colors.darkAlt, 
-//             padding: '10px 15px', 
-//             borderRadius: '4px 4px 0 0', 
-//             marginBottom: 0,
-//             borderBottom: `1px solid ${styles.colors.border}`
-//           }}>
-//             Spreadsheets
-//           </h5>
-//           <Table 
-//             striped 
-//             bordered 
-//             hover 
-//             variant="dark" 
-//             className="mb-0"
-//             style={{ 
-//               borderCollapse: 'collapse',
-//               borderRadius: '0 0 4px 4px',
-//               overflow: 'hidden',
-//               border: `1px solid ${styles.colors.border}`
-//             }}
-//           >
-//             <thead>
-//               <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
-//                 <th style={{ width: '40%' }}>Component</th>
-//                 <th style={{ width: '25%' }}>Label</th>
-//                 <th style={{ width: '10%' }}>Qty</th>
-//                 <th style={{ width: '12%' }}>Price (₹)</th>
-//                 <th style={{ width: '13%' }}>Total (₹)</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {spreadsheetFiles.map(file => {
-//                 const quantity = file.quantity || 1;
-//                 const price = parseFloat(file.price) || 0;
-//                 const total = quantity * price;
-                
-//                 return (
-//                   <tr key={file.id}>
-//                     <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-//                       {file.name}
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="text"
-//                         placeholder="Add label"
-//                         defaultValue={file.label || ''}
-//                         onBlur={(e) => handleLabelChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`,
-//                         }}
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="number"
-//                         min="1"
-//                         value={quantity}
-//                         onChange={(e) => handleQuantityChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`,
-//                           width: '100%'
-//                         }}
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="number"
-//                         min="0"
-//                         step="0.01"
-//                         value={file.price === '' ? '' : price}
-//                         onChange={(e) => handlePriceChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`,
-//                           width: '100%'
-//                         }}
-//                       />
-//                     </td>
-//                     <td style={{ 
-//                       minWidth: '80px',
-//                       textAlign: 'right'
-//                     }}>
-//                       {total.toFixed(2)}
-//                     </td>
-//                   </tr>
-//                 );
-//               })}
-//             </tbody>
-//             <tfoot>
-//               <tr style={{ backgroundColor: styles.colors.darkAlt }}>
-//                 <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                 <td style={{ textAlign: 'right' }}>
-//                   <strong>{calculateSpreadsheetTotal()}</strong>
-//                 </td>
-//               </tr>
-//             </tfoot>
-//           </Table>
-//         </div>
-//       )}
-      
-//       {/* Grand Total */}
-//       <div 
-//         className="mt-4 p-3" 
-//         style={{ 
-//           backgroundColor: styles.colors.darkAlt, 
-//           borderRadius: '4px', 
-//           borderLeft: `4px solid ${styles.colors.success}`
-//         }}
-//       >
-//         <div className="d-flex justify-content-between align-items-center">
-//           <h5 className="mb-0">Grand Total</h5>
-//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-// function BOMView({ prod, updateFile }) {
-//   const [showFilters, setShowFilters] = useState(false);
-//   const [visibleGroups, setVisibleGroups] = useState({});
-
-//   // Calculate stageFiles even if prod.selectedStage is false.
-//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
-
-//   // Helper function to get the latest version of each file
-//   const getLatestVersionFiles = () => {
-//     return stageFiles.map(file => {
-//       if (file.revisions && file.selected_revision_obj) {
-//         return { ...file, ...file.selected_revision_obj };
-//       }
-//       return file;
-//     });
-//   };
-
-//   const latestFiles = getLatestVersionFiles();
-
-//   // Group files by parent for DXF files
-//   const parentFileMap = {};
-//   const dxfParentFiles = [];
-//   const spreadsheetFiles = [];
-
-//   // Identify DXF parent files and spreadsheets
-//   latestFiles.forEach(file => {
-//     if (file.isChildFile) return;
-//     const ext = file.name.split('.').pop().toLowerCase();
-
-//     if (ext === 'dxf') {
-//       dxfParentFiles.push(file);
-//       parentFileMap[file.id] = [];
-//     } else if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
-//       spreadsheetFiles.push(file);
-//     }
-//   });
-
-//   // Group child files by their parent
-//   latestFiles.forEach(file => {
-//     if (!file.isChildFile) return;
-//     if (parentFileMap.hasOwnProperty(file.parentId)) {
-//       parentFileMap[file.parentId].push(file);
-//     }
-//   });
-
-//   // Initialize visible groups if not set, called unconditionally
-//   useEffect(() => {
-//     if (Object.keys(visibleGroups).length === 0) {
-//       const initialGroups = {};
-//       // Set all DXF parent files to visible
-//       dxfParentFiles.forEach(file => {
-//         initialGroups[file.id] = true;
-//       });
-//       // Set spreadsheet group to visible
-//       initialGroups['spreadsheets'] = true;
-//       setVisibleGroups(initialGroups);
-//     }
-//   }, [dxfParentFiles, visibleGroups]);
-
-//   // Early return if no stage is selected AFTER hooks have been called
-//   if (!prod.selectedStage) {
-//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
-//   }
-
-//   // Function to toggle group visibility
-//   const toggleGroupVisibility = (groupId) => {
-//     setVisibleGroups(prev => ({
-//       ...prev,
-//       [groupId]: !prev[groupId]
-//     }));
-//   };
-
-//   // Function to toggle all groups
-//   const toggleAllGroups = (value) => {
-//     const updatedGroups = {};
-//     dxfParentFiles.forEach(file => {
-//       updatedGroups[file.id] = value;
-//     });
-//     updatedGroups['spreadsheets'] = value;
-//     setVisibleGroups(updatedGroups);
-//   };
-
-//   // Calculate grand total across all tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-//     dxfParentFiles.forEach(file => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       total += quantity * price;
-//       if (parentFileMap[file.id]) {
-//         parentFileMap[file.id].forEach(childFile => {
-//           const childQuantity = childFile.quantity || 1;
-//           const childPrice = parseFloat(childFile.price) || 0;
-//           total += childQuantity * childPrice;
-//         });
-//       }
-//     });
-//     spreadsheetFiles.forEach(file => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       total += quantity * price;
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // Function to calculate total for a parent and its children
-//   const calculateGroupTotal = (parentFile) => {
-//     let total = 0;
-//     const parentQuantity = parentFile.quantity || 1;
-//     const parentPrice = parseFloat(parentFile.price) || 0;
-//     total += parentQuantity * parentPrice;
-//     if (parentFileMap[parentFile.id]) {
-//       parentFileMap[parentFile.id].forEach(childFile => {
-//         const childQuantity = childFile.quantity || 1;
-//         const childPrice = parseFloat(childFile.price) || 0;
-//         total += childQuantity * childPrice;
-//       });
-//     }
-//     return total.toFixed(2);
-//   };
-
-//   // Function to calculate total for spreadsheets
-//   const calculateSpreadsheetTotal = () => {
-//     return spreadsheetFiles.reduce((sum, file) => {
-//       const quantity = file.quantity || 1;
-//       const price = parseFloat(file.price) || 0;
-//       return sum + (quantity * price);
-//     }, 0).toFixed(2);
-//   };
-
-//   // Function handlers
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity) || 1;
-//     updateFile(fileId, { quantity: quantity });
-//   };
-
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price: price });
-//   };
-
-//   return (
-//     <div className="p-3">
-//       <div className="d-flex justify-content-between align-items-center mb-3">
-//         <h4 className="mb-0">Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
-//         <div className="d-flex align-items-center">
-//           <Button 
-//             variant="outline-secondary" 
-//             size="sm" 
-//             className="me-2" 
-//             onClick={() => setShowFilters(!showFilters)}
-//           >
-//             <FaFilter className="me-1" /> Filters
-//           </Button>
-//         </div>
-//       </div>
-
-//       {/* Filters Panel */}
-//       {showFilters && (
-//         <div className="mb-3 p-3" style={{ backgroundColor: `${styles.colors.darkAlt}44`, borderRadius: '4px' }}>
-//           <h6>Toggle Visibility:</h6>
-//           <div className="d-flex flex-wrap gap-2 mt-2">
-//             <Button 
-//               variant="outline-secondary" 
-//               size="sm"
-//               onClick={() => toggleAllGroups(true)}
-//             >
-//               Show All
-//             </Button>
-//             <Button 
-//               variant="outline-secondary" 
-//               size="sm"
-//               onClick={() => toggleAllGroups(false)}
-//             >
-//               Hide All
-//             </Button>
-//             {dxfParentFiles.map(file => (
-//               <Button
-//                 key={file.id} 
-//                 variant={visibleGroups[file.id] ? "outline-success" : "outline-danger"}
-//                 size="sm"
-//                 onClick={() => toggleGroupVisibility(file.id)}
-//               >
-//                 {file.name.split('.')[0]}
-//               </Button>
-//             ))}
-//             {spreadsheetFiles.length > 0 && (
-//               <Button
-//                 variant={visibleGroups['spreadsheets'] ? "outline-success" : "outline-danger"}
-//                 size="sm"
-//                 onClick={() => toggleGroupVisibility('spreadsheets')}
-//               >
-//                 Spreadsheets
-//               </Button>
-//             )}
-//           </div>
-//         </div>
-//       )}
-
-//       {/* DXF Parent Files and their children */}
-//       {dxfParentFiles.map(parentFile => {
-//         if (!visibleGroups[parentFile.id]) return null;
-//         const parentName = parentFile.name.split('.')[0];
-//         const childFiles = parentFileMap[parentFile.id] || [];
-//         return (
-//           <div key={parentFile.id} className="mb-4">
-//             <h5 style={{ 
-//               backgroundColor: styles.colors.darkAlt, 
-//               padding: '10px 15px', 
-//               borderRadius: '4px 4px 0 0', 
-//               marginBottom: 0,
-//               borderBottom: `1px solid ${styles.colors.border}`
-//             }}>
-//               {parentName}
-//             </h5>
-//             <Table 
-//               striped 
-//               bordered 
-//               hover 
-//               variant="dark" 
-//               className="mb-0"
-//               style={{ 
-//                 borderCollapse: 'collapse',
-//                 borderRadius: '0 0 4px 4px',
-//                 overflow: 'hidden',
-//                 border: `1px solid ${styles.colors.border}`
-//               }}
-//             >
-//               <thead>
-//                 <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
-//                   <th style={{ width: '40%' }}>Component</th>
-//                   <th style={{ width: '25%' }}>Label</th>
-//                   <th style={{ width: '10%' }}>Qty</th>
-//                   <th style={{ width: '12%' }}>Price (₹)</th>
-//                   <th style={{ width: '13%' }}>Total (₹)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {/* Parent file row */}
-//                 <tr key={parentFile.id}>
-//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
-//                     {parentFile.name}
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="text"
-//                       placeholder="Add label"
-//                       defaultValue={parentFile.label || ''}
-//                       onBlur={(e) => handleLabelChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`
-//                       }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="1"
-//                       value={parentFile.quantity || 1}
-//                       onChange={(e) => handleQuantityChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`,
-//                         width: '100%'
-//                       }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="0"
-//                       step="0.01"
-//                       value={parentFile.price === '' ? '' : (parseFloat(parentFile.price) || 0)}
-//                       onChange={(e) => handlePriceChange(parentFile.id, e.target.value)}
-//                       style={{
-//                         backgroundColor: styles.colors.darkAlt,
-//                         color: styles.colors.text.light,
-//                         border: `1px solid ${styles.colors.border}`,
-//                         width: '100%'
-//                       }}
-//                     />
-//                   </td>
-//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                     {((parentFile.quantity || 1) * (parseFloat(parentFile.price) || 0)).toFixed(2)}
-//                   </td>
-//                 </tr>
-//                 {/* Child file rows */}
-//                 {childFiles.map(childFile => {
-//                   const quantity = childFile.quantity || 1;
-//                   const price = parseFloat(childFile.price) || 0;
-//                   const total = quantity * price;
-//                   return (
-//                     <tr 
-//                       key={childFile.id}
-//                       style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}
-//                     >
-//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: '25px' }}>
-//                         <span style={{ opacity: 0.8 }}>↳</span> {childFile.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={childFile.label || ''}
-//                           onBlur={(e) => handleLabelChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="1"
-//                           value={quantity}
-//                           onChange={(e) => handleQuantityChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '100%'
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={childFile.price === '' ? '' : price}
-//                           onChange={(e) => handlePriceChange(childFile.id, e.target.value)}
-//                           style={{
-//                             backgroundColor: styles.colors.darkAlt,
-//                             color: styles.colors.text.light,
-//                             border: `1px solid ${styles.colors.border}`,
-//                             width: '100%'
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                         {total.toFixed(2)}
-//                       </td>
-//                     </tr>
-//                   );
-//                 })}
-//               </tbody>
-//               <tfoot>
-//                 <tr style={{ backgroundColor: styles.colors.darkAlt }}>
-//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                   <td style={{ textAlign: 'right' }}>
-//                     <strong>{calculateGroupTotal(parentFile)}</strong>
-//                   </td>
-//                 </tr>
-//               </tfoot>
-//             </Table>
-//           </div>
-//         );
-//       })}
-
-//       {/* Spreadsheet Files */}
-//       {spreadsheetFiles.length > 0 && visibleGroups['spreadsheets'] && (
-//         <div className="mb-4">
-//           <h5 style={{ 
-//             backgroundColor: styles.colors.darkAlt, 
-//             padding: '10px 15px', 
-//             borderRadius: '4px 4px 0 0', 
-//             marginBottom: 0,
-//             borderBottom: `1px solid ${styles.colors.border}`
-//           }}>
-//             Spreadsheets
-//           </h5>
-//           <Table 
-//             striped 
-//             bordered 
-//             hover 
-//             variant="dark" 
-//             className="mb-0"
-//             style={{ 
-//               borderCollapse: 'collapse',
-//               borderRadius: '0 0 4px 4px',
-//               overflow: 'hidden',
-//               border: `1px solid ${styles.colors.border}`
-//             }}
-//           >
-//             <thead>
-//               <tr style={{ backgroundColor: `${styles.colors.darkAlt}88` }}>
-//                 <th style={{ width: '40%' }}>Component</th>
-//                 <th style={{ width: '25%' }}>Label</th>
-//                 <th style={{ width: '10%' }}>Qty</th>
-//                 <th style={{ width: '12%' }}>Price (₹)</th>
-//                 <th style={{ width: '13%' }}>Total (₹)</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {spreadsheetFiles.map(file => {
-//                 const quantity = file.quantity || 1;
-//                 const price = parseFloat(file.price) || 0;
-//                 const total = quantity * price;
-//                 return (
-//                   <tr key={file.id}>
-//                     <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-//                       {file.name}
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="text"
-//                         placeholder="Add label"
-//                         defaultValue={file.label || ''}
-//                         onBlur={(e) => handleLabelChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`
-//                         }}
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="number"
-//                         min="1"
-//                         value={quantity}
-//                         onChange={(e) => handleQuantityChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`,
-//                           width: '100%'
-//                         }}
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control 
-//                         size="sm" 
-//                         type="number"
-//                         min="0"
-//                         step="0.01"
-//                         value={file.price === '' ? '' : price}
-//                         onChange={(e) => handlePriceChange(file.id, e.target.value)}
-//                         style={{
-//                           backgroundColor: styles.colors.darkAlt,
-//                           color: styles.colors.text.light,
-//                           border: `1px solid ${styles.colors.border}`,
-//                           width: '100%'
-//                         }}
-//                       />
-//                     </td>
-//                     <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                       {total.toFixed(2)}
-//                     </td>
-//                   </tr>
-//                 );
-//               })}
-//             </tbody>
-//             <tfoot>
-//               <tr style={{ backgroundColor: styles.colors.darkAlt }}>
-//                 <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                 <td style={{ textAlign: 'right' }}>
-//                   <strong>{calculateSpreadsheetTotal()}</strong>
-//                 </td>
-//               </tr>
-//             </tfoot>
-//           </Table>
-//         </div>
-//       )}
-
-//       {/* Grand Total */}
-//       <div 
-//         className="mt-4 p-3" 
-//         style={{ 
-//           backgroundColor: styles.colors.darkAlt, 
-//           borderRadius: '4px', 
-//           borderLeft: `4px solid ${styles.colors.success}`
-//         }}
-//       >
-//         <div className="d-flex justify-content-between align-items-center">
-//           <h5 className="mb-0">Grand Total</h5>
-//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-// function BOMView({ prod, updateFile }) {
-//   // Early return if no stage is selected
-//   if (!prod.selectedStage) {
-//     return <p className="text-muted">Select a Stage/Iteration to view BOM.</p>;
-//   }
-
-//   // Get files for the selected stage and update to latest versions
-//   const stageFiles = prod.filesByStage[prod.selectedStage] || [];
-//   const latestFiles = stageFiles.map(file => {
-//     if (file.revisions && file.selected_revision_obj) {
-//       return { ...file, ...file.selected_revision_obj };
-//     }
-//     return file;
-//   });
-
-//   // --------------------------
-//   // DXF Files Processing
-//   // --------------------------
-//   // Filter DXF parent files (non-child files with extension 'dxf')
-//   const dxfParentFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return !file.isChildFile && ext === 'dxf';
-//   });
-
-//   // Group child files by their DXF parent's id
-//   const parentFileMap = {};
-//   dxfParentFiles.forEach(parent => {
-//     parentFileMap[parent.id] = [];
-//   });
-//   latestFiles.forEach(file => {
-//     if (!file.isChildFile) return;
-//     if (parentFileMap.hasOwnProperty(file.parentId)) {
-//       parentFileMap[file.parentId].push(file);
-//     }
-//   });
-
-//   // --------------------------
-//   // Spreadsheet Files Processing
-//   // --------------------------
-//   // Filter spreadsheet files (extensions 'xls', 'xlsx', or 'csv')
-//   const spreadsheetFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return ext === 'xls' || ext === 'xlsx' || ext === 'csv';
-//   });
-
-//   // --------------------------
-//   // Handlers for field updates
-//   // --------------------------
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity, 10) || 1;
-//     updateFile(fileId, { quantity });
-//   };
-
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price });
-//   };
-
-//   // --------------------------
-//   // Calculation functions
-//   // --------------------------
-//   // Calculate total for a DXF parent and its children
-//   const calculateGroupTotal = (parent) => {
-//     let total = 0;
-//     const parentQuantity = parent.quantity || 1;
-//     const parentPrice = parseFloat(parent.price) || 0;
-//     total += parentQuantity * parentPrice;
-//     (parentFileMap[parent.id] || []).forEach(child => {
-//       const childQuantity = child.quantity || 1;
-//       const childPrice = parseFloat(child.price) || 0;
-//       total += childQuantity * childPrice;
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // Calculate total for a single spreadsheet file
-//   const calculateSpreadsheetTotal = (file) => {
-//     const quantity = file.quantity || 1;
-//     const price = parseFloat(file.price) || 0;
-//     return (quantity * price).toFixed(2);
-//   };
-
-//   // Calculate the grand total from all DXF tables and all spreadsheet tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-//     // Sum DXF totals
-//     dxfParentFiles.forEach(parent => {
-//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
-//       let childrenTotal = 0;
-//       (parentFileMap[parent.id] || []).forEach(child => {
-//         childrenTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
-//       });
-//       total += parentTotal + childrenTotal;
-//     });
-//     // Sum spreadsheet totals
-//     spreadsheetFiles.forEach(file => {
-//       total += (file.quantity || 1) * (parseFloat(file.price) || 0);
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // --------------------------
-//   // Rendering
-//   // --------------------------
-//   return (
-//     <div className="p-3">
-//       <h4>Bill of Materials: {prod.name} - {prod.selectedStage}</h4>
-
-//       {/* DXF Files Tables */}
-//       {dxfParentFiles.map(parent => {
-//         // Parent table header shows the name without its extension
-//         const parentName = parent.name.split('.')[0];
-//         const childFiles = parentFileMap[parent.id] || [];
-//         return (
-//           <div key={parent.id} className="mb-4">
-//             <h5 style={{ backgroundColor: '#1F2937', padding: '10px 15px', borderRadius: '4px 4px 0 0', marginBottom: 0, borderBottom: '1px solid #374151' }}>
-//               {parentName}
-//             </h5>
-//             <Table striped bordered hover variant="dark" className="mb-0" style={{ borderCollapse: 'collapse', borderRadius: '0 0 4px 4px', overflow: 'hidden', border: '1px solid #374151' }}>
-//               <thead>
-//                 <tr style={{ backgroundColor: '#1F2937' }}>
-//                   <th style={{ width: '40%' }}>Component</th>
-//                   <th style={{ width: '25%' }}>Label</th>
-//                   <th style={{ width: '10%' }}>Qty</th>
-//                   <th style={{ width: '12%' }}>Price (₹)</th>
-//                   <th style={{ width: '13%' }}>Total (₹)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {/* Parent file row */}
-//                 <tr key={parent.id}>
-//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
-//                     {parent.name}
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="text"
-//                       placeholder="Add label"
-//                       defaultValue={parent.label || ''}
-//                       onBlur={(e) => handleLabelChange(parent.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="1"
-//                       value={parent.quantity || 1}
-//                       onChange={(e) => handleQuantityChange(parent.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="0"
-//                       step="0.01"
-//                       value={parent.price === '' ? '' : (parseFloat(parent.price) || 0)}
-//                       onChange={(e) => handlePriceChange(parent.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                     />
-//                   </td>
-//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                     {((parent.quantity || 1) * (parseFloat(parent.price) || 0)).toFixed(2)}
-//                   </td>
-//                 </tr>
-//                 {/* Child file rows */}
-//                 {childFiles.map(child => {
-//                   const quantity = child.quantity || 1;
-//                   const price = parseFloat(child.price) || 0;
-//                   const total = (quantity * price).toFixed(2);
-//                   return (
-//                     <tr key={child.id} style={{ backgroundColor: 'rgba(40, 45, 50, 0.8)' }}>
-//                       <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: '25px' }}>
-//                         <span style={{ opacity: 0.8 }}>↳</span> {child.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={child.label || ''}
-//                           onBlur={(e) => handleLabelChange(child.id, e.target.value)}
-//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="1"
-//                           value={quantity}
-//                           onChange={(e) => handleQuantityChange(child.id, e.target.value)}
-//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control 
-//                           size="sm" 
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={child.price === '' ? '' : price}
-//                           onChange={(e) => handlePriceChange(child.id, e.target.value)}
-//                           style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                         {total}
-//                       </td>
-//                     </tr>
-//                   );
-//                 })}
-//               </tbody>
-//               <tfoot>
-//                 <tr style={{ backgroundColor: '#1F2937' }}>
-//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                   <td style={{ textAlign: 'right' }}>
-//                     <strong>{calculateGroupTotal(parent)}</strong>
-//                   </td>
-//                 </tr>
-//               </tfoot>
-//             </Table>
-//           </div>
-//         );
-//       })}
-
-//       {/* Spreadsheets Tables: Each spreadsheet file renders its own table */}
-//       {spreadsheetFiles.map(file => {
-//         const quantity = file.quantity || 1;
-//         const price = parseFloat(file.price) || 0;
-//         const total = (quantity * price).toFixed(2);
-//         return (
-//           <div key={file.id} className="mb-4">
-//             <h5 style={{ backgroundColor: '#1F2937', padding: '10px 15px', borderRadius: '4px 4px 0 0', marginBottom: 0, borderBottom: '1px solid #374151' }}>
-//               {file.name}
-//             </h5>
-//             <Table striped bordered hover variant="dark" className="mb-0" style={{ borderCollapse: 'collapse', borderRadius: '0 0 4px 4px', overflow: 'hidden', border: '1px solid #374151' }}>
-//               <thead>
-//                 <tr style={{ backgroundColor: '#1F2937' }}>
-//                   <th style={{ width: '40%' }}>Component</th>
-//                   <th style={{ width: '25%' }}>Label</th>
-//                   <th style={{ width: '10%' }}>Qty</th>
-//                   <th style={{ width: '12%' }}>Price (₹)</th>
-//                   <th style={{ width: '13%' }}>Total (₹)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 <tr key={file.id}>
-//                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontWeight: '500' }}>
-//                     {file.name}
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="text"
-//                       placeholder="Add label"
-//                       defaultValue={file.label || ''}
-//                       onBlur={(e) => handleLabelChange(file.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151' }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="1"
-//                       value={file.quantity || 1}
-//                       onChange={(e) => handleQuantityChange(file.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                     />
-//                   </td>
-//                   <td>
-//                     <Form.Control 
-//                       size="sm" 
-//                       type="number"
-//                       min="0"
-//                       step="0.01"
-//                       value={file.price === '' ? '' : (parseFloat(file.price) || 0)}
-//                       onChange={(e) => handlePriceChange(file.id, e.target.value)}
-//                       style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid #374151', width: '100%' }}
-//                     />
-//                   </td>
-//                   <td style={{ minWidth: '80px', textAlign: 'right' }}>
-//                     {total}
-//                   </td>
-//                 </tr>
-//               </tbody>
-//               <tfoot>
-//                 <tr style={{ backgroundColor: '#1F2937' }}>
-//                   <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                   <td style={{ textAlign: 'right' }}>
-//                     <strong>{total}</strong>
-//                   </td>
-//                 </tr>
-//               </tfoot>
-//             </Table>
-//           </div>
-//         );
-//       })}
-
-//       {/* Grand Total */}
-//       <div className="mt-4 p-3" style={{ backgroundColor: '#1F2937', borderRadius: '4px', borderLeft: '4px solid #059669' }}>
-//         <div className="d-flex justify-content-between align-items-center">
-//           <h5 className="mb-0">Grand Total</h5>
-//           <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-//CHECKPOINT
-// function BOMView({ prod, updateFile }) {
-//   // Retrieve files for the selected stage; if no stage is selected, stageFiles will be an empty array
-//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
-//   // Update each file to its latest version if available
-//   const latestFiles = stageFiles.map(file => {
-//     if (file.revisions && file.selected_revision_obj) {
-//       return { ...file, ...file.selected_revision_obj };
-//     }
-//     return file;
-//   });
-
-//   // --------------------------
-//   // DXF Files Processing
-//   // --------------------------
-//   // Filter for DXF parent files (non-child files with extension "dxf")
-//   const dxfParentFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return !file.isChildFile && ext === "dxf";
-//   });
-//   // Group child files by their DXF parent's id
-//   const parentFileMap = {};
-//   dxfParentFiles.forEach(parent => {
-//     parentFileMap[parent.id] = [];
-//   });
-//   latestFiles.forEach(file => {
-//     if (file.isChildFile && parentFileMap.hasOwnProperty(file.parentId)) {
-//       parentFileMap[file.parentId].push(file);
-//     }
-//   });
-
-//   // --------------------------
-//   // Spreadsheet Files Processing
-//   // --------------------------
-//   // Filter for spreadsheet files (extensions "xls", "xlsx", or "csv")
-//   const spreadsheetFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return ext === "xls" || ext === "xlsx" || ext === "csv";
-//   });
-
-//   // --------------------------
-//   // Field Update Handlers
-//   // --------------------------
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity, 10) || 1;
-//     updateFile(fileId, { quantity });
-//   };
-
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price });
-//   };
-
-//   // --------------------------
-//   // Calculation Functions
-//   // --------------------------
-//   // Calculate total for a DXF parent and its children
-//   const calculateGroupTotal = (parent) => {
-//     let total = 0;
-//     const parentQty = parent.quantity || 1;
-//     const parentPrice = parseFloat(parent.price) || 0;
-//     total += parentQty * parentPrice;
-//     (parentFileMap[parent.id] || []).forEach(child => {
-//       const childQty = child.quantity || 1;
-//       const childPrice = parseFloat(child.price) || 0;
-//       total += childQty * childPrice;
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // Calculate total for a single spreadsheet file
-//   const calculateSpreadsheetTotal = (file) => {
-//     const qty = file.quantity || 1;
-//     const price = parseFloat(file.price) || 0;
-//     return (qty * price).toFixed(2);
-//   };
-
-//   // Calculate the grand total across all DXF tables and spreadsheet tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-//     dxfParentFiles.forEach(parent => {
-//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
-//       let childTotal = 0;
-//       (parentFileMap[parent.id] || []).forEach(child => {
-//         childTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
-//       });
-//       total += parentTotal + childTotal;
-//     });
-//     spreadsheetFiles.forEach(file => {
-//       total += (file.quantity || 1) * (parseFloat(file.price) || 0);
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // --------------------------
-//   // Rendering
-//   // --------------------------
-//   return (
-//     <div className="p-3">
-//       <h4>
-//         Bill of Materials: {prod.name} - {prod.selectedStage || "No Stage Selected"}
-//       </h4>
-//       {/* If no stage is selected, show a message but still render BOM view structure */}
-//       {!prod.selectedStage ? (
-//         <p className="text-muted">Select a Stage/Iteration to view BOM.</p>
-//       ) : (
-//         <>
-//           {/* DXF Files: Render each DXF parent and its children as a table */}
-//           {dxfParentFiles.map(parent => {
-//             const headerName = parent.name.split('.')[0]; // Remove extension for header
-//             const children = parentFileMap[parent.id] || [];
-//             return (
-//               <div key={parent.id} className="mb-4">
-//                 <h5
-//                   style={{
-//                     backgroundColor: "#1F2937",
-//                     padding: "10px 15px",
-//                     borderRadius: "4px 4px 0 0",
-//                     marginBottom: 0,
-//                     borderBottom: "1px solid #374151"
-//                   }}
-//                 >
-//                   {headerName}
-//                 </h5>
-//                 <Table
-//                   striped
-//                   bordered
-//                   hover
-//                   variant="dark"
-//                   className="mb-0"
-//                   style={{
-//                     borderCollapse: "collapse",
-//                     borderRadius: "0 0 4px 4px",
-//                     overflow: "hidden",
-//                     border: "1px solid #374151"
-//                   }}
-//                 >
-//                   <thead>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <th style={{ width: "40%" }}>Component</th>
-//                       <th style={{ width: "25%" }}>Label</th>
-//                       <th style={{ width: "10%" }}>Qty</th>
-//                       <th style={{ width: "12%" }}>Price (₹)</th>
-//                       <th style={{ width: "13%" }}>Total (₹)</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {/* Parent file row */}
-//                     <tr key={parent.id}>
-//                       <td
-//                         style={{
-//                           whiteSpace: "normal",
-//                           wordBreak: "break-word",
-//                           fontWeight: "500"
-//                         }}
-//                       >
-//                         {parent.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={parent.label || ""}
-//                           onBlur={(e) =>
-//                             handleLabelChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="1"
-//                           value={parent.quantity || 1}
-//                           onChange={(e) =>
-//                             handleQuantityChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={
-//                             parent.price === ""
-//                               ? ""
-//                               : (parseFloat(parent.price) || 0)
-//                           }
-//                           onChange={(e) =>
-//                             handlePriceChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                         {((parent.quantity || 1) *
-//                           (parseFloat(parent.price) || 0)).toFixed(2)}
-//                       </td>
-//                     </tr>
-//                     {/* Render child files */}
-//                     {children.map(child => {
-//                       const qty = child.quantity || 1;
-//                       const price = parseFloat(child.price) || 0;
-//                       const total = (qty * price).toFixed(2);
-//                       return (
-//                         <tr
-//                           key={child.id}
-//                           style={{ backgroundColor: "rgba(40,45,50,0.8)" }}
-//                         >
-//                           <td
-//                             style={{
-//                               whiteSpace: "normal",
-//                               wordBreak: "break-word",
-//                               paddingLeft: "25px"
-//                             }}
-//                           >
-//                             <span style={{ opacity: 0.8 }}>↳</span> {child.name}
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="text"
-//                               placeholder="Add label"
-//                               defaultValue={child.label || ""}
-//                               onBlur={(e) =>
-//                                 handleLabelChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="1"
-//                               value={qty}
-//                               onChange={(e) =>
-//                                 handleQuantityChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="0"
-//                               step="0.01"
-//                               value={
-//                                 child.price === "" ? "" : price
-//                               }
-//                               onChange={(e) =>
-//                                 handlePriceChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                             {total}
-//                           </td>
-//                         </tr>
-//                       );
-//                     })}
-//                   </tbody>
-//                   <tfoot>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <td colSpan="4" className="text-end">
-//                         <strong>Total</strong>
-//                       </td>
-//                       <td style={{ textAlign: "right" }}>
-//                         <strong>{calculateGroupTotal(parent)}</strong>
-//                       </td>
-//                     </tr>
-//                   </tfoot>
-//                 </Table>
-//               </div>
-//             );
-//           })}
-
-//           {/* Render each spreadsheet file as its own table */}
-//           {spreadsheetFiles.map(file => {
-//             const qty = file.quantity || 1;
-//             const price = parseFloat(file.price) || 0;
-//             const total = (qty * price).toFixed(2);
-//             return (
-//               <div key={file.id} className="mb-4">
-//                 <h5
-//                   style={{
-//                     backgroundColor: "#1F2937",
-//                     padding: "10px 15px",
-//                     borderRadius: "4px 4px 0 0",
-//                     marginBottom: 0,
-//                     borderBottom: "1px solid #374151"
-//                   }}
-//                 >
-//                   {file.name}
-//                 </h5>
-//                 <Table
-//                   striped
-//                   bordered
-//                   hover
-//                   variant="dark"
-//                   className="mb-0"
-//                   style={{
-//                     borderCollapse: "collapse",
-//                     borderRadius: "0 0 4px 4px",
-//                     overflow: "hidden",
-//                     border: "1px solid #374151"
-//                   }}
-//                 >
-//                   <thead>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <th style={{ width: "40%" }}>Component</th>
-//                       <th style={{ width: "25%" }}>Label</th>
-//                       <th style={{ width: "10%" }}>Qty</th>
-//                       <th style={{ width: "12%" }}>Price (₹)</th>
-//                       <th style={{ width: "13%" }}>Total (₹)</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     <tr key={file.id}>
-//                       <td
-//                         style={{
-//                           whiteSpace: "normal",
-//                           wordBreak: "break-word",
-//                           fontWeight: "500"
-//                         }}
-//                       >
-//                         {file.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={file.label || ""}
-//                           onBlur={(e) =>
-//                             handleLabelChange(file.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="1"
-//                           value={file.quantity || 1}
-//                           onChange={(e) =>
-//                             handleQuantityChange(file.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={
-//                             file.price === ""
-//                               ? ""
-//                               : (parseFloat(file.price) || 0)
-//                           }
-//                           onChange={(e) =>
-//                             handlePriceChange(file.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                         {total}
-//                       </td>
-//                     </tr>
-//                   </tbody>
-//                   <tfoot>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <td colSpan="4" className="text-end">
-//                         <strong>Total</strong>
-//                       </td>
-//                       <td style={{ textAlign: "right" }}>
-//                         <strong>{total}</strong>
-//                       </td>
-//                     </tr>
-//                   </tfoot>
-//                 </Table>
-//               </div>
-//             );
-//           })}
-
-//           {/* Grand Total */}
-//           <div
-//             className="mt-4 p-3"
-//             style={{
-//               backgroundColor: "#1F2937",
-//               borderRadius: "4px",
-//               borderLeft: "4px solid #059669"
-//             }}
-//           >
-//             <div className="d-flex justify-content-between align-items-center">
-//               <h5 className="mb-0">Grand Total</h5>
-//               <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
-//             </div>
-//           </div>
-//         </>
-//       )}
-//     </div>
-//   );
-// }
-// function BOMView({ prod, updateFile }) {
-//   // Retrieve files for the selected stage; if no stage is selected, stageFiles will be an empty array
-//   const stageFiles = prod.selectedStage ? (prod.filesByStage[prod.selectedStage] || []) : [];
-//   // Update each file to its latest version if available
-//   const latestFiles = stageFiles.map(file => {
-//     if (file.revisions && file.selected_revision_obj) {
-//       return { ...file, ...file.selected_revision_obj };
-//     }
-//     return file;
-//   });
-
-//   // --------------------------
-//   // DXF Files Processing
-//   // --------------------------
-//   // Filter for DXF parent files (non-child files with extension "dxf")
-//   const dxfParentFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return !file.isChildFile && ext === "dxf";
-//   });
-//   // Group child files by their DXF parent's id
-//   const parentFileMap = {};
-//   dxfParentFiles.forEach(parent => {
-//     parentFileMap[parent.id] = [];
-//   });
-//   latestFiles.forEach(file => {
-//     if (file.isChildFile && parentFileMap.hasOwnProperty(file.parentId)) {
-//       parentFileMap[file.parentId].push(file);
-//     }
-//   });
-
-//   // --------------------------
-//   // Spreadsheet Files Processing
-//   // --------------------------
-//   // Filter for spreadsheet files (extensions "xls", "xlsx", or "csv")
-//   const spreadsheetFiles = latestFiles.filter(file => {
-//     const ext = file.name.split('.').pop().toLowerCase();
-//     return ext === "xls" || ext === "xlsx" || ext === "csv";
-//   });
-
-//   // --------------------------
-//   // Field Update Handlers for DXF rows
-//   // --------------------------
-//   const handleLabelChange = (fileId, newLabel) => {
-//     updateFile(fileId, { label: newLabel });
-//   };
-
-//   const handleQuantityChange = (fileId, newQuantity) => {
-//     const quantity = parseInt(newQuantity, 10) || 1;
-//     updateFile(fileId, { quantity });
-//   };
-
-//   const handlePriceChange = (fileId, newPrice) => {
-//     const price = newPrice === '' ? '' : (parseFloat(newPrice) || 0);
-//     updateFile(fileId, { price });
-//   };
-
-//   // --------------------------
-//   // Field Update Handler for Spreadsheet Rows
-//   // --------------------------
-//   // This handler expects updateFile to update a spreadsheet file’s row,
-//   // passing the file id, the row id, and the field change.
-//   const handleSpreadsheetRowChange = (fileId, rowId, field, value) => {
-//     updateFile(fileId, { rowId, [field]: value });
-//   };
-
-//   // --------------------------
-//   // Calculation Functions
-//   // --------------------------
-//   // Calculate total for a DXF parent and its children
-//   const calculateGroupTotal = (parent) => {
-//     let total = 0;
-//     const parentQty = parent.quantity || 1;
-//     const parentPrice = parseFloat(parent.price) || 0;
-//     total += parentQty * parentPrice;
-//     (parentFileMap[parent.id] || []).forEach(child => {
-//       const childQty = child.quantity || 1;
-//       const childPrice = parseFloat(child.price) || 0;
-//       total += childQty * childPrice;
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // Calculate total for a single spreadsheet file based on its contents
-//   const calculateSpreadsheetTotal = (file) => {
-//     if (Array.isArray(file.contents)) {
-//       const total = file.contents.reduce((sum, row) => {
-//         const qty = row.quantity || 1;
-//         const price = parseFloat(row.price) || 0;
-//         return sum + qty * price;
-//       }, 0);
-//       return total.toFixed(2);
-//     }
-//     return "0.00";
-//   };
-
-//   // Calculate the grand total across all DXF tables and spreadsheet tables
-//   const calculateGrandTotal = () => {
-//     let total = 0;
-//     dxfParentFiles.forEach(parent => {
-//       const parentTotal = (parent.quantity || 1) * (parseFloat(parent.price) || 0);
-//       let childTotal = 0;
-//       (parentFileMap[parent.id] || []).forEach(child => {
-//         childTotal += (child.quantity || 1) * (parseFloat(child.price) || 0);
-//       });
-//       total += parentTotal + childTotal;
-//     });
-//     spreadsheetFiles.forEach(file => {
-//       total += Array.isArray(file.contents)
-//         ? file.contents.reduce((sum, row) => {
-//             const qty = row.quantity || 1;
-//             const price = parseFloat(row.price) || 0;
-//             return sum + qty * price;
-//           }, 0)
-//         : 0;
-//     });
-//     return total.toFixed(2);
-//   };
-
-//   // --------------------------
-//   // Rendering
-//   // --------------------------
-//   return (
-//     <div className="p-3">
-//       <h4>
-//         Bill of Materials: {prod.name} - {prod.selectedStage || "No Stage Selected"}
-//       </h4>
-//       {/* If no stage is selected, show a message but still render BOM view structure */}
-//       {!prod.selectedStage ? (
-//         <p className="text-muted">Select a Stage/Iteration to view BOM.</p>
-//       ) : (
-//         <>
-//           {/* DXF Files: Render each DXF parent and its children as a table */}
-//           {dxfParentFiles.map(parent => {
-//             const headerName = parent.name.split('.')[0]; // Remove extension for header
-//             const children = parentFileMap[parent.id] || [];
-//             return (
-//               <div key={parent.id} className="mb-4">
-//                 <h5
-//                   style={{
-//                     backgroundColor: "#1F2937",
-//                     padding: "10px 15px",
-//                     borderRadius: "4px 4px 0 0",
-//                     marginBottom: 0,
-//                     borderBottom: "1px solid #374151"
-//                   }}
-//                 >
-//                   {headerName}
-//                 </h5>
-//                 <Table
-//                   striped
-//                   bordered
-//                   hover
-//                   variant="dark"
-//                   className="mb-0"
-//                   style={{
-//                     borderCollapse: "collapse",
-//                     borderRadius: "0 0 4px 4px",
-//                     overflow: "hidden",
-//                     border: "1px solid #374151"
-//                   }}
-//                 >
-//                   <thead>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <th style={{ width: "40%" }}>Component</th>
-//                       <th style={{ width: "25%" }}>Label</th>
-//                       <th style={{ width: "10%" }}>Qty</th>
-//                       <th style={{ width: "12%" }}>Price (₹)</th>
-//                       <th style={{ width: "13%" }}>Total (₹)</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {/* Parent file row */}
-//                     <tr key={parent.id}>
-//                       <td
-//                         style={{
-//                           whiteSpace: "normal",
-//                           wordBreak: "break-word",
-//                           fontWeight: "500"
-//                         }}
-//                       >
-//                         {parent.name}
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="text"
-//                           placeholder="Add label"
-//                           defaultValue={parent.label || ""}
-//                           onBlur={(e) =>
-//                             handleLabelChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="1"
-//                           value={parent.quantity || 1}
-//                           onChange={(e) =>
-//                             handleQuantityChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td>
-//                         <Form.Control
-//                           size="sm"
-//                           type="number"
-//                           min="0"
-//                           step="0.01"
-//                           value={parent.price === "" ? "" : (parseFloat(parent.price) || 0)}
-//                           onChange={(e) =>
-//                             handlePriceChange(parent.id, e.target.value)
-//                           }
-//                           style={{
-//                             backgroundColor: "#1F2937",
-//                             color: "#F3F4F6",
-//                             border: "1px solid #374151",
-//                             width: "100%"
-//                           }}
-//                         />
-//                       </td>
-//                       <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                         {((parent.quantity || 1) * (parseFloat(parent.price) || 0)).toFixed(2)}
-//                       </td>
-//                     </tr>
-//                     {/* Render child rows */}
-//                     {children.map(child => {
-//                       const qty = child.quantity || 1;
-//                       const price = parseFloat(child.price) || 0;
-//                       const total = (qty * price).toFixed(2);
-//                       return (
-//                         <tr key={child.id} style={{ backgroundColor: "rgba(40,45,50,0.8)" }}>
-//                           <td style={{ whiteSpace: "normal", wordBreak: "break-word", paddingLeft: "25px" }}>
-//                             <span style={{ opacity: 0.8 }}>↳</span> {child.name}
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="text"
-//                               placeholder="Add label"
-//                               defaultValue={child.label || ""}
-//                               onBlur={(e) =>
-//                                 handleLabelChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="1"
-//                               value={qty}
-//                               onChange={(e) =>
-//                                 handleQuantityChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="0"
-//                               step="0.01"
-//                               value={child.price === "" ? "" : price}
-//                               onChange={(e) =>
-//                                 handlePriceChange(child.id, e.target.value)
-//                               }
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                             {total}
-//                           </td>
-//                         </tr>
-//                       );
-//                     })}
-//                   </tbody>
-//                   <tfoot>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <td colSpan="4" className="text-end"><strong>Total</strong></td>
-//                       <td style={{ textAlign: "right" }}>
-//                         <strong>{calculateGroupTotal(parent)}</strong>
-//                       </td>
-//                     </tr>
-//                   </tfoot>
-//                 </Table>
-//               </div>
-//             );
-//           })}
-
-//           {/* Render each spreadsheet file as its own table with spreadsheet contents */}
-//           {spreadsheetFiles.map(file => {
-//             // Assume each spreadsheet file object contains a property "contents" which is an array of rows.
-//             // Each row should have: id, name, label, quantity, price.
-//             const tableTotal = calculateSpreadsheetTotal(file);
-//             return (
-//               <div key={file.id} className="mb-4">
-//                 <h5
-//                   style={{
-//                     backgroundColor: "#1F2937",
-//                     padding: "10px 15px",
-//                     borderRadius: "4px 4px 0 0",
-//                     marginBottom: 0,
-//                     borderBottom: "1px solid #374151"
-//                   }}
-//                 >
-//                   {file.name}
-//                 </h5>
-//                 <Table
-//                   striped
-//                   bordered
-//                   hover
-//                   variant="dark"
-//                   className="mb-0"
-//                   style={{
-//                     borderCollapse: "collapse",
-//                     borderRadius: "0 0 4px 4px",
-//                     overflow: "hidden",
-//                     border: "1px solid #374151"
-//                   }}
-//                 >
-//                   <thead>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <th style={{ width: "40%" }}>Component</th>
-//                       <th style={{ width: "25%" }}>Label</th>
-//                       <th style={{ width: "10%" }}>Qty</th>
-//                       <th style={{ width: "12%" }}>Price (₹)</th>
-//                       <th style={{ width: "13%" }}>Total (₹)</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {Array.isArray(file.contents) && file.contents.map(row => {
-//                       const qty = row.quantity || 1;
-//                       const price = parseFloat(row.price) || 0;
-//                       const total = (qty * price).toFixed(2);
-//                       return (
-//                         <tr key={row.id}>
-//                           <td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-//                             <Form.Control
-//                               size="sm"
-//                               type="text"
-//                               value={row.name}
-//                               onBlur={(e) => handleSpreadsheetRowChange(file.id, row.id, "name", e.target.value)}
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="text"
-//                               value={row.label || ""}
-//                               onBlur={(e) => handleSpreadsheetRowChange(file.id, row.id, "label", e.target.value)}
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="1"
-//                               value={row.quantity || 1}
-//                               onChange={(e) => handleSpreadsheetRowChange(file.id, row.id, "quantity", e.target.value)}
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td>
-//                             <Form.Control
-//                               size="sm"
-//                               type="number"
-//                               min="0"
-//                               step="0.01"
-//                               value={row.price === "" ? "" : (parseFloat(row.price) || 0)}
-//                               onChange={(e) => handleSpreadsheetRowChange(file.id, row.id, "price", e.target.value)}
-//                               style={{
-//                                 backgroundColor: "#1F2937",
-//                                 color: "#F3F4F6",
-//                                 border: "1px solid #374151",
-//                                 width: "100%"
-//                               }}
-//                             />
-//                           </td>
-//                           <td style={{ minWidth: "80px", textAlign: "right" }}>
-//                             {total}
-//                           </td>
-//                         </tr>
-//                       );
-//                     })}
-//                   </tbody>
-//                   <tfoot>
-//                     <tr style={{ backgroundColor: "#1F2937" }}>
-//                       <td colSpan="4" className="text-end">
-//                         <strong>Total</strong>
-//                       </td>
-//                       <td style={{ textAlign: "right" }}>
-//                         <strong>{tableTotal}</strong>
-//                       </td>
-//                     </tr>
-//                   </tfoot>
-//                 </Table>
-//               </div>
-//             );
-//           })}
-
-//           {/* Grand Total */}
-//           <div
-//             className="mt-4 p-3"
-//             style={{
-//               backgroundColor: "#1F2937",
-//               borderRadius: "4px",
-//               borderLeft: "4px solid #059669"
-//             }}
-//           >
-//             <div className="d-flex justify-content-between align-items-center">
-//               <h5 className="mb-0">Grand Total</h5>
-//               <h5 className="mb-0">₹ {calculateGrandTotal()}</h5>
-//             </div>
-//           </div>
-//         </>
-//       )}
-//     </div>
-//   );
-// }
-
-// const renderFileBrowser = () => {
-//   // ADD THE MISSING PROD DEFINITION!
-//   const prod = products[selectedProductIndex] || {};
-  
-//   // DEBUG CHECKS:
-//   if (!prod.id) {
-//     return (
-//       <div style={{ color: 'red', padding: '20px' }}>
-//         <strong>DEBUG: Product not loaded yet...</strong>
-//         <br />selectedProductIndex: {selectedProductIndex}
-//         <br />products.length: {products.length}
-//         <br />Available products: {products.map(p => p.name).join(', ')}
-//       </div>
-//     );
-//   }
-  
-//   if (!prod.filesByContainer) {
-//     return (
-//       <div style={{ color: 'orange', padding: '20px' }}>
-//         <strong>DEBUG: Product exists but missing filesByContainer</strong>
-//         <br />Product keys: {Object.keys(prod).join(', ')}
-//         <br />Product: <pre>{JSON.stringify(prod, null, 2)}</pre>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <>
-//       {/* Top Row: Product dropdown, add product, and header icons */}
-//       <div className="d-flex justify-content-between align-items-center mb-2">
-  
-//         {/* Left Side: Product Dropdown + Add Product */}
-//         <div className="d-flex align-items-center gap-2">
-//           <Form.Select
-//             size="sm"
-//             value={selectedProductIndex}
-//             onChange={handleSelectProduct}
-//             style={{
-//               width: 'fit-content',
-//               backgroundColor: styles.colors.dark,
-//               color: styles.colors.text.light,
-//               border: `1px solid ${styles.colors.border}`,
-//               fontSize: '0.85rem',
-//               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
-//             }}
-//             className="shadow-none"
-//           >
-//             {products.map((p, idx) => (
-//               <option key={idx} value={idx}>
-//                 {p.name.toUpperCase()}
-//               </option>
-//             ))}
-//           </Form.Select>
-
-             
-
-
-//           <div
-//             style={{
-//               cursor: 'pointer',
-//               color: styles.colors.text.light,
-//               display: 'flex',
-//               alignItems: 'center',
-//               justifyContent: 'center',
-//               width: '24px',
-//               height: '24px'
-//             }}
-//             //onClick={() => console.log('🔥 PLUS BUTTON CLICKED!')}
-//             onClick={handleCreateProduct}
-//           >
-//             <FaPlus size={20} style={{ transform: 'scale(0.9)', pointerEvents: 'none' }} />
-//           </div>
-//         </div>
-
-//         {/* Right Side: Icons */}
-//         <div className="d-flex align-items-center gap-2">
-          
-//           <div style={{ cursor: 'pointer' }}
-//           //onClick={() => console.log('🔥 ITERATION BUTTON CLICKED!')}
-//           //onMouseDown={() => console.log('🔥 MOUSE DOWN!')}
-//           onClick={handleAddIteration}
-//           >
-//             <FaDrumSteelpan size={20} color={styles.colors.iteration} style={{pointerEvents: 'none'}} />
-//           </div>
-//           <div style={{ cursor: 'pointer' }} onClick={handleAddStage}>
-//             <FaToriiGate size={20} color={styles.colors.stage} style={{pointerEvents: 'none'}} />
-//           </div>
-//           <div
-//             style={{
-//               width: '24px',
-//               height: '24px',
-//               display: 'flex',
-//               alignItems: 'center',
-//               justifyContent: 'center',
-//               background: 'transparent',
-//               color: '#ffffff',
-//               cursor: 'pointer',
-//               borderRadius: '4px'
-//             }}
-//             onClick={handlePlusClick}
-//           >
-//             <FaUpload size={20} style={{pointerEvents: 'none'}} />
-//           </div>
-//           <div
-//             style={{
-//               width: '24px',
-//               height: '24px',
-//               display: 'flex',
-//               alignItems: 'center',
-//               justifyContent: 'center',
-//               background: 'transparent',
-//               color: '#ffffff',
-//               cursor: 'pointer',
-//               borderRadius: '4px'
-//             }}
-//             onClick={handleViewChange}
-//           >
-//             <FaEye size={20} />
-//           </div>
-//           <div
-//             style={{
-//               width: '24px',
-//               height: '24px',
-//               display: 'flex',
-//               alignItems: 'center',
-//               justifyContent: 'center',
-//               background: 'transparent',
-//               color: '#ffffff',
-//               cursor: 'pointer',
-//               borderRadius: '4px'
-//             }}
-//             onClick={handleShowBOM}
-//           >
-//             <FaTable size={20} />
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Render content based on viewMode */}
-//       {viewMode === 'normal' ? (
-//         renderFileList(prod)
-//       ) : (
-//         <BOMView prod={prod} updateFile={updateFile} />
-//       )}
-
-//       {/* Hidden file input for uploads */}
-//       <input
-//         type="file"
-//         ref={hiddenFileInput}
-//         onChange={handleFileChange}
-//         style={{ display: 'none' }}
-//       />
-//     </>
-//   );
-// };
-
+ 
 const renderFileBrowser = () => {
   // Get the base product and ensure it has required local properties
   const baseProduct = products[selectedProductIndex] || {};
@@ -7973,7 +7948,7 @@ return (
             }}
             onClick={() => console.log('pH logo clicked')}
           >
-            pH
+            mP
           </div>
 
 {/* Stage/iteration icons with icon+badge (using FaSpinner for I and FaToriiGate for S) */}
@@ -7985,97 +7960,108 @@ return (
                 width: '100%'
               }}
             >
-              {/* Render Stages */}
-              {prod.stages &&
-                prod.stages.map((stage, idx) => {
-                  const isSelected = prod.selectedContainer?.id === stage.id && prod.containerType === 'stage';
-                  const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
+              {/* Render Stages and Iterations in creation order */}
+              {(() => {
+                // Combine stages and iterations with type markers
+                const allContainers = [
+                  ...(prod.stages || []).map(stage => ({ ...stage, containerType: 'stage' })),
+                  ...(prod.iterations || []).map(iteration => ({ ...iteration, containerType: 'iteration' }))
+                ];
 
-                  return (
-                    <div
-                      key={`stage-${stage.id}`}
-                      onClick={() => handleContainerClick(stage, 'stage')}
-                      onContextMenu={(e) => handleContainerRightClick(e, stage, 'stage')}
-                      style={{
-                        cursor: 'pointer',
-                        width: '32px',
-                        height: '32px',
-                        position: 'relative',
-                        borderRadius: '4px',
-                        marginBottom: '8px',
-                        fontSize: '0.85rem',
-                        background: bgColor,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <FaToriiGate size={20} color={styles.colors.stage} />
-                      <span
+                // Sort by creation timestamp (adjust field name if needed)
+                allContainers.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                // Render each container in creation order
+                return allContainers.map((container) => {
+                  if (container.containerType === 'stage') {
+                    // Stage rendering (your existing stage code)
+                    const isSelected = prod.selectedContainer?.id === container.id && prod.containerType === 'stage';
+                    const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
+
+                    return (
+                      <div
+                        key={`stage-${container.id}`}
+                        onClick={() => handleContainerClick(container, 'stage')}
+                        onContextMenu={(e) => handleContainerRightClick(e, container, 'stage')}
                         style={{
-                          position: 'absolute',
-                          top: '-4px',
-                          right: '-4px',
-                          background: styles.colors.dark,
-                          color: '#fff',
-                          borderRadius: '50%',
-                          padding: '0 4px',
-                          fontSize: '10px',
-                          minWidth: '16px',
-                          textAlign: 'center'
+                          cursor: 'pointer',
+                          width: '32px',
+                          height: '32px',
+                          position: 'relative',
+                          borderRadius: '4px',
+                          marginBottom: '8px',
+                          fontSize: '0.85rem',
+                          background: bgColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
                         }}
                       >
-                        {stage.stage_number}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <FaToriiGate size={20} color={styles.colors.stage} />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '-4px',
+                            right: '-4px',
+                            background: styles.colors.dark,
+                            color: '#fff',
+                            borderRadius: '50%',
+                            padding: '0 4px',
+                            fontSize: '10px',
+                            minWidth: '16px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {container.stage_number}
+                        </span>
+                      </div>
+                    );
+                  } else {
+                    // Iteration rendering (your existing iteration code)
+                    const isSelected = prod.selectedContainer?.id === container.id && prod.containerType === 'iteration';
+                    const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
 
-              {/* Render Iterations */}
-              {prod.iterations &&
-                prod.iterations.map((iteration, idx) => {
-                  const isSelected = prod.selectedContainer?.id === iteration.id && prod.containerType === 'iteration';
-                  const bgColor = isSelected ? `${styles.colors.primary}64` : 'transparent';
-
-                  return (
-                    <div
-                      key={`iteration-${iteration.id}`}
-                      onClick={() => handleContainerClick(iteration, 'iteration')}
-                      onContextMenu={(e) => handleContainerRightClick(e, iteration, 'iteration')}
-                      style={{
-                        cursor: 'pointer',
-                        width: '32px',
-                        height: '32px',
-                        position: 'relative',
-                        borderRadius: '4px',
-                        marginBottom: '8px',
-                        fontSize: '0.85rem',
-                        background: bgColor,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <FaDrumSteelpan size={20} color={styles.colors.iteration} />
-                      <span
+                    return (
+                      <div
+                        key={`iteration-${container.id}`}
+                        onClick={() => handleContainerClick(container, 'iteration')}
+                        onContextMenu={(e) => handleContainerRightClick(e, container, 'iteration')}
                         style={{
-                          position: 'absolute',
-                          top: '-4px',
-                          right: '-4px',
-                          background: styles.colors.dark,
-                          color: '#fff',
-                          borderRadius: '50%',
-                          padding: '0 4px',
-                          fontSize: '10px',
-                          minWidth: '16px',
-                          textAlign: 'center'
+                          cursor: 'pointer',
+                          width: '32px',
+                          height: '32px',
+                          position: 'relative',
+                          borderRadius: '4px',
+                          marginBottom: '8px',
+                          fontSize: '0.85rem',
+                          background: bgColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
                         }}
                       >
-                        {iteration.iteration_number}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <FaDrumSteelpan size={20} color={styles.colors.iteration} />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '-4px',
+                            right: '-4px',
+                            background: styles.colors.dark,
+                            color: '#fff',
+                            borderRadius: '50%',
+                            padding: '0 4px',
+                            fontSize: '10px',
+                            minWidth: '16px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {container.iteration_number}
+                        </span>
+                      </div>
+                    );
+                  }
+                });
+              })()}
             </div>
         </div>
       </Col>
@@ -8111,10 +8097,7 @@ return (
     />
   </Container>
 );
-// Add these functions to your component
-// function handleViewChange() {
-//   setViewMode(viewMode === 'normal' ? 'bom' : 'normal');
-// }
+
 
 function handleShowBOM() {
   setViewMode('bom');

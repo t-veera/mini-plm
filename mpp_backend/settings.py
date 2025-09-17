@@ -105,6 +105,25 @@ CORS_ALLOWED_HEADERS = [
     'x-requested-with',
 ]
 
+# -- CSRF Configuration for Docker Deployment --
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access to CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+CSRF_COOKIE_NAME = 'csrftoken'
+
+# Allow users to configure trusted origins via environment variable
+csrf_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if csrf_trusted_origins:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins.split(',') if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = []
+
+# -- Session Configuration --
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+SESSION_COOKIE_HTTPONLY = True
+
 # -- Security --
 X_FRAME_OPTIONS = 'ALLOWALL'
 

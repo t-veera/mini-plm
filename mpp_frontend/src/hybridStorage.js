@@ -4,6 +4,9 @@ import axios from 'axios';
 // Use relative URLs since we're proxying through nginx
 const API_BASE_URL = '';
 
+// Configure axios for CSRF
+axios.defaults.withCredentials = true;
+
 export const hybridStorage = {
   // Local storage key for file cache
   CACHE_KEY: 'phasorFileCache',

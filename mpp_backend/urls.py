@@ -20,6 +20,8 @@ from django.urls import path, include
 from rest_framework import routers
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
 
 from files.views import (
     FileViewSet, 
@@ -28,6 +30,11 @@ from files.views import (
     StageViewSet,
     IterationViewSet
 )
+
+# CSRF token endpoint for frontend
+@ensure_csrf_cookie
+def csrf_token(request):
+    return JsonResponse({'status': 'CSRF cookie set'})
 
 # DRF router for automatically generating endpoints
 router = routers.DefaultRouter()
@@ -40,6 +47,7 @@ router.register(r'file-revisions', FileRevisionViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),          # Django admin
     path('api/', include(router.urls)),       # All routes from router
+    path('api/csrf/', csrf_token, name='csrf'),  # CSRF token endpoint
     path('api-auth/', include('rest_framework.urls')),  # DRF login/logout
 ]
 

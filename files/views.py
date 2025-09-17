@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 
@@ -116,7 +116,30 @@ class FileViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]  # Disable auth temporarily
     queryset = File.objects.all()
     serializer_class = FileSerializer
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Override to debug the 500 error"""
+        import traceback
+        
+        print(f"=== PATCH DEBUG ===")
+        print(f"File ID: {kwargs.get('pk')}")
+        print(f"Request data: {request.data}")
+        
+        try:
+            # Call the parent method
+            result = super().partial_update(request, *args, **kwargs)
+            print(f"✅ Update successful")
+            return result
+            
+        except Exception as e:
+            print(f"❌ ERROR TYPE: {type(e).__name__}")
+            print(f"❌ ERROR MESSAGE: {str(e)}")
+            print(f"❌ FULL TRACEBACK:")
+            traceback.print_exc()
+            
+            # Re-raise the exception so Django handles it normally
+            raise
 
     def list(self, request, *args, **kwargs):
         """List files with optional filtering"""
@@ -304,19 +327,9 @@ class FileViewSet(viewsets.ModelViewSet):
             existing_file.file_path = new_revision.file_path
             existing_file.save()
 
-            return Response({
-                "id": existing_file.id,
-                "name": existing_file.name,
-                "revision": revision_number,
-                "upload_date": new_revision.created_at.isoformat(),
-                "file_path": new_revision.file_path,
-                "is_child_file": existing_file.is_child_file,
-                "parent_id": existing_file.parent_file.id if existing_file.parent_file else None,
-                "container_type": existing_file.container_type,
-                "container_id": existing_file.container_id,
-                "status": new_revision.status,
-                "price": str(new_revision.price) if new_revision.price else None
-            }, status=status.HTTP_201_CREATED)
+            # ✅ FIXED: Use FileSerializer instead of custom response
+            serializer = FileSerializer(existing_file, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             # Creating new file
             logger.debug(f"Creating new file: {original_name}")
@@ -358,22 +371,12 @@ class FileViewSet(viewsets.ModelViewSet):
             
             new_revision.save()
 
-            return Response({
-                "id": file_instance.id,
-                "name": file_instance.name,
-                "revision": 1,
-                "upload_date": file_instance.created_at.isoformat(),
-                "file_path": file_instance.file_path,
-                "is_child_file": file_instance.is_child_file,
-                "parent_id": file_instance.parent_file.id if file_instance.parent_file else None,
-                "container_type": file_instance.container_type,
-                "container_id": file_instance.container_id,
-                "status": new_revision.status,
-                "price": str(new_revision.price) if new_revision.price else None
-            }, status=status.HTTP_201_CREATED)
+            # ✅ FIXED: Use FileSerializer instead of custom response
+            serializer = FileSerializer(file_instance, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-class FileRevisionViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for viewing file revisions"""
+class FileRevisionViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing file revisions"""
     permission_classes = [AllowAny]
     queryset = FileRevision.objects.all().order_by('-revision_number')
     serializer_class = FileRevisionSerializer

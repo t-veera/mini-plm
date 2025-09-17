@@ -5,23 +5,68 @@ from django.contrib.contenttypes.models import ContentType
 import os
 
 def upload_to_revision(instance, filename):
-    """Generate upload path for file revisions"""
-    file_id = instance.file.id if instance.file else 'unknown_file'
-    revision_num = instance.revision_number or 'unknown_revision'
-    base_filename = os.path.basename(filename)
-    return f"uploads/{file_id}/revision_{revision_num}/{base_filename}"
+    """Generate upload path for file revisions following product hierarchy"""
+    try:
+        if not instance.file:
+            return f"uploads/unknown/revisions/{filename}"
+
+        # Get the parent file's info
+        parent_file = instance.file
+        product_name = "unknown_product"
+        product_id = "unknown"
+
+        if parent_file.content_object and hasattr(parent_file.content_object, 'product'):
+            product = parent_file.content_object.product
+            if product and product.name:  # Check if product.name exists and is not None
+                # Clean product name for filesystem
+                product_name = ''.join(c for c in str(product.name) if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                product_name = product_name.replace(' ', '_').lower() or "unknown_product"  # Fallback if empty
+                product_id = product.id
+
+        # Get container info using stage/iteration numbers for consistency
+        container_id = "unknown_container"
+        if hasattr(parent_file.content_object, 'stage_number'):
+            container_id = f"stage_{parent_file.content_object.stage_number}"
+        elif hasattr(parent_file.content_object, 'iteration_number'):
+            container_id = f"iteration_{parent_file.content_object.iteration_number}"
+
+        # Create revision filename with revision number
+        base_filename = os.path.basename(filename)
+        name, ext = os.path.splitext(base_filename)
+        revision_filename = f"{name}_rev{instance.revision_number or 'unknown'}{ext}"
+
+        return f"uploads/product_{product_id}_{product_name}/{container_id}/revisions/{revision_filename}"
+    except Exception:
+        # Fallback to simple path if anything goes wrong
+        return f"uploads/revisions/{filename}"
 
 def upload_to_file(instance, filename):
-    """Generate upload path for original files"""
-    if hasattr(instance, 'stage') and instance.stage:
-        container_id = f"stage_{instance.stage.id}"
-    elif hasattr(instance, 'iteration') and instance.iteration:
-        container_id = f"iteration_{instance.iteration.id}"
-    else:
+    """Generate upload path for original files following product hierarchy"""
+    try:
+        # Get product info
+        product_name = "unknown_product"
+        product_id = "unknown"
+
+        if instance.content_object and hasattr(instance.content_object, 'product'):
+            product = instance.content_object.product
+            if product and product.name:  # Check if product.name exists and is not None
+                # Clean product name for filesystem
+                product_name = ''.join(c for c in str(product.name) if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                product_name = product_name.replace(' ', '_').lower() or "unknown_product"  # Fallback if empty
+                product_id = product.id
+
+        # Get container info using stage/iteration numbers for consistency
         container_id = "unknown_container"
-    
-    base_filename = os.path.basename(filename)
-    return f"uploads/{container_id}/{base_filename}"
+        if hasattr(instance.content_object, 'stage_number'):
+            container_id = f"stage_{instance.content_object.stage_number}"
+        elif hasattr(instance.content_object, 'iteration_number'):
+            container_id = f"iteration_{instance.content_object.iteration_number}"
+
+        base_filename = os.path.basename(filename)
+        return f"uploads/product_{product_id}_{product_name}/{container_id}/{base_filename}"
+    except Exception:
+        # Fallback to simple path if anything goes wrong
+        return f"uploads/{filename}"
 
 class Product(models.Model):
     """Product model - each user can have multiple products"""
@@ -47,7 +92,7 @@ class Stage(models.Model):
         ('testing', 'Testing'),
         ('production', 'Production'),
     ]
-    
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stages')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
@@ -86,7 +131,7 @@ class Iteration(models.Model):
         ('refinement', 'Refinement'),
         ('final', 'Final'),
     ]
-    
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='iterations')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
@@ -124,16 +169,16 @@ class File(models.Model):
         ('doc', 'Word Document'),
         ('docx', 'Word Document (DOCX)'),
         ('txt', 'Text File'),
-        
+
         # Spreadsheets
         ('xls', 'Excel Spreadsheet'),
         ('xlsx', 'Excel Spreadsheet (XLSX)'),
         ('csv', 'CSV File'),
-        
+
         # Presentations
         ('ppt', 'PowerPoint'),
         ('pptx', 'PowerPoint (PPTX)'),
-        
+
         # Images
         ('jpg', 'JPEG Image'),
         ('jpeg', 'JPEG Image'),
@@ -142,7 +187,7 @@ class File(models.Model):
         ('bmp', 'BMP Image'),
         ('svg', 'SVG Image'),
         ('tiff', 'TIFF Image'),
-        
+
         # Programming Files
         ('c', 'C Source Code'),
         ('cpp', 'C++ Source Code'),
@@ -166,7 +211,7 @@ class File(models.Model):
         ('sh', 'Shell Script'),
         ('bat', 'Batch File'),
         ('ps1', 'PowerShell Script'),
-        
+
         # Microcontroller/IoT
         ('ino', 'Arduino Sketch'),
         ('pde', 'Processing/Arduino'),
@@ -174,10 +219,10 @@ class File(models.Model):
         ('hex', 'Intel HEX File'),
         ('bin', 'Binary File'),
         ('elf', 'ELF Executable'),
-        
+
         # MicroPython
         ('mpy', 'MicroPython Bytecode'),
-        
+
         # 3D Models
         ('stl', 'STL 3D Model'),
         ('stp', 'STEP 3D Model'),
@@ -193,7 +238,7 @@ class File(models.Model):
         ('max', '3ds Max File'),
         ('ma', 'Maya ASCII File'),
         ('mb', 'Maya Binary File'),
-        
+
         # CAD Files
         ('dwg', 'AutoCAD Drawing'),
         ('dxf', 'DXF Drawing'),
@@ -206,7 +251,7 @@ class File(models.Model):
         ('sldprt', 'SolidWorks Part'),
         ('sldasm', 'SolidWorks Assembly'),
         ('slddrw', 'SolidWorks Drawing'),
-        
+
         # KiCad Files
         ('kicad_pro', 'KiCad Project'),
         ('kicad_sch', 'KiCad Schematic'),
@@ -217,7 +262,7 @@ class File(models.Model):
         ('kicad_mod', 'KiCad Footprint'),
         ('net', 'KiCad Netlist'),
         ('cmp', 'KiCad Component List'),
-        
+
         # Electronics/PCB (Other)
         ('brd', 'Eagle Board'),
         ('sch', 'Eagle/Generic Schematic'),
@@ -227,14 +272,14 @@ class File(models.Model):
         ('drl', 'Drill File'),
         ('nc', 'NC Drill File'),
         ('gcode', 'G-Code'),
-        
+
         # Archives
         ('zip', 'ZIP Archive'),
         ('rar', 'RAR Archive'),
         ('7z', '7-Zip Archive'),
         ('tar', 'TAR Archive'),
         ('gz', 'GZIP Archive'),
-        
+
         # Configuration/Data
         ('json', 'JSON Data'),
         ('xml', 'XML Data'),
@@ -244,14 +289,14 @@ class File(models.Model):
         ('ini', 'INI Configuration'),
         ('cfg', 'Configuration File'),
         ('conf', 'Configuration File'),
-        
+
         # Other
         ('md', 'Markdown'),
         ('rst', 'reStructuredText'),
         ('log', 'Log File'),
         ('other', 'Other'),
     ]
-    
+
     STATUS_CHOICES = [
         ('in_work', 'In Work'),
         ('pending_review', 'Pending Review'),
@@ -259,38 +304,38 @@ class File(models.Model):
         ('rejected', 'Rejected'),
         ('final', 'Final'),
     ]
-    
+
     # Basic file information
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     file_type = models.CharField(max_length=20, choices=FILE_TYPES, default='other')
-    
+
     # File storage
     uploaded_file = models.FileField(upload_to=upload_to_file, blank=True, null=True)
     file_path = models.CharField(max_length=500, blank=True)
     file_size = models.PositiveIntegerField(null=True, blank=True)  # Size in bytes
-    
+
     # Generic relationship to Stage OR Iteration
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
-    
+
     # Owner
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
-    
+
     # Parent-child relationship
     parent_file = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='child_files')
-    
+
     # File metadata
     current_revision = models.IntegerField(default=1)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_work')
     quantity = models.IntegerField(default=1, help_text="Quantity for this file")
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price for this file")
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     # Additional metadata (JSON field for flexible data)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -298,8 +343,6 @@ class File(models.Model):
         ordering = ['-updated_at']
 
     def __str__(self):
-        if self.parent_file:
-            return f"{self.parent_file.name} - {self.name} (Child)"
         return self.name
 
     @property
@@ -370,16 +413,16 @@ class File(models.Model):
                     'doc': 'doc',
                     'docx': 'docx',
                     'txt': 'txt',
-                    
+
                     # Spreadsheets
                     'xls': 'xls',
                     'xlsx': 'xlsx',
                     'csv': 'csv',
-                    
+
                     # Presentations
                     'ppt': 'ppt',
                     'pptx': 'pptx',
-                    
+
                     # Images
                     'jpg': 'jpg',
                     'jpeg': 'jpeg',
@@ -388,7 +431,7 @@ class File(models.Model):
                     'bmp': 'bmp',
                     'svg': 'svg',
                     'tiff': 'tiff',
-                    
+
                     # Programming Files
                     'c': 'c',
                     'cpp': 'cpp',
@@ -412,7 +455,7 @@ class File(models.Model):
                     'sh': 'sh',
                     'bat': 'bat',
                     'ps1': 'ps1',
-                    
+
                     # Microcontroller/IoT
                     'ino': 'ino',
                     'pde': 'pde',
@@ -421,7 +464,7 @@ class File(models.Model):
                     'bin': 'bin',
                     'elf': 'elf',
                     'mpy': 'mpy',
-                    
+
                     # 3D Models
                     'stl': 'stl',
                     'stp': 'stp',
@@ -437,7 +480,7 @@ class File(models.Model):
                     'max': 'max',
                     'ma': 'ma',
                     'mb': 'mb',
-                    
+
                     # CAD Files
                     'dwg': 'dwg',
                     'dxf': 'dxf',
@@ -450,7 +493,7 @@ class File(models.Model):
                     'sldprt': 'sldprt',
                     'sldasm': 'sldasm',
                     'slddrw': 'slddrw',
-                    
+
                     # KiCad Files
                     'kicad_pro': 'kicad_pro',
                     'kicad_sch': 'kicad_sch',
@@ -461,7 +504,7 @@ class File(models.Model):
                     'kicad_mod': 'kicad_mod',
                     'net': 'net',
                     'cmp': 'cmp',
-                    
+
                     # Electronics/PCB (Other)
                     'brd': 'brd',
                     'sch': 'sch',
@@ -471,14 +514,14 @@ class File(models.Model):
                     'drl': 'drl',
                     'nc': 'nc',
                     'gcode': 'gcode',
-                    
+
                     # Archives
                     'zip': 'zip',
                     'rar': 'rar',
                     '7z': '7z',
                     'tar': 'tar',
                     'gz': 'gz',
-                    
+
                     # Configuration/Data
                     'json': 'json',
                     'xml': 'xml',
@@ -488,37 +531,37 @@ class File(models.Model):
                     'ini': 'ini',
                     'cfg': 'cfg',
                     'conf': 'conf',
-                    
+
                     # Other
                     'md': 'md',
                     'rst': 'rst',
                     'log': 'log',
                 }
                 self.file_type = ext_mapping.get(ext, 'other')
-        
-        # Set file path and size
+
+        # Set file size (Django FileField already set correct file_path via upload_to_file)
         if self.uploaded_file:
             self.file_path = self.uploaded_file.name
             if hasattr(self.uploaded_file, 'size'):
                 self.file_size = self.uploaded_file.size
-        
+
         super().save(*args, **kwargs)
 
 class FileRevision(models.Model):
     """File revision model - each file can have multiple revisions"""
     file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='revisions')
     revision_number = models.IntegerField()
-    
+
     # File storage for this revision
     uploaded_file = models.FileField(upload_to=upload_to_revision)
     file_path = models.CharField(max_length=500, blank=True)
     file_size = models.PositiveIntegerField(null=True, blank=True)
-    
+
     # Revision metadata
     description = models.TextField(blank=True, null=True, help_text="Description of changes in this revision")
     status = models.CharField(max_length=20, choices=File.STATUS_CHOICES, default='in_work')
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -535,15 +578,14 @@ class FileRevision(models.Model):
         if not self.revision_number:
             last_revision = FileRevision.objects.filter(file=self.file).order_by('-revision_number').first()
             self.revision_number = (last_revision.revision_number + 1) if last_revision else 1
-        
-        # Set file path and size
+
+        # Set file size (Django FileField already set correct file_path via upload_to_revision)
         if self.uploaded_file:
-            self.file_path = self.uploaded_file.name
             if hasattr(self.uploaded_file, 'size'):
                 self.file_size = self.uploaded_file.size
-        
+
         super().save(*args, **kwargs)
-        
+
         # Update parent file's current revision
         if self.file:
             self.file.current_revision = self.revision_number

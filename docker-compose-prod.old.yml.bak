@@ -18,7 +18,9 @@ services:
 
   backend:
     platform: linux/amd64
-    image: ghcr.io/t-veera/mini-plm:main-backend
+    build:
+      context: .
+      dockerfile: docker/prod/Dockerfile.backend
     volumes:
       - ./mpp_files:/app/mpp_files
       - static_volume:/app/staticfiles
@@ -37,7 +39,9 @@ services:
 
   frontend:
     platform: linux/amd64
-    image: ghcr.io/t-veera/mini-plm:main-frontend
+    build:
+      context: .
+      dockerfile: docker/prod/Dockerfile.frontend
     expose:
       - "80"  # Internal only - nginx proxies to this
     depends_on:
