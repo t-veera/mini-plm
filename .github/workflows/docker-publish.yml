@@ -60,13 +60,3 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}-frontend
           labels: ${{ steps.meta.outputs.labels }}
-
-      # Optional: Add nginx if you have a custom Dockerfile for it
-      - name: Build and push Nginx
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./docker/prod/Dockerfile.nginx  # if you have this
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-nginx
-          labels: ${{ steps.meta.outputs.labels }}
