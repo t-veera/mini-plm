@@ -16,15 +16,107 @@ A lightweight, self-hosted Product Lifecycle Management (PLM) system designed fo
 
 ## Table of Contents
 
-1. [Current Features](#-current-features)
-2. [Quick Start](#-quick-start)
+1. [Installation](#-installation)
+2. [Current Features](#-current-features)
 3. [How to Use](#-how-to-use)
 4. [File Organization](#-file-organization)
 5. [Technical Stack](#-technical-stack)
 6. [Coming in Next Update](#-coming-in-next-update)
 7. [Use Cases](#-use-cases)
 8. [Troubleshooting](#-troubleshooting)
-9. [License](#-license)
+9. [Why Choose Mini-PLM](#-why-choose-mini-plm)
+10. [License](#-license)
+
+---
+
+## 🚀 Installation
+
+### Method 1: One-Command Install (Recommended)
+
+**Linux/macOS/WSL:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install.sh | bash
+```
+
+**Windows PowerShell:**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install.sh" -OutFile "install.sh"; bash install.sh
+```
+
+The installer will:
+- Check system requirements (Docker, Docker Compose)
+- Download configuration files
+- Pull pre-built images from GitHub Container Registry
+- Start all services
+- Verify installation
+
+**Access:** Open `http://localhost` in your browser
+
+---
+
+### Method 2: Manual Docker Installation
+
+```bash
+# Download configuration
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml -o docker-compose.yml
+
+# Start Mini-PLM
+docker-compose up -d
+
+# Check status
+docker-compose ps
+```
+
+---
+
+### Method 3: Portainer (Docker GUI)
+
+1. Open Portainer web interface
+2. Go to **Stacks** → **Add stack**
+3. Name: `mini-plm`
+4. Paste the contents from: `https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml`
+5. Click **Deploy the stack**
+6. Access at `http://your-server-ip`
+
+---
+
+### Method 4: Synology NAS
+
+**Container Manager:**
+1. Open **Container Manager** in DSM
+2. Go to **Project** → **Create**
+3. Choose **Create docker-compose.yml**
+4. Paste URL: `https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml`
+5. Click **Next** → **Done**
+6. Access at `http://synology-ip`
+
+---
+
+### Method 5: For Developers
+
+If you want to modify the source code:
+
+```bash
+git clone https://github.com/t-veera/mini-plm.git
+cd mini-plm
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+### System Requirements
+
+- **Docker** and **Docker Compose** installed
+- **2GB RAM** minimum, 4GB recommended  
+- **Port 80** available
+- Any system: Linux, Windows, macOS, ARM devices
+
+### Data Storage
+
+- **Database**: Stored in Docker volume `postgres_data`
+- **Files**: Stored in Docker volume `mini_plm_files`  
+- **Data persists** across container restarts and system reboots
+- **Backup**: Use `docker volume` commands to backup your data
 
 ---
 
@@ -60,33 +152,6 @@ A lightweight, self-hosted Product Lifecycle Management (PLM) system designed fo
   - Delete stages/iterations by right-clicking on ⛩️ FaToriiGate or 🥁 FaDrumSteelpan icons
   - Add file metadata by right-clicking on files
 - **No User Management**: Open access system (user-specific features coming in next update)
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker and Docker Compose installed on your system
-- Git for cloning the repository
-
-### Installation
-
-1. **Download and run:**
-   ```bash
-   git clone https://github.com/t-veera/mini-plm.git
-   cd mini-plm
-   docker-compose -f docker-compose.prod.yml up -d
-   ```
-
-2. **Access the application:**
-   Open your browser: `http://localhost` (or `http://your-server-ip` from other devices)
-
-**That's it!** Pre-built images are automatically downloaded from GitHub Container Registry. No building or compilation required.
-
-### Data Storage
-- **Database**: All metadata stored in local PostgreSQL database
-- **Files**: All uploaded files stored in `./mpp_files/` directory on your host machine
-- **Persistence**: Data persists across container restarts and system reboots
 
 ---
 
@@ -189,7 +254,7 @@ Mini-PLM is perfect for:
 ### Application Won't Start
 - Ensure Docker and Docker Compose are installed and running
 - Check that port 80 is not in use by another application
-- Run `docker-compose -f docker-compose.prod.yml logs` to see error messages
+- Run `docker-compose logs` to see error messages
 
 ### Cannot Access from Other Devices
 - Check firewall settings on the host machine
@@ -198,19 +263,11 @@ Mini-PLM is perfect for:
 
 ### Files Not Uploading
 - Check available disk space on the host system
-- Verify the `./mpp_files` directory has proper write permissions
+- Verify Docker volumes have proper write permissions
 
 ### Database Issues
 - Database data persists in Docker volume `postgres_data`
-- To reset database: `docker-compose -f docker-compose.prod.yml down -v`
-
----
-
-## 📄 License
-
-[MIT License](LICENSE)
-
-Free to use, modify, and distribute. Contributions welcome!
+- To reset database: `docker-compose down -v` (⚠️ This deletes all data)
 
 ---
 
@@ -225,3 +282,15 @@ Free to use, modify, and distribute. Contributions welcome!
 - **Integrated Metadata**: Add quantity, pricing, and other metadata directly to files
 - **Development Process Tracking**: Organize stages and iterations with complete file history
 - **No External Dependencies**: One tool replaces multiple file viewers and version control systems
+
+---
+
+## 📄 License
+
+[MIT License](LICENSE)
+
+Free to use, modify, and distribute. Contributions welcome!
+
+---
+
+Perfect for teams who need more structure than shared folders but want a simple, powerful, locally-hosted solution for managing their product development lifecycle.

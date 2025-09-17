@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  nginx:
+    image: ghcr.io/t-veera/mini-plm:main-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - mini_plm_files:/var/www/media:ro
+      - static_volume:/var/www/static:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  backend:
+    platform: linux/amd64
+    image: ghcr.io/t-veera/mini-plm:main-backend
+    volumes:
+      - mini_plm_files:/app/mpp_files
+      - static_volume:/app/staticfiles
+    expose:
+      - "8000"
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=localhost,127.0.0.1,nginx
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "mpp_backend.wsgi:application"]
+
+  frontend:
+    platform: linux/amd64
+    image: ghcr.io/t-veera/mini-plm:main-frontend
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=mini_plm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  static_volume:
+  mini_plm_files:

@@ -60,3 +60,12 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}-frontend
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and push Nginx
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/prod/Dockerfile.nginx
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}-nginx
+          labels: ${{ steps.meta.outputs.labels }}
