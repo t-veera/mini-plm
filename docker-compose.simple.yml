@@ -4,7 +4,7 @@ services:
   nginx:
     image: ghcr.io/t-veera/mini-plm:main-nginx
     ports:
-      - "80:80"
+      - "6028:80"
     volumes:
       - mini_plm_files:/var/www/media:ro
       - static_volume:/var/www/static:ro
