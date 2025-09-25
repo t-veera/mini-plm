@@ -23,7 +23,7 @@ services:
       - "8000"
     environment:
       - DEBUG=False
-      - ALLOWED_HOSTS=localhost,127.0.0.1,nginx
+      - ALLOWED_HOSTS=*
       - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
     depends_on:
       db:
