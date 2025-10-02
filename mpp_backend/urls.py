@@ -48,7 +48,7 @@ router.register(r'file-revisions', FileRevisionViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    path('api/setup/', initial_setup, name='initial-setup'),  # Add this line
+    path('api/initial-setup/', initial_setup, name='initial-setup'),
     path('api/csrf/', csrf_token, name='csrf'),
     path('api-auth/', include('rest_framework.urls')),
 ]
