@@ -1,6 +1,5 @@
 # Build Stage
 FROM node:16-alpine as build
-
 WORKDIR /app
 
 # Copy package files and install dependencies
@@ -8,10 +7,12 @@ COPY mpp_frontend/package*.json ./
 RUN npm ci --silent
 
 # Copy the frontend code
-COPY mpp_frontend/ . 
+COPY mpp_frontend/ .
 
 # Build for production
 ENV REACT_APP_API_URL=/api
+# Treat warnings as warnings, not errors
+ENV CI=false
 RUN npm run build
 
 # Production Stage: Single container with nginx
