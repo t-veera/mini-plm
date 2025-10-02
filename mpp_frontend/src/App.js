@@ -59,6 +59,9 @@ import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/
 // Markdown
 import ReactMarkdown from 'react-markdown';
 
+// Importing Setup Wizard
+import SetupWizard from './components/SetupWizard';
+
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
@@ -4181,53 +4184,108 @@ function ResizableColumn({ leftContent, rightContent }) {
 
     
   //load products from your Django backend when the app starts, and fall back to local storage if the backend is unavailable
-  useEffect(() => {
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      // Try to load from backend first
-      const response = await fetch('/api/products/');
-      if (response.ok) {
-        const backendProducts = await response.json();
+//   useEffect(() => {
+//   const loadData = async () => {
+//     setIsLoading(true);
+//     try {
+//       // Try to load from backend first
+//       const response = await fetch('/api/products/');
+//       if (response.ok) {
+//         const backendProducts = await response.json();
         
-        // CRITICAL FIX: Enrich backend data with local frontend properties
-        const enrichedProducts = backendProducts.map(product => ({
-          ...product,
-          selectedContainer: product.selectedContainer || null,
-          containerType: product.containerType || null,
-          filesByContainer: product.filesByContainer || {}
-        }));
+//         // CRITICAL FIX: Enrich backend data with local frontend properties
+//         const enrichedProducts = backendProducts.map(product => ({
+//           ...product,
+//           selectedContainer: product.selectedContainer || null,
+//           containerType: product.containerType || null,
+//           filesByContainer: product.filesByContainer || {}
+//         }));
         
-        setProducts(enrichedProducts);
-        if (enrichedProducts.length > 0) {
-          setSelectedProductIndex(0);
+//         setProducts(enrichedProducts);
+//         if (enrichedProducts.length > 0) {
+//           setSelectedProductIndex(0);
+//         }
+//       } else {
+//         // Fallback to local storage (hybridStorage should already return enriched data)
+//         const loadedProducts = await hybridStorage.loadProducts();
+//         setProducts(loadedProducts);
+//         setSelectedProductIndex(0);
+//       }
+//     } catch (error) {
+//       console.error('Failed to load products:', error);
+//       // Fallback to default (already has required properties)
+//       setProducts([{
+//         id: 1,
+//         name: 'Sample Product',
+//         stages: [],
+//         iterations: [],
+//         selectedContainer: null,
+//         containerType: null,
+//         filesByContainer: {}
+//       }]);
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+  
+//   loadData();
+// }, []);
+    useEffect(() => {
+      const checkSetupAndLoadData = async () => {
+        setIsLoading(true);
+        try {
+          // First, check if initial setup is needed
+          const setupResponse = await fetch('/api/setup/');
+          const setupData = await setupResponse.json();
+          
+          if (setupData.needs_setup) {
+            setNeedsSetup(true);
+            setIsLoading(false);
+            return; // Stop here, show setup wizard
+          }
+          
+          setNeedsSetup(false);
+          
+          // Proceed with normal product loading
+          const response = await fetch('/api/products/');
+          if (response.ok) {
+            const backendProducts = await response.json();
+            
+            const enrichedProducts = backendProducts.map(product => ({
+              ...product,
+              selectedContainer: product.selectedContainer || null,
+              containerType: product.containerType || null,
+              filesByContainer: product.filesByContainer || {}
+            }));
+            
+            setProducts(enrichedProducts);
+            if (enrichedProducts.length > 0) {
+              setSelectedProductIndex(0);
+            }
+          } else {
+            const loadedProducts = await hybridStorage.loadProducts();
+            setProducts(loadedProducts);
+            setSelectedProductIndex(0);
+          }
+        } catch (error) {
+          console.error('Failed to load:', error);
+          setNeedsSetup(false); // Assume setup not needed on error
+          setProducts([{
+            id: 1,
+            name: 'Sample Product',
+            stages: [],
+            iterations: [],
+            selectedContainer: null,
+            containerType: null,
+            filesByContainer: {}
+          }]);
+        } finally {
+          setIsLoading(false);
         }
-      } else {
-        // Fallback to local storage (hybridStorage should already return enriched data)
-        const loadedProducts = await hybridStorage.loadProducts();
-        setProducts(loadedProducts);
-        setSelectedProductIndex(0);
-      }
-    } catch (error) {
-      console.error('Failed to load products:', error);
-      // Fallback to default (already has required properties)
-      setProducts([{
-        id: 1,
-        name: 'Sample Product',
-        stages: [],
-        iterations: [],
-        selectedContainer: null,
-        containerType: null,
-        filesByContainer: {}
-      }]);
-    } finally {
-      setIsLoading(false);
-    }
   };
   
-  loadData();
-}, []);
-    
+  checkSetupAndLoadData();
+}, []); 
   
     
     useEffect(() => {
@@ -7883,6 +7941,26 @@ useEffect(() => {
   };
 }, []);
 
+//Adding for setup wizard return
+if (needsSetup === null) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1a1a1a', color: 'white' }}>
+      <div>Loading...</div>
+    </div>
+  );
+}
+
+// Show setup wizard if needed
+if (needsSetup === true) {
+  return (
+    <SetupWizard 
+      onSetupComplete={() => {
+        setNeedsSetup(false);
+        window.location.reload(); // Reload to load products after setup
+      }} 
+    />
+  );
+}
 // Update main container return
 return (
   <Container

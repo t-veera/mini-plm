@@ -3,8 +3,8 @@ import os
 
 DEBUG = False
 
-# Update allowed hosts
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'your-domain.com']
+# Allow configuration via environment variable, default to wildcard for ease of use
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 # Database settings for PostgreSQL
 DATABASES = {

@@ -28,7 +28,8 @@ from files.views import (
     FileRevisionViewSet,
     ProductViewSet, 
     StageViewSet,
-    IterationViewSet
+    IterationViewSet,
+    initial_setup
 )
 
 # CSRF token endpoint for frontend
@@ -45,10 +46,11 @@ router.register(r'files', FileViewSet)
 router.register(r'file-revisions', FileRevisionViewSet)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),          # Django admin
-    path('api/', include(router.urls)),       # All routes from router
-    path('api/csrf/', csrf_token, name='csrf'),  # CSRF token endpoint
-    path('api-auth/', include('rest_framework.urls')),  # DRF login/logout
+    path('admin/', admin.site.urls),
+    path('api/', include(router.urls)),
+    path('api/setup/', initial_setup, name='initial-setup'),  # Add this line
+    path('api/csrf/', csrf_token, name='csrf'),
+    path('api-auth/', include('rest_framework.urls')),
 ]
 
 # Serve media files in development

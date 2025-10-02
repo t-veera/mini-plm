@@ -376,6 +376,7 @@ class FileViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class FileRevisionViewSet(viewsets.ModelViewSet):
+
     """ViewSet for managing file revisions"""
     permission_classes = [AllowAny]
     queryset = FileRevision.objects.all().order_by('-revision_number')
@@ -388,3 +389,90 @@ class FileRevisionViewSet(viewsets.ModelViewSet):
         if file_id is not None:
             queryset = queryset.filter(file_id=file_id)
         return queryset
+
+
+from rest_framework.decorators import api_view, permission_classes
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def initial_setup(request):
+    """
+    GET: Check if initial setup is needed (no users exist)
+    POST: Create initial admin user and sample data
+    """
+    if request.method == 'GET':
+        # Check if any users exist
+        needs_setup = not User.objects.exists()
+        return Response({'needs_setup': needs_setup})
+    
+    elif request.method == 'POST':
+        # Only allow setup if no users exist
+        if User.objects.exists():
+            return Response(
+                {'error': 'Setup already completed'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get username and password from request
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email', '')
+        
+        # Validate input
+        if not username or not password:
+            return Response(
+                {'error': 'Username and password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(password) < 8:
+            return Response(
+                {'error': 'Password must be at least 8 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Create admin user with provided credentials
+            admin = User.objects.create_superuser(
+                username=username,
+                email=email,
+                password=password
+            )
+            
+            # Create sample product
+            product = Product.objects.create(
+                name='Sample Product',
+                description='This is a sample product to get you started',
+                owner=admin
+            )
+            
+            # Create default stages
+            Stage.objects.create(
+                product=product,
+                name='Concept & Early Prototyping',
+                stage_number=1,
+                order=1
+            )
+            Stage.objects.create(
+                product=product,
+                name='Optimization & Pre-Production',
+                stage_number=2,
+                order=2
+            )
+            Stage.objects.create(
+                product=product,
+                name='Final Optimization & Production',
+                stage_number=3,
+                order=3
+            )
+            
+            return Response({
+                'success': True,
+                'message': 'Initial setup completed successfully',
+                'username': username
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Setup failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

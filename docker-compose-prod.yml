@@ -17,24 +17,24 @@ services:
     restart: unless-stopped
 
   backend:
-    platform: linux/amd64
-    image: ghcr.io/t-veera/mini-plm:main-backend
-    volumes:
-      - ./mpp_files:/app/mpp_files
-      - static_volume:/app/staticfiles
-    expose:
-      - "8000"  # Internal only - nginx proxies to this
-    environment:
-      - DEBUG=False
-      - ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.16,nginx
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
-    command: ["gunicorn", "--bind", "0.0.0.0:8000", "mpp_backend.wsgi:application"]
-
+  platform: linux/amd64
+  image: ghcr.io/t-veera/mini-plm:main-backend
+  volumes:
+    - ./mpp_files:/app/mpp_files
+    - static_volume:/app/staticfiles
+  expose:
+    - "8000"
+  environment:
+    - DEBUG=False
+    - DJANGO_ALLOWED_HOSTS=*  # Allow any host by default
+    - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+  command: ["gunicorn", "--bind", "0.0.0.0:8000", "mpp_backend.wsgi:application"]
+  
   frontend:
     platform: linux/amd64
     image: ghcr.io/t-veera/mini-plm:main-frontend
