@@ -4155,6 +4155,7 @@ function ResizableColumn({ leftContent, rightContent }) {
     const idx = localStorage.getItem('phasorSelectedProductIndex');
     return idx ? parseInt(idx, 10) : 0;
   });
+  const [needsSetup, setNeedsSetup] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState(null);
   const [containerType, setContainerType] = useState(null);
   const [selectedFileObj, setSelectedFileObj] = useState(null);
