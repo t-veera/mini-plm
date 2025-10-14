@@ -4236,7 +4236,7 @@ function ResizableColumn({ leftContent, rightContent }) {
         setIsLoading(true);
         try {
           // First, check if initial setup is needed
-          const setupResponse = await fetch('/api/setup/');
+          const setupResponse = await fetch('/api/initial-setup/');
           const setupData = await setupResponse.json();
           
           if (setupData.needs_setup) {
@@ -4635,8 +4635,57 @@ function handleContainerClick(container, type) {
 }
 
 // Helper function to load files for the selected container
+// async function loadContainerFiles(container, type) {
+//   try {
+//     let endpoint;
+//     if (type === 'stage') {
+//       endpoint = `/api/stages/${container.id}/files/`;
+//     } else if (type === 'iteration') {
+//       endpoint = `/api/iterations/${container.id}/files/`;
+//     }
+
+//     const response = await fetch(endpoint);
+//     if (response.ok) {
+//       const files = await response.json();
+      
+//       // Update the files for this container in local state
+//       const containerKey = `${type}_${container.id}`;
+      
+//       // ✅ FIXED: Use functional state update to avoid stale closure
+//       setProducts(prevProducts => {
+//         const updatedProducts = [...prevProducts];
+//         const currentProduct = updatedProducts[selectedProductIndex];
+        
+//         // CRITICAL FIX: Ensure filesByContainer exists before spreading
+//         const updatedProduct = {
+//           ...currentProduct,
+//           filesByContainer: {
+//             ...(currentProduct.filesByContainer || {}), // Safe spread with fallback
+//             [containerKey]: files
+//           }
+//         };
+        
+//         updatedProducts[selectedProductIndex] = updatedProduct;
+//         return updatedProducts;
+//       });
+//     }
+//   } catch (error) {
+//     console.error(`Failed to load ${type} files:`, error);
+//     // Continue with existing data if backend fails
+//   }
+// }
 async function loadContainerFiles(container, type) {
   try {
+    const containerKey = `${type}_${container.id}`;
+    
+    // ✅ NEW: Skip loading if we already have files for this container
+    const currentProduct = products[selectedProductIndex];
+    if (currentProduct.filesByContainer?.[containerKey]?.length > 0) {
+      console.log(`Files already loaded for ${containerKey}, skipping fetch`);
+      return;
+    }
+    
+    // Rest of the function stays the same...
     let endpoint;
     if (type === 'stage') {
       endpoint = `/api/stages/${container.id}/files/`;
@@ -4648,19 +4697,16 @@ async function loadContainerFiles(container, type) {
     if (response.ok) {
       const files = await response.json();
       
-      // Update the files for this container in local state
       const containerKey = `${type}_${container.id}`;
       
-      // ✅ FIXED: Use functional state update to avoid stale closure
       setProducts(prevProducts => {
         const updatedProducts = [...prevProducts];
         const currentProduct = updatedProducts[selectedProductIndex];
         
-        // CRITICAL FIX: Ensure filesByContainer exists before spreading
         const updatedProduct = {
           ...currentProduct,
           filesByContainer: {
-            ...(currentProduct.filesByContainer || {}), // Safe spread with fallback
+            ...(currentProduct.filesByContainer || {}),
             [containerKey]: files
           }
         };
@@ -4671,7 +4717,6 @@ async function loadContainerFiles(container, type) {
     }
   } catch (error) {
     console.error(`Failed to load ${type} files:`, error);
-    // Continue with existing data if backend fails
   }
 }
   
@@ -6007,11 +6052,20 @@ async function handlePriceUpdate(price) {
   const filePath = selectedRevision.file_path || fileObj.file_path || fileObj.name;
   //const filePath = "uploads/product_10_solar_mill_test/iteration_1/sword-1.stl";
   //const serverUrl = `/media/${filePath}`;
+  // const serverUrl = selectedRevision.uploaded_file || 
+  //                 fileObj.uploaded_file || 
+  //                 `/media/${selectedRevision.file_path || fileObj.file_path || fileObj.name}`;
+
+  // const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl || serverUrl;
   const serverUrl = selectedRevision.uploaded_file || 
                   fileObj.uploaded_file || 
-                  `/media/${selectedRevision.file_path || fileObj.file_path || fileObj.name}`;
+                  (selectedRevision.file_path ? `/media/${selectedRevision.file_path}` : null) ||
+                  (fileObj.file_path ? `/media/${fileObj.file_path}` : null) ||
+                  `/media/uploads/${fileObj.name}`;
 
-  const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl || serverUrl;
+const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
+
+
 
    // Construct server URL using file_path or file name
   console.log("=== FILE PATH DEBUG ===");
@@ -6085,7 +6139,8 @@ async function handlePriceUpdate(price) {
   );
 
   const nameLower = fileObj.name.toLowerCase();
-  const fileUrl = dataUrl || serverUrl;
+  // const fileUrl = dataUrl || serverUrl;
+  const fileUrl = serverUrl || dataUrl;
 
   // Images
   if (

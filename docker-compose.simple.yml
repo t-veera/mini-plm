@@ -17,7 +17,7 @@ services:
     platform: linux/amd64
     image: ghcr.io/t-veera/mini-plm:main-backend
     volumes:
-      - ./mpp_files:/app/mpp_files
+      - mpp_files:/app/mpp_files
       - static_volume:/app/staticfiles
     expose:
       - "8000"
@@ -60,3 +60,4 @@ volumes:
   postgres_data:
   static_volume:
   mini_plm_files:
+  mpp_files:
