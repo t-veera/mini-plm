@@ -9,7 +9,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .models import File, FileRevision, Product, Stage, Iteration
 from .serializers import (
@@ -21,7 +21,7 @@ logger = logging.getLogger('files')
 
 class ProductViewSet(viewsets.ModelViewSet):
     """ViewSet for managing products"""
-    permission_classes = [AllowAny]  # Disable auth temporarily
+    permission_classes = [IsAuthenticated]  # Require authentication
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductSerializer
 
@@ -57,7 +57,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 class StageViewSet(viewsets.ModelViewSet):
     """ViewSet for managing stages"""
-    permission_classes = [AllowAny]  # Disable auth temporarily
+    permission_classes = [IsAuthenticated]  # Require authentication
     queryset = Stage.objects.all().order_by('order', 'stage_number')
     serializer_class = StageSerializer
 
@@ -85,7 +85,7 @@ class StageViewSet(viewsets.ModelViewSet):
 
 class IterationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing iterations"""
-    permission_classes = [AllowAny]  # Disable auth temporarily
+    permission_classes = [IsAuthenticated]  # Require authentication
     queryset = Iteration.objects.all().order_by('order', 'iteration_number')
     serializer_class = IterationSerializer
 
@@ -113,7 +113,7 @@ class IterationViewSet(viewsets.ModelViewSet):
 
 class FileViewSet(viewsets.ModelViewSet):
     """ViewSet for managing files"""
-    permission_classes = [AllowAny]  # Disable auth temporarily
+    permission_classes = [IsAuthenticated]  # Require authentication
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
