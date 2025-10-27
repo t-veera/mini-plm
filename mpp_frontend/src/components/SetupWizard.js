@@ -1,30 +1,41 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import './SetupWizard.css';
 
 const SetupWizard = ({ onSetupComplete }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [email, setEmail] = useState('');
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     // Validation
-    if (!username || !password) {
+    if (!formData.username || !formData.password) {
       setError('Username and password are required');
       return;
     }
 
-    if (password.length < 8) {
+    if (formData.password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
@@ -32,11 +43,10 @@ const SetupWizard = ({ onSetupComplete }) => {
     setLoading(true);
 
     try {
-      //const response = await axios.post('/api/setup/', {
       const response = await axios.post('/api/initial-setup/', {
-        username,
-        password,
-        email
+        username: formData.username,
+        email: formData.email,
+        password: formData.password
       });
 
       if (response.data.success) {
@@ -50,158 +60,91 @@ const SetupWizard = ({ onSetupComplete }) => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Welcome to Mini PLM</h1>
-        <p style={styles.subtitle}>Create your admin account to get started</p>
-        
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Username *</label>
+    <div className="setup-wizard-container">
+      <div className="setup-wizard-card">
+        <div className="setup-header">
+          <div className="setup-logo">mP</div>
+          <h1 className="setup-title">Welcome to Mini PLM</h1>
+          <p className="setup-subtitle">Create your admin account to get started</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="setup-form">
+          {error && (
+            <div className="setup-error">
+              {error}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="username">Username *</label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={styles.input}
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
               placeholder="admin"
               disabled={loading}
+              required
             />
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email (optional)</label>
+          <div className="form-group">
+            <label htmlFor="email">Email (optional)</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               placeholder="admin@example.com"
               disabled={loading}
             />
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password *</label>
+          <div className="form-group">
+            <label htmlFor="password">Password *</label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-              placeholder="Min 8 characters"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Minimum 8 characters"
               disabled={loading}
+              required
             />
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Confirm Password *</label>
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirm Password *</label>
             <input
               type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              style={styles.input}
-              placeholder="Confirm password"
+              id="confirmPassword"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="Re-enter your password"
               disabled={loading}
+              required
             />
           </div>
 
-          {error && (
-            <div style={styles.error}>{error}</div>
-          )}
-
-          <button 
-            type="submit" 
-            style={styles.button}
+          <button
+            type="submit"
+            className="setup-submit-btn"
             disabled={loading}
           >
-            {loading ? 'Setting up...' : 'Create Account & Start'}
+            {loading ? 'Creating...' : 'Create Account & Start'}
           </button>
-        </form>
 
-        <p style={styles.note}>
-          This will create your admin account and a sample product to get you started.
-        </p>
+          <p className="setup-note">
+            This will create your admin account and a sample product to get you started.
+          </p>
+        </form>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-    padding: '20px'
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '40px',
-    maxWidth: '450px',
-    width: '100%',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '10px',
-    textAlign: 'center',
-    color: '#333'
-  },
-  subtitle: {
-    fontSize: '16px',
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: '30px'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  inputGroup: {
-    marginBottom: '20px'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#333'
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    fontSize: '14px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    boxSizing: 'border-box'
-  },
-  button: {
-    backgroundColor: '#007bff',
-    color: 'white',
-    padding: '14px',
-    fontSize: '16px',
-    fontWeight: '600',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    marginTop: '10px'
-  },
-  error: {
-    backgroundColor: '#fee',
-    color: '#c33',
-    padding: '12px',
-    borderRadius: '4px',
-    marginBottom: '15px',
-    fontSize: '14px'
-  },
-  note: {
-    fontSize: '13px',
-    color: '#999',
-    textAlign: 'center',
-    marginTop: '20px'
-  }
 };
 
 export default SetupWizard;
