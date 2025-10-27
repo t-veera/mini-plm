@@ -2,7 +2,10 @@
 import axios from 'axios';
 
 // Use relative URLs since we're proxying through nginx
-const API_BASE_URL = '';
+// const API_BASE_URL = '';
+// const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+axios.defaults.baseURL = API_BASE_URL;
 
 // Configure axios for CSRF
 axios.defaults.withCredentials = true;

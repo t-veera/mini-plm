@@ -32,7 +32,8 @@ const SetupWizard = ({ onSetupComplete }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/setup/', {
+      //const response = await axios.post('/api/setup/', {
+      const response = await axios.post('/api/initial-setup/', {
         username,
         password,
         email

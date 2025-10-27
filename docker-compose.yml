@@ -7,12 +7,16 @@ services:
       dockerfile: docker/dev/Dockerfile.backend
     volumes:
       - ./:/app
-      - ./mpp_files:/app/mpp_files
+      - ./mpp_files:/app/mpp_files  # ✅ Bind mount (same fix as prod)
     ports:
       - "8000:8000"
     environment:
       - DEBUG=True
       - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -27,5 +31,25 @@ services:
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_API_URL=http://localhost:8000
     restart: unless-stopped
+
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=mini_plm
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
