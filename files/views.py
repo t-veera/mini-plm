@@ -393,7 +393,7 @@ class FileRevisionViewSet(viewsets.ModelViewSet):
 
 from rest_framework.decorators import api_view, permission_classes
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # Keep setup accessible
 def initial_setup(request):
     """
     GET: Check if initial setup is needed (no users exist)
@@ -476,3 +476,4 @@ def initial_setup(request):
                 {'error': f'Setup failed: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
