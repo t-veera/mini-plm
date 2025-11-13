@@ -61,9 +61,6 @@ import ReactMarkdown from 'react-markdown';
 
 // Importing Setup Wizard
 import SetupWizard from './components/SetupWizard';
-import LoginPage from './components/Auth/LoginPage';
-import UserMenu from './components/Auth/UserMenu';
-import { AuthProvider, useAuth } from './context/AuthContext';
 
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
@@ -4149,7 +4146,7 @@ function ResizableColumn({ leftContent, rightContent }) {
   }
 
   /* ---------------- MAIN APP ---------------- */
-  function MainApp() {
+  export default function App() {
      // 1. ALL useState declarations 
   const [viewMode, setViewMode] = useState('normal');
   const [products, setProducts] = useState([]);
@@ -8240,66 +8237,4 @@ function handleShowBOM() {
   setViewMode('bom');
 }
 
-}
-
-
-
-/* ---------------- AUTH WRAPPER COMPONENT ---------------- */
-function AppContent() {
-  const { isAuthenticated, loading, user, logout } = useAuth();
-  const [needsSetup, setNeedsSetup] = useState(false);
-  const [checkingSetup, setCheckingSetup] = useState(true);
-
-  useEffect(() => {
-    const checkSetup = async () => {
-      try {
-        const response = await fetch('/initial-setup/');
-        const data = await response.json();
-        setNeedsSetup(data.needs_setup);
-      } catch (error) {
-        console.error('Setup check failed:', error);
-      } finally {
-        setCheckingSetup(false);
-      }
-    };
-    checkSetup();
-  }, []);
-
-  if (loading || checkingSetup) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
-      }}>
-        <Spinner animation="border" style={{ color: '#3b82f6' }} />
-      </div>
-    );
-  }
-
-  if (needsSetup) {
-    return <SetupWizard onSetupComplete={() => window.location.reload()} />;
-  }
-
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
-
-  return (
-    <>
-      <MainApp />
-      <UserMenu user={user} onLogout={logout} />
-    </>
-  );
-}
-
-/* ---------------- ROOT APP WITH AUTH PROVIDER ---------------- */
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
 }
