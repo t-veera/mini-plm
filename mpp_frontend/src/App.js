@@ -8253,7 +8253,7 @@ function AppContent() {
   useEffect(() => {
     const checkSetup = async () => {
       try {
-        const response = await fetch('/initial-setup/');
+        const response = await fetch('/api/initial-setup/');
         const data = await response.json();
         setNeedsSetup(data.needs_setup);
       } catch (error) {
