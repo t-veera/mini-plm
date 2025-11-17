@@ -10,7 +10,7 @@ RUN npm ci --silent
 COPY mpp_frontend/ .
 
 # Build for production
-ENV REACT_APP_API_URL=/api
+# ENV REACT_APP_API_URL=/api
 # Treat warnings as warnings, not errors
 ENV CI=false
 RUN npm run build
