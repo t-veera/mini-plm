@@ -9,6 +9,8 @@ axios.defaults.baseURL = API_BASE_URL;
 
 // Configure axios for CSRF
 axios.defaults.withCredentials = true;
+axios.defaults.xsrfCookieName = 'csrftoken';
+axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 
 export const hybridStorage = {
   // Local storage key for file cache
