@@ -3844,7 +3844,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     useEffect(() => {
       async function fetchCode() {
         try {
-          const res = await fetch(fileUrl);
+          const res = await authenticatedFetch(fileUrl);
           if (!res.ok) {
             throw new Error(`Failed to fetch code file: ${res.status} ${res.statusText}`);
           }
@@ -3897,7 +3897,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     useEffect(() => {
       async function fetchMarkdown() {
         try {
-          const res = await fetch(fileUrl);
+          const res = await authenticatedFetch(fileUrl);
           if (!res.ok) {
             throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
           }
@@ -3948,7 +3948,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     useEffect(() => {
       async function fetchCsv() {
         try {
-          const res = await fetch(fileUrl);
+          const res = await authenticatedFetch(fileUrl);
           if (!res.ok) {
             throw new Error(`Failed to fetch CSV file: ${res.status} ${res.statusText}`);
           }
@@ -4004,7 +4004,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     useEffect(() => {
       async function fetchExcel() {
         try {
-          const res = await fetch(fileUrl);
+          const res = await authenticatedFetch(fileUrl);
           if (!res.ok) {
             throw new Error(`Failed to fetch Excel file: ${res.status} ${res.statusText}`);
           }
@@ -4193,7 +4193,7 @@ function ResizableColumn({ leftContent, rightContent }) {
 //     setIsLoading(true);
 //     try {
 //       // Try to load from backend first
-//       const response = await fetch('/api/products/');
+//       const response = await authenticatedFetch('/api/products/');
 //       if (response.ok) {
 //         const backendProducts = await response.json();
         
@@ -4239,7 +4239,7 @@ function ResizableColumn({ leftContent, rightContent }) {
         setIsLoading(true);
         try {
           // First, check if initial setup is needed
-          const setupResponse = await fetch('/api/initial-setup/');
+          const setupResponse = await authenticatedFetch('/api/initial-setup/');
           const setupData = await setupResponse.json();
           
           if (setupData.needs_setup) {
@@ -4251,7 +4251,7 @@ function ResizableColumn({ leftContent, rightContent }) {
           setNeedsSetup(false);
           
           // Proceed with normal product loading
-          const response = await fetch('/api/products/');
+          const response = await authenticatedFetch('/api/products/');
           if (response.ok) {
             const backendProducts = await response.json();
             
@@ -4416,7 +4416,7 @@ function handleSelectProduct(e) {
   // Helper function to load fresh product details from backend
 async function loadProductDetails(productId, targetIndex = null) {
   try {
-    const response = await fetch(`/api/products/${productId}/`);
+    const response = await authenticatedFetch(`/api/products/${productId}/`);
     if (response.ok) {
       const productData = await response.json();
       
@@ -4474,7 +4474,7 @@ async function handleAddStage() {
     console.log('Creating stage with payload:', requestPayload);
 
     // Create stage on backend
-    const response = await fetch('/api/stages/', {
+    const response = await authenticatedFetch('/api/stages/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4647,7 +4647,7 @@ function handleContainerClick(container, type) {
 //       endpoint = `/api/iterations/${container.id}/files/`;
 //     }
 
-//     const response = await fetch(endpoint);
+//     const response = await authenticatedFetch(endpoint);
 //     if (response.ok) {
 //       const files = await response.json();
       
@@ -4696,7 +4696,7 @@ async function loadContainerFiles(container, type) {
       endpoint = `/api/iterations/${container.id}/files/`;
     }
 
-    const response = await fetch(endpoint);
+    const response = await authenticatedFetch(endpoint);
     if (response.ok) {
       const files = await response.json();
       
@@ -4756,7 +4756,7 @@ async function loadContainerFiles(container, type) {
         endpoint = `/api/iterations/${container.id}/`;
       }
 
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(endpoint, {
         method: 'DELETE'
       });
 
@@ -4910,7 +4910,7 @@ async function loadContainerFiles(container, type) {
         updateData.iteration_id = targetContainer.id;
       }
 
-      const response = await fetch(`/api/files/${fileToMove.id}/`, {
+      const response = await authenticatedFetch(`/api/files/${fileToMove.id}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -4964,7 +4964,7 @@ async function loadContainerFiles(container, type) {
         // Move child files as well
         for (const childFile of fileToMove.child_files) {
           try {
-            const childResponse = await fetch(`/api/files/${childFile.id}/`, {
+            const childResponse = await authenticatedFetch(`/api/files/${childFile.id}/`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
@@ -5180,7 +5180,7 @@ function getCurrentContainerIdFromFile(fileObj) {
   async function handleStatusChange(fileObj, newStatus) {
     try {
       // Update status on backend
-      const response = await fetch(`/api/files/${fileObj.id}/`, {
+      const response = await authenticatedFetch(`/api/files/${fileObj.id}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -5757,7 +5757,7 @@ async function handleFileChange(e) {
   
   try {
     // Update quantity on backend
-    const response = await fetch(`/api/files/${currentFileForModal.id}/`, {
+    const response = await authenticatedFetch(`/api/files/${currentFileForModal.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -5835,7 +5835,7 @@ async function handleFileChange(e) {
       throw new Error("No latest revision found for this file");
     }
 
-    const response = await fetch(`/api/file-revisions/${latestRevision.id}/`, {
+    const response = await authenticatedFetch(`/api/file-revisions/${latestRevision.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -5929,7 +5929,7 @@ async function handlePriceUpdate(price) {
   
   try {
     // Only update the file - the revision will be updated automatically
-    const response = await fetch(`/api/files/${currentFileForModal.id}/`, {
+    const response = await authenticatedFetch(`/api/files/${currentFileForModal.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -8253,7 +8253,7 @@ function AppContent() {
   useEffect(() => {
     const checkSetup = async () => {
       try {
-        const response = await fetch('/api/initial-setup/');
+        const response = await authenticatedFetch('/api/initial-setup/');
         const data = await response.json();
         setNeedsSetup(data.needs_setup);
       } catch (error) {
