@@ -25,14 +25,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductSerializer
 
-    # def perform_create(self, serializer):
-    #     """Set owner when creating a product"""
-    #     user = self.request.user if self.request.user.is_authenticated else User.objects.first()
-    #     if not user:
-    #         # Create a default user if none exists
-    #         user = User.objects.create_user('default', 'default@test.com', 'password')
+    def perform_create(self, serializer):
+        """Set owner when creating a product"""
+        user = self.request.user if self.request.user.is_authenticated else User.objects.first()
+        if not user:
+            # Create a default user if none exists
+            user = User.objects.create_user('default', 'default@test.com', 'password')
         
-    #     serializer.save(owner=user)
+        serializer.save(owner=user)
 
     @action(detail=True, methods=['get'])
     def files(self, request, pk=None):
