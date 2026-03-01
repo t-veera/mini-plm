@@ -4172,6 +4172,12 @@ function ResizableColumn({ leftContent, rightContent }) {
   const [parentFileForChild, setParentFileForChild] = useState(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
+  // File types that show Qty and Price badges (hardware/manufacturing files)
+  const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
+  function shouldShowQtyPrice(fileObj) {
+    const ext = (fileObj.file_extension || '').toLowerCase();
+    return showQtyPriceExtensions.includes(ext);
+  }
   const [showChangeDescriptionModal, setShowChangeDescriptionModal] = useState(false);
   const [currentFileForModal, setCurrentFileForModal] = useState(null);
   const [tempChangeDescription, setTempChangeDescription] = useState('');
@@ -6374,7 +6380,7 @@ function renderFileList(prod) {
                               cursor: 'pointer', 
                               fontSize: '0.7rem',
                               minWidth: '45px',
-                              visibility: fileObj.quantity ? 'visible' : 'hidden'
+                              visibility: (shouldShowQtyPrice(fileObj) && fileObj.quantity) ? 'visible' : 'hidden'
                             }}
                             onClick={(e) => handleQuantityClick(e, fileObj)}
                           >
@@ -6386,7 +6392,7 @@ function renderFileList(prod) {
                               cursor: 'pointer', 
                               fontSize: '0.7rem',
                               minWidth: '55px',
-                              visibility: fileObj.price ? 'visible' : 'hidden'
+                              visibility: (shouldShowQtyPrice(fileObj) && fileObj.price) ? 'visible' : 'hidden'
                             }}
                             onClick={(e) => handlePriceClick(e, fileObj)}
                           >
@@ -6494,7 +6500,7 @@ function renderFileList(prod) {
                                   cursor: 'pointer', 
                                   fontSize: '0.7rem',
                                   minWidth: '45px',
-                                  visibility: childFile.quantity ? 'visible' : 'hidden'
+                                  visibility: (shouldShowQtyPrice(childFile) && childFile.quantity) ? 'visible' : 'hidden'
                                 }}
                                 onClick={(e) => handleQuantityClick(e, childFile)}
                               >
@@ -6506,7 +6512,7 @@ function renderFileList(prod) {
                                   cursor: 'pointer', 
                                   fontSize: '0.7rem',
                                   minWidth: '55px',
-                                  visibility: childFile.price ? 'visible' : 'hidden'
+                                  visibility: (shouldShowQtyPrice(childFile) && childFile.price) ? 'visible' : 'hidden'
                                 }}
                                 onClick={(e) => handlePriceClick(e, childFile)}
                               >
@@ -8303,3 +8309,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+
