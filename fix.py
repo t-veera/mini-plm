@@ -1,9 +1,42 @@
-lines = open('mpp_frontend/src/App.js','r',encoding='utf-8').readlines()
-# Remove the // we just added
-for i in range(3186, 3196):
-    lines[i] = lines[i].replace('//', '', 1)
-# Wrap in JSX comment
-lines[3186] = '                        {/*\n' + lines[3186]
-lines[3195] = lines[3195] + '                        */}\n'
-open('mpp_frontend/src/App.js','w',encoding='utf-8').writelines(lines)
+content = open('mpp_frontend/src/App.js','r',encoding='utf-8').read()
+old = """    } else {
+      // For STL and other 3D formats"""
+new = """    } else if (fileType === 'step') {
+      return (
+        <Canvas
+          key={'step-' + key}
+          shadows
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            maxWidth: '100%',
+            height: '100%',
+            background: '#222'
+          }}
+          camera={{ position: [0, 10, 15], fov: 40 }}
+        >
+          <Suspense fallback={
+            <Html center>
+              <div style={{ color: 'white', textAlign: 'center' }}>
+                <div>Loading STEP viewer...</div>
+              </div>
+            </Html>
+          }>
+            <StepModel
+              key={'step-viewer-' + key}
+              fileUrl={fileUrl}
+              brightness={brightness}
+              contrast={contrast}
+              gridPosition={gridPosition}
+              materialColor={materialColor}
+            />
+          </Suspense>
+        </Canvas>
+      );
+    } else {
+      // For STL and other 3D formats"""
+content = content.replace(old, new, 1)
+open('mpp_frontend/src/App.js','w',encoding='utf-8').write(content)
 print('Done')

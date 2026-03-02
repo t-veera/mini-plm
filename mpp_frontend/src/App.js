@@ -51,6 +51,7 @@ import { Html } from '@react-three/drei';
 
 // For Excel/CSV
 import * as XLSX from 'xlsx';
+import StepModel from './components/viewers/StepViewer';
 
 // Code Syntax Highlighting
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -3660,6 +3661,40 @@ function Model3DPreview({ fileUrl }) {
           }>
             <DxfViewer
               key={`dxf-viewer-${key}`}
+              fileUrl={fileUrl}
+              brightness={brightness}
+              contrast={contrast}
+              gridPosition={gridPosition}
+              materialColor={materialColor}
+            />
+          </Suspense>
+        </Canvas>
+      );
+    } else if (fileType === 'step') {
+      return (
+        <Canvas
+          key={'step-' + key}
+          shadows
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            maxWidth: '100%',
+            height: '100%',
+            background: '#222'
+          }}
+          camera={{ position: [0, 10, 15], fov: 40 }}
+        >
+          <Suspense fallback={
+            <Html center>
+              <div style={{ color: 'white', textAlign: 'center' }}>
+                <div>Loading STEP viewer...</div>
+              </div>
+            </Html>
+          }>
+            <StepModel
+              key={'step-viewer-' + key}
               fileUrl={fileUrl}
               brightness={brightness}
               contrast={contrast}
