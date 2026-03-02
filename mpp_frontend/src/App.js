@@ -4155,7 +4155,7 @@ function ResizableColumn({ leftContent, rightContent }) {
           flexGrow: 1,
           height: '100%',
           overflowY: 'auto',
-          overflowX: 'hidden',
+          overflowX: 'auto',
           padding: '0.75rem',
           width: 'auto',
           maxWidth: '60%' //calc(100% - 10px - 40%)'
