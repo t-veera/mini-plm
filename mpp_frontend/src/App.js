@@ -6159,7 +6159,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
 
   // Container for file preview with revision selector
   const previewContainer = (previewContent) => (
-    <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+    <div style={{ maxWidth: '100%', overflow: 'auto' }}>
       {revisionSelector}
       {previewContent}
     </div>
