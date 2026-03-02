@@ -7777,8 +7777,6 @@ useEffect(() => {
   const styleTag = document.createElement('style');
   styleTag.innerHTML = `
     * {
-      max-width: 100% !important;
-      overflow-x: hidden !important;
       box-sizing: border-box !important;
       font-family: ${styles.fonts.family} !important;
     }
