@@ -3184,6 +3184,7 @@ function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
                             fontFamily: 'monospace'
                         }}
                     >
+                        {/*
                         <div>Rendered: {dxfEntities.children.length}</div>
                         {debugInfo && (
                             <>
@@ -3194,6 +3195,7 @@ function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
                                 ))}
                             </>
                         )}
+                        */}
                     </Html>
                 </>
             );
