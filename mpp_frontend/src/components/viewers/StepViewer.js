@@ -20,7 +20,14 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
         setError(null);
 
         // Initialize OpenCascade WASM
-        const occt = await occtimportjs();
+        const occt = await occtimportjs({
+          locateFile: (name) => {
+            if (name.endsWith('.wasm')) {
+              return '/occt-import-js.wasm';
+            }
+            return name;
+          }
+        });
 
         // Fetch the STEP file
         const response = await fetch(fileUrl, { credentials: 'include' });

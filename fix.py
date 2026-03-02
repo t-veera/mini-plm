@@ -1,6 +1,14 @@
-content = open('mpp_frontend/package.json','r',encoding='utf-8').read()
-content = content.replace('"start": "react-scripts start"', '"start": "react-app-rewired start"')
-content = content.replace('"build": "react-scripts build"', '"build": "react-app-rewired build"')
-content = content.replace('"test": "react-scripts test"', '"test": "react-app-rewired test"')
-open('mpp_frontend/package.json','w',encoding='utf-8').write(content)
+content = open('mpp_frontend/src/components/viewers/StepViewer.js','r',encoding='utf-8').read()
+old = "        // Initialize OpenCascade WASM\n        const occt = await occtimportjs();"
+new = """        // Initialize OpenCascade WASM
+        const occt = await occtimportjs({
+          locateFile: (name) => {
+            if (name.endsWith('.wasm')) {
+              return '/occt-import-js.wasm';
+            }
+            return name;
+          }
+        });"""
+content = content.replace(old, new)
+open('mpp_frontend/src/components/viewers/StepViewer.js','w',encoding='utf-8').write(content)
 print('Done')
