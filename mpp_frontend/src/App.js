@@ -3980,17 +3980,28 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading CSV data...</p>
         ) : (
-          <Table hover borderless className="table-dark table-sm">
+          <div style={{ maxHeight: "550px", overflow: "auto" }}>
+          <Table hover borderless className="table-dark table-sm" style={{ tableLayout: "auto", minWidth: "max-content" }}>
+            {rows.length > 0 && (
+              <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#1a1d21" }}>
+                <tr>
+                  {rows[0].map((cell, j) => (
+                    <th key={j} style={{ whiteSpace: "nowrap", padding: "8px 12px", borderBottom: "2px solid #555", fontSize: "0.85rem" }}>{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+            )}
             <tbody>
-              {rows.map((row, i) => (
+              {rows.slice(1).map((row, i) => (
                 <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
+                  {rows[0].map((_, j) => (
+                    <td key={j} style={{ padding: "6px 12px", whiteSpace: "pre-wrap", maxWidth: "250px" }}>{row[j] != null ? row[j] : ""}</td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </Table>
+          </div>
         )}
       </div>
     );
@@ -4039,17 +4050,28 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading Excel data...</p>
         ) : (
-          <Table hover borderless className="table-dark table-sm">
+          <div style={{ maxHeight: "550px", overflow: "auto" }}>
+          <Table hover borderless className="table-dark table-sm" style={{ tableLayout: "auto", minWidth: "max-content" }}>
+            {rows.length > 0 && (
+              <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#1a1d21" }}>
+                <tr>
+                  {rows[0].map((cell, j) => (
+                    <th key={j} style={{ whiteSpace: "nowrap", padding: "8px 12px", borderBottom: "2px solid #555", fontSize: "0.85rem" }}>{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+            )}
             <tbody>
-              {rows.map((row, i) => (
+              {rows.slice(1).map((row, i) => (
                 <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
+                  {rows[0].map((_, j) => (
+                    <td key={j} style={{ padding: "6px 12px", whiteSpace: "pre-wrap", maxWidth: "250px" }}>{row[j] != null ? row[j] : ""}</td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </Table>
+          </div>
         )}
       </div>
     );
@@ -8309,4 +8331,6 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+
 
