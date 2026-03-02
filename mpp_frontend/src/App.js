@@ -3976,7 +3976,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     }
   
     return (
-      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className='excel-scroll-container'>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading CSV data...</p>
         ) : (
@@ -4044,7 +4044,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     }
   
     return (
-      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className='excel-scroll-container'>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading Excel data...</p>
         ) : (
@@ -7777,10 +7777,15 @@ useEffect(() => {
   const styleTag = document.createElement('style');
   styleTag.innerHTML = `
     * {
+      max-width: 100% !important;
       box-sizing: border-box !important;
       font-family: ${styles.fonts.family} !important;
     }
     
+    .excel-scroll-container, .excel-scroll-container * {
+      max-width: none !important;
+      overflow-x: auto !important;
+    }
     body, html {
       overflow-x: hidden !important;
       width: 100% !important;
