@@ -3976,11 +3976,10 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     }
   
     return (
-      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading CSV data...</p>
         ) : (
-          <div style={{ maxHeight: "550px", overflow: "auto" }}>
           <Table hover borderless className="table-dark table-sm" style={{ tableLayout: "auto", minWidth: "max-content" }}>
             {rows.length > 0 && (
               <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#1a1d21" }}>
@@ -4001,7 +4000,6 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
               ))}
             </tbody>
           </Table>
-          </div>
         )}
       </div>
     );
@@ -4046,11 +4044,10 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
     }
   
     return (
-      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
         {rows.length === 0 ? (
           <p className="text-muted p-2">Loading Excel data...</p>
         ) : (
-          <div style={{ maxHeight: "550px", overflow: "auto" }}>
           <Table hover borderless className="table-dark table-sm" style={{ tableLayout: "auto", minWidth: "max-content" }}>
             {rows.length > 0 && (
               <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#1a1d21" }}>
@@ -4071,7 +4068,6 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
               ))}
             </tbody>
           </Table>
-          </div>
         )}
       </div>
     );
@@ -8331,6 +8327,7 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 
 
 
