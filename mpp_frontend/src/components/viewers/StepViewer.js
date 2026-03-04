@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import occtimportjs from 'occt-import-js';
+
+function getCsrfToken() {
+  const match = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+  return match ? match.split('=')[1] : '';
+}
 
 function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor }) {
   const [geometry, setGeometry] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [status, setStatus] = useState('Initializing...');
   const groupRef = useRef();
   const { camera } = useThree();
 
@@ -19,7 +25,7 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
         setLoading(true);
         setError(null);
 
-        // Initialize OpenCascade WASM
+        setStatus('Loading OpenCascade WASM...');
         const occt = await occtimportjs({
           locateFile: (name) => {
             if (name.endsWith('.wasm')) {
@@ -29,52 +35,65 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
           }
         });
 
-        // Fetch the STEP file
-        const response = await fetch(fileUrl, { credentials: 'include' });
-        if (!response.ok) throw new Error('Failed to fetch STEP file: ' + response.status);
+        setStatus('Fetching STEP file...');
+        const response = await fetch(fileUrl, {
+          credentials: 'include',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+          }
+        });
+
+        if (!response.ok) throw new Error('Fetch failed: ' + response.status);
 
         const buffer = await response.arrayBuffer();
         const fileBuffer = new Uint8Array(buffer);
 
-        // Parse the STEP file
+        // Check if we got HTML instead of a STEP file
+        const firstBytes = new TextDecoder().decode(fileBuffer.slice(0, 50));
+        console.log('STEP file first 50 bytes:', firstBytes);
+        if (firstBytes.includes('<!DOCTYPE') || firstBytes.includes('<html')) {
+          throw new Error('Got HTML instead of STEP file - authentication issue');
+        }
+
+        setStatus('Parsing STEP file...');
         const result = occt.ReadStepFile(fileBuffer, null);
+        console.log('STEP parse result:', JSON.stringify({
+          hasResult: !!result,
+          success: result?.success,
+          meshCount: result?.meshes?.length,
+          keys: result ? Object.keys(result) : []
+        }));
 
         if (cancelled) return;
 
-        if (!result.success || result.meshes.length === 0) {
-          throw new Error('Failed to parse STEP file or no geometry found');
+        const meshes = result?.meshes || [];
+        if (meshes.length === 0) {
+          throw new Error('No geometry found in STEP file (meshes: ' + meshes.length + ')');
         }
 
-        // Convert to Three.js geometry
+        setStatus('Building 3D model (' + meshes.length + ' meshes)...');
         const group = new THREE.Group();
 
-        for (const mesh of result.meshes) {
+        for (const mesh of meshes) {
           const geo = new THREE.BufferGeometry();
 
-          // Set vertices
-          geo.setAttribute(
-            'position',
-            new THREE.Float32BufferAttribute(mesh.attributes.position.array, 3)
-          );
+          const posArray = mesh.attributes?.position?.array;
+          if (!posArray || posArray.length === 0) continue;
 
-          // Set normals if available
-          if (mesh.attributes.normal) {
-            geo.setAttribute(
-              'normal',
-              new THREE.Float32BufferAttribute(mesh.attributes.normal.array, 3)
-            );
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
+
+          if (mesh.attributes?.normal?.array) {
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(mesh.attributes.normal.array, 3));
           } else {
             geo.computeVertexNormals();
           }
 
-          // Set face indices
-          if (mesh.index) {
-            geo.setIndex(new THREE.BufferAttribute(mesh.index.array, 1));
+          if (mesh.index?.array) {
+            geo.setIndex(new THREE.BufferAttribute(new Uint32Array(mesh.index.array), 1));
           }
 
-          // Get color from mesh or use default
           let color = materialColor;
-          if (mesh.color) {
+          if (mesh.color && mesh.color.length >= 3) {
             color = new THREE.Color(mesh.color[0], mesh.color[1], mesh.color[2]);
           }
 
@@ -85,11 +104,13 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
             side: THREE.DoubleSide,
           });
 
-          const threeMesh = new THREE.Mesh(geo, material);
-          group.add(threeMesh);
+          group.add(new THREE.Mesh(geo, material));
         }
 
-        // Center and scale the model
+        if (group.children.length === 0) {
+          throw new Error('Could not create any 3D meshes from parsed data');
+        }
+
         const box = new THREE.Box3().setFromObject(group);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
@@ -99,7 +120,6 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
         group.position.sub(center);
         group.scale.setScalar(scale);
 
-        // Position camera
         camera.position.set(0, 10, 15);
         camera.lookAt(0, 0, 0);
 
@@ -117,18 +137,15 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
     }
 
     if (fileUrl) loadStep();
-
     return () => { cancelled = true; };
   }, [fileUrl, camera, materialColor]);
 
   if (loading) {
     return (
       <Html center>
-        <div style={{ color: 'white', textAlign: 'center' }}>
+        <div style={{ color: 'white', textAlign: 'center', maxWidth: '300px' }}>
           <div>Loading STEP file...</div>
-          <div style={{ fontSize: '12px', marginTop: '5px', color: '#aaa' }}>
-            Parsing with OpenCascade
-          </div>
+          <div style={{ fontSize: '12px', marginTop: '5px', color: '#aaa' }}>{status}</div>
         </div>
       </Html>
     );
@@ -137,7 +154,7 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
   if (error) {
     return (
       <Html center>
-        <div style={{ color: '#ff6b6b', textAlign: 'center' }}>
+        <div style={{ color: '#ff6b6b', textAlign: 'center', maxWidth: '300px' }}>
           <div>Error loading STEP file</div>
           <div style={{ fontSize: '12px', marginTop: '5px' }}>{error}</div>
         </div>
@@ -148,19 +165,9 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
   return (
     <>
       <ambientLight intensity={brightness * 0.5} />
-      <directionalLight
-        position={[10, 10, 10]}
-        intensity={brightness * contrast}
-        castShadow
-      />
-      <directionalLight
-        position={[-5, 5, -5]}
-        intensity={brightness * 0.3}
-      />
-      <gridHelper
-        args={[20, 20, '#444', '#333']}
-        position={[0, gridPosition, 0]}
-      />
+      <directionalLight position={[10, 10, 10]} intensity={brightness * contrast} castShadow />
+      <directionalLight position={[-5, 5, -5]} intensity={brightness * 0.3} />
+      <gridHelper args={[20, 20, '#444', '#333']} position={[0, gridPosition, 0]} />
       <OrbitControls enableDamping dampingFactor={0.1} />
       {geometry && <primitive ref={groupRef} object={geometry} />}
     </>
