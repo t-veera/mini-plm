@@ -138,6 +138,9 @@ const iconMap = {
   doc: <FaFileWord style={{ marginRight: '4px', color: '#2B7BF3', fontSize: '1.5rem' }} />,
   docx: <FaFileWord style={{ marginRight: '4px', color: '#2B7BF3', fontSize: '1.5rem' }} />,
   js: <FaJs style={{ marginRight: '4px', color: '#e665a4', fontSize: '1.5rem' }} />,
+  xlsx: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
+  xls: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
+  csv: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
   py: <FaPython style={{ marginRight: '4px', color: '#B197FC', fontSize: '1.5rem' }} />,
   cpp: <FaCodepen style={{ marginRight: '4px', color: '#ff813d', fontSize: '1.5rem' }} />,
   md: <FaMarkdown style={{ marginRight: '4px', color: '#74C0FC', fontSize: '1.5rem' }} />,
@@ -3997,78 +4000,10 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
   /* ---------------- EXCEL PREVIEW ---------------- */
   function ExcelPreview({ fileUrl }) {
-    const [html, setHtml] = useState('');
-    const [sheetNames, setSheetNames] = useState([]);
-    const [activeSheet, setActiveSheet] = useState(0);
-    const [workbookRef, setWorkbookRef] = useState(null);
-    const [error, setError] = useState(null);
-
-    function renderSheet(wb, index) {
-      const sheetName = wb.SheetNames[index];
-      const worksheet = wb.Sheets[sheetName];
-      const htmlStr = XLSX.utils.sheet_to_html(worksheet, { editable: false });
-      setHtml(htmlStr);
-      setActiveSheet(index);
-    }
-
-    useEffect(() => {
-      async function fetchExcel() {
-        try {
-          const res = await authenticatedFetch(fileUrl);
-          if (!res.ok) throw new Error(`Failed to fetch Excel file: ${res.status} ${res.statusText}`);
-          const blob = await res.blob();
-          const arrayBuffer = await blob.arrayBuffer();
-          const wb = XLSX.read(arrayBuffer, { type: 'array' });
-          setWorkbookRef(wb);
-          setSheetNames(wb.SheetNames);
-          renderSheet(wb, 0);
-        } catch (err) {
-          console.error('Error fetching Excel file:', err);
-          setError(err.message || 'Error loading Excel');
-        }
-      }
-      if (fileUrl) fetchExcel();
-    }, [fileUrl]);
-
-    if (error) return (
-      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
-        <p className="text-danger">Error loading Excel: {error}</p>
-      </div>
-    );
-    if (!html) return (
-      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
-        <p className="text-muted p-2">Loading Excel data...</p>
-      </div>
-    );
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}>
-        {sheetNames.length > 1 && (
-          <div style={{ display: 'flex', gap: '4px', padding: '6px 8px', background: '#1a1d21', borderBottom: '1px solid #444', flexShrink: 0 }}>
-            {sheetNames.map((name, i) => (
-              <button key={i} onClick={() => renderSheet(workbookRef, i)} style={{
-                padding: '3px 12px', fontSize: '12px',
-                background: activeSheet === i ? '#4a9eff' : '#2a2a3e',
-                color: activeSheet === i ? '#fff' : '#aaa',
-                border: '1px solid #444', borderRadius: '3px', cursor: 'pointer',
-              }}>{name}</button>
-            ))}
-          </div>
-        )}
-        <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}
-          dangerouslySetInnerHTML={{ __html: html }} />
-        <style>{`
-          table { border-collapse: collapse; font-size: 13px; color: #e0e0e0; }
-          td, th { border: 1px solid #444; padding: 4px 8px; white-space: nowrap; }
-        `}</style>
-      </div>
-    );
+    return <ExcelViewer fileUrl={fileUrl} authenticatedFetch={authenticatedFetch} />;
   }
   /* ---------------- RESIZABLE COLUMN ---------------- */
 function ResizableColumn({ leftContent, rightContent }) {
-    //const [leftWidth, setLeftWidth] = useState(500); // Increased default width
-    const [leftWidth, setLeftWidth] = useState(Math.min(500, window.innerWidth * 0.4)); // Set responsive default
-    const [isResizing, setIsResizing] = useState(false);
     const minWidth = 200; // Minimum width for left column
    // const maxWidth = window.innerWidth - 300; // Maximum width (leave space for right column)
     const maxWidth = Math.max(300, Math.min(window.innerWidth - 300, window.innerWidth * 0.6)); 
@@ -6264,7 +6199,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
         padding: '20px',
         color: '#333'
       }}>
-        <FaFileWord style={{ fontSize: '3rem', color: '#2B7BF3', marginBottom: '20px' }} />
+        <FaTable style={{ fontSize: '3rem', color: '#1D6F42', marginBottom: '20px' }} />
         <h4>Word Document Preview</h4>
         <p>Viewing file: {fileObj.name}</p>
         <p>Word documents are best viewed in Microsoft Word or similar applications.</p>
