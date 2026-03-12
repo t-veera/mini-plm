@@ -6177,7 +6177,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
     }
     
     // Otherwise use the normal markdown preview component
-    return previewContainer(<MarkdownPreview fileUrl={fileUrl} />);
+    return previewContainer(<MarkdownPreview key={fileUrl} fileUrl={fileUrl} />);
   }
   // CSV
   else if (nameLower.endsWith('.csv')) {
