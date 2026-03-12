@@ -3963,7 +3963,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         border: '1px solid #888',
         overflow: 'auto',
         padding: '1rem',
-        fontSize: typography.size.md
+        fontSize: '13px'
       }}>
         {markdownContent ? (
           <ReactMarkdown
@@ -4110,7 +4110,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}
           dangerouslySetInnerHTML={{ __html: html }} />
         <style>{`
-          table { border-collapse: collapse; font-size: \; color: #e0e0e0; }
+          table { border-collapse: collapse; font-size: 13px; color: #e0e0e0; }
           td, th { border: 1px solid #444; padding: 4px 8px; white-space: nowrap; }
         `}</style>
       </div>
