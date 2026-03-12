@@ -6169,12 +6169,8 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
 
 
 
-
-
-
-
-    return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
-  }
+  //   return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
+  // }
   // CSV
   else if (nameLower.endsWith('.csv')) {
     return previewContainer(<CsvPreview fileUrl={fileUrl} />);
