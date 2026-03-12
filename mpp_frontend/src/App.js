@@ -6156,27 +6156,27 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
     const ext = nameLower.substring(nameLower.lastIndexOf('.'));
     return previewContainer(<CodePreview fileUrl={fileUrl} extension={ext} />);
   }
-  // Markdown
   else if (nameLower.endsWith('.md') || nameLower.endsWith('.markdown')) {
-      // If we have a dataUrl that appears to be a base64 string
-    if (dataUrl && dataUrl.startsWith('data:')) {
-      // Extract the content directly from the dataUrl
-      try {
-        const base64Content = dataUrl.split(',')[1];
-        const binaryStr = atob(base64Content); const bytes = new Uint8Array(binaryStr.length); for (let i = 0; i < binaryStr.length; i++) { bytes[i] = binaryStr.charCodeAt(i); } const decodedContent = new TextDecoder('utf-8').decode(bytes);
-        
-        return previewContainer(
-          <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
-            <ReactMarkdown key={fileUrl + selectedRevision?.revision_number}>{decodedContent}</ReactMarkdown>
-          </div>
-        );
-      } catch (error) {
-        console.error("Error processing markdown dataUrl:", error);
-        // Fall through to regular fetch method if dataUrl processing fails
-      }
-    }
-    
-    // Otherwise use the normal markdown preview component
+    return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
   }
   // CSV
