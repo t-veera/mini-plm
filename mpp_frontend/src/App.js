@@ -4044,68 +4044,70 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
   /* ---------------- EXCEL PREVIEW ---------------- */
   function ExcelPreview({ fileUrl }) {
-    const [rows, setRows] = useState([]);
+    const [html, setHtml] = useState('');
+    const [sheetNames, setSheetNames] = useState([]);
+    const [activeSheet, setActiveSheet] = useState(0);
+    const [workbookRef, setWorkbookRef] = useState(null);
     const [error, setError] = useState(null);
-  
+
+    function renderSheet(wb, index) {
+      const sheetName = wb.SheetNames[index];
+      const worksheet = wb.Sheets[sheetName];
+      const htmlStr = XLSX.utils.sheet_to_html(worksheet, { editable: false });
+      setHtml(htmlStr);
+      setActiveSheet(index);
+    }
+
     useEffect(() => {
       async function fetchExcel() {
         try {
           const res = await authenticatedFetch(fileUrl);
-          if (!res.ok) {
-            throw new Error(`Failed to fetch Excel file: ${res.status} ${res.statusText}`);
-          }
+          if (!res.ok) throw new Error(`Failed to fetch Excel file: ${res.status} ${res.statusText}`);
           const blob = await res.blob();
           const arrayBuffer = await blob.arrayBuffer();
-          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          setRows(jsonData);
+          const wb = XLSX.read(arrayBuffer, { type: 'array' });
+          setWorkbookRef(wb);
+          setSheetNames(wb.SheetNames);
+          renderSheet(wb, 0);
         } catch (err) {
           console.error('Error fetching Excel file:', err);
           setError(err.message || 'Error loading Excel');
         }
       }
-      
-      if (fileUrl) {
-        fetchExcel();
-      }
+      if (fileUrl) fetchExcel();
     }, [fileUrl]);
-  
-    if (error) {
-      return (
-        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
-          <p className="text-danger">Error loading Excel: {error}</p>
-        </div>
-      );
-    }
-  
+
+    if (error) return (
+      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+        <p className="text-danger">Error loading Excel: {error}</p>
+      </div>
+    );
+    if (!html) return (
+      <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+        <p className="text-muted p-2">Loading Excel data...</p>
+      </div>
+    );
+
     return (
-      <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className='excel-scroll-container'>
-        {rows.length === 0 ? (
-          <p className="text-muted p-2">Loading Excel data...</p>
-        ) : (
-          <Table hover borderless className="table-dark table-sm" style={{ tableLayout: "auto", minWidth: "max-content" }}>
-            {rows.length > 0 && (
-              <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#1a1d21" }}>
-                <tr>
-                  {rows[0].map((cell, j) => (
-                    <th key={j} style={{ whiteSpace: "nowrap", padding: "8px 12px", borderBottom: "2px solid #555", fontSize: "0.85rem" }}>{cell}</th>
-                  ))}
-                </tr>
-              </thead>
-            )}
-            <tbody>
-              {rows.slice(1).map((row, i) => (
-                <tr key={i}>
-                  {rows[0].map((_, j) => (
-                    <td key={j} style={{ padding: "6px 12px", whiteSpace: "pre-wrap", maxWidth: "250px" }}>{row[j] != null ? row[j] : ""}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}>
+        {sheetNames.length > 1 && (
+          <div style={{ display: 'flex', gap: '4px', padding: '6px 8px', background: '#1a1d21', borderBottom: '1px solid #444', flexShrink: 0 }}>
+            {sheetNames.map((name, i) => (
+              <button key={i} onClick={() => renderSheet(workbookRef, i)} style={{
+                padding: '3px 12px', fontSize: '12px',
+                background: activeSheet === i ? '#4a9eff' : '#2a2a3e',
+                color: activeSheet === i ? '#fff' : '#aaa',
+                border: '1px solid #444', borderRadius: '3px', cursor: 'pointer',
+              }}>{name}</button>
+            ))}
+          </div>
         )}
+        <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}
+          dangerouslySetInnerHTML={{ __html: html }} />
+        <style>{`
+          table { border-collapse: collapse; font-size: 12px; font-family: Calibri, sans-serif; color: #e0e0e0; }
+          td, th { border: 1px solid #444; padding: 4px 8px; white-space: nowrap; }
+        `}</style>
       </div>
     );
   }
