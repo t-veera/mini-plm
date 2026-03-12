@@ -4009,6 +4009,7 @@ function ResizableColumn({ leftContent, rightContent }) {
     const [leftWidth, setLeftWidth] = useState(Math.min(500, window.innerWidth * 0.4));
     const [isResizing, setIsResizing] = useState(false);
     const minWidth = 200;
+    const maxWidth = Math.max(300, Math.min(window.innerWidth - 300, window.innerWidth * 0.6));
   
     // Handle mouse down on the resizer
     const handleMouseDown = (e) => {
