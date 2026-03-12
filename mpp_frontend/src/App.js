@@ -60,6 +60,8 @@ import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/
 // Markdown
 import ReactMarkdown from 'react-markdown';
 import typography from './styles/typography';
+import MarkdownViewer from './components/viewers/MarkdownViewer';
+import ExcelViewer from './components/viewers/ExcelViewer';
 import remarkGfm from 'remark-gfm';
 
 // Importing Setup Wizard
