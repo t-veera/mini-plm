@@ -6163,7 +6163,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
       // Extract the content directly from the dataUrl
       try {
         const base64Content = dataUrl.split(',')[1];
-        const decodedContent = atob(base64Content);
+        const binaryStr = atob(base64Content); const bytes = new Uint8Array(binaryStr.length); for (let i = 0; i < binaryStr.length; i++) { bytes[i] = binaryStr.charCodeAt(i); } const decodedContent = new TextDecoder('utf-8').decode(bytes);
         
         return previewContainer(
           <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
