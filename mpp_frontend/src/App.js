@@ -59,6 +59,7 @@ import { materialDark, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/
 
 // Markdown
 import ReactMarkdown from 'react-markdown';
+import typography from './styles/typography';
 import remarkGfm from 'remark-gfm';
 
 // Importing Setup Wizard
@@ -95,7 +96,7 @@ const styles = {
     }
   },
   fonts: {
-    family: "'Roboto', 'Segoe UI', 'Arial', sans-serif",
+    family: typography.primary,
     size: {
       xs: '0.75rem',
       sm: '0.85rem',
@@ -3183,7 +3184,7 @@ function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
                             backgroundColor: 'rgba(0,0,0,0.8)',
                             padding: '8px',
                             borderRadius: '4px',
-                            fontFamily: 'monospace'
+                            fontFamily: typography.mono
                         }}
                     >
                         {/*
@@ -3962,7 +3963,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         border: '1px solid #888',
         overflow: 'auto',
         padding: '1rem',
-        fontFamily: 'system-ui, -apple-system, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
+        fontSize: typography.size.md
       }}>
         {markdownContent ? (
           <ReactMarkdown
@@ -3972,8 +3973,8 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
               th: ({node, ...props}) => <th style={{border:'1px solid #555', padding:'6px 12px', background:'#2a2a3e', textAlign:'left'}} {...props} />,
               td: ({node, ...props}) => <td style={{border:'1px solid #444', padding:'6px 12px'}} {...props} />,
               code: ({node, inline, ...props}) => inline
-                ? <code style={{background:'#2a2a3e', padding:'2px 6px', borderRadius:'3px', fontFamily:'monospace'}} {...props} />
-                : <pre style={{background:'#1a1a2e', padding:'1rem', borderRadius:'6px', overflow:'auto'}}><code style={{fontFamily:'monospace'}} {...props} /></pre>
+                ? <code style={{background:'#2a2a3e', padding:'2px 6px', borderRadius:'3px', fontFamily:typography.mono}} {...props} />
+                : <pre style={{background:'#1a1a2e', padding:'1rem', borderRadius:'6px', overflow:'auto'}}><code style={{fontFamily:typography.mono}} {...props} /></pre>
             }}
           >{markdownContent}</ReactMarkdown>
         ) : (
@@ -4109,7 +4110,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
         <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}
           dangerouslySetInnerHTML={{ __html: html }} />
         <style>{`
-          table { border-collapse: collapse; font-size: 12px; font-family: Calibri, sans-serif; color: #e0e0e0; }
+          table { border-collapse: collapse; font-size: \; color: #e0e0e0; }
           td, th { border: 1px solid #444; padding: 4px 8px; white-space: nowrap; }
         `}</style>
       </div>
