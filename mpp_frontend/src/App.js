@@ -6167,7 +6167,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
         
         return previewContainer(
           <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto', padding: '1rem' }}>
-            <ReactMarkdown>{decodedContent}</ReactMarkdown>
+            <ReactMarkdown key={fileUrl + selectedRevision?.revision_number}>{decodedContent}</ReactMarkdown>
           </div>
         );
       } catch (error) {
@@ -6177,7 +6177,7 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
     }
     
     // Otherwise use the normal markdown preview component
-    return previewContainer(<MarkdownPreview key={fileUrl} fileUrl={fileUrl} />);
+    return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
   }
   // CSV
   else if (nameLower.endsWith('.csv')) {
