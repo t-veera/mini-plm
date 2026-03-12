@@ -6173,8 +6173,6 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
 
 
 
-
-
     return previewContainer(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
   }
   // CSV
