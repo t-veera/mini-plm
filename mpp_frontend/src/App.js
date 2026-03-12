@@ -4006,9 +4006,9 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   }
   /* ---------------- RESIZABLE COLUMN ---------------- */
 function ResizableColumn({ leftContent, rightContent }) {
-    const minWidth = 200; // Minimum width for left column
-   // const maxWidth = window.innerWidth - 300; // Maximum width (leave space for right column)
-    const maxWidth = Math.max(300, Math.min(window.innerWidth - 300, window.innerWidth * 0.6)); 
+    const [leftWidth, setLeftWidth] = useState(Math.min(500, window.innerWidth * 0.4));
+    const [isResizing, setIsResizing] = useState(false);
+    const minWidth = 200;
   
     // Handle mouse down on the resizer
     const handleMouseDown = (e) => {
