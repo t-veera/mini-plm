@@ -23,13 +23,15 @@ function MarkdownViewer({ fileUrl, authenticatedFetch }) {
   }, [fileUrl]);
 
   if (error) return (
-    <div style={styles.container}>
+    <div className="markdown-viewer" style={styles.container}>
+      <style>{.markdown-viewer pre, .markdown-viewer pre code, .markdown-viewer code { font-family: Consolas, 'Courier New', monospace !important; }"}</style>
       <p style={{ color: '#ff6b6b' }}>Error loading file: {error}</p>
     </div>
   );
 
   return (
-    <div style={styles.container}>
+    <div className="markdown-viewer" style={styles.container}>
+      <style>{.markdown-viewer pre, .markdown-viewer pre code, .markdown-viewer code { font-family: Consolas, 'Courier New', monospace !important; }"}</style>
       {content ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -91,7 +93,8 @@ const styles = {
   table: { borderCollapse: 'collapse', width: '100%', fontSize: '13px', fontFamily: typography.primary },
   th: { border: '1px solid #444', padding: '7px 12px', background: '#1e2030', textAlign: 'left', fontWeight: 600, color: '#e0e0e0' },
   td: { border: '1px solid #333', padding: '6px 12px', color: '#d4d4d4' },
-  pre: { background: '#1a1a2e', padding: '1rem', borderRadius: '6px', overflow: 'auto', margin: '0.8rem 0' },
+  pre: { background: '#1a1a2e', padding: '1rem', borderRadius: '6px', overflow: 'auto', margin: '0.8rem 0', fontFamily: typography.mono },
+  preStyle: "font-family: Consolas, 'Courier New', monospace !important; font-size: 12px !important; line-height: 1.5 !important;",
   codeBlock: { fontFamily: typography.mono, fontSize: '12px', lineHeight: '1.5', color: '#e0e0e0' },
   inlineCode: { fontFamily: typography.mono, fontSize: '12px', background: '#1e2030', padding: '1px 5px', borderRadius: '3px', color: '#e0e0e0' },
 };
