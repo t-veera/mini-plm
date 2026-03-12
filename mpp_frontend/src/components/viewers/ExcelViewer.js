@@ -61,7 +61,7 @@ function ExcelViewer({ fileUrl, authenticatedFetch }) {
           ))}
         </div>
       )}
-      <div style={styles.tableWrap} dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="excel-wrap" style={styles.tableWrap} dangerouslySetInnerHTML={{ __html: html }} />
       <style>{`
         .excel-wrap table { border-collapse: collapse; font-size: 13px; font-family: ${typography.primary}; color: #e0e0e0; width: 100%; }
         .excel-wrap td, .excel-wrap th { border: 1px solid #444; padding: 5px 10px; white-space: nowrap; }
