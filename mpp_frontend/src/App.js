@@ -3929,59 +3929,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   }
   
   function MarkdownPreview({ fileUrl }) {
-    const [markdownContent, setMarkdownContent] = useState('');
-    const [error, setError] = useState(null);
-    useEffect(() => {
-      async function fetchMarkdown() {
-        try {
-          const res = await authenticatedFetch(fileUrl);
-          if (!res.ok) {
-            throw new Error(`Failed to fetch markdown file: ${res.status} ${res.statusText}`);
-          }
-          const buffer = await res.arrayBuffer();
-          const text = new TextDecoder('utf-8').decode(buffer);
-          setMarkdownContent(text);
-        } catch (err) {
-          console.error('Error fetching markdown file:', err);
-          setError(err.message || 'Error loading markdown');
-        }
-      }
-      if (fileUrl) {
-        fetchMarkdown();
-      }
-    }, [fileUrl]);
-    if (error) {
-      return (
-        <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
-          <p className="text-danger">Error loading markdown: {error}</p>
-        </div>
-      );
-    }
-    return (
-      <div style={{
-        minHeight: '600px', borderRadius: '8px',
-        border: '1px solid #888',
-        overflow: 'auto',
-        padding: '1rem',
-        fontSize: '13px'
-      }}>
-        {markdownContent ? (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              table: ({node, ...props}) => <table style={{borderCollapse:'collapse', width:'100%', marginBottom:'1rem'}} {...props} />,
-              th: ({node, ...props}) => <th style={{border:'1px solid #555', padding:'6px 12px', background:'#2a2a3e', textAlign:'left'}} {...props} />,
-              td: ({node, ...props}) => <td style={{border:'1px solid #444', padding:'6px 12px'}} {...props} />,
-              code: ({node, inline, ...props}) => inline
-                ? <code style={{background:'#2a2a3e', padding:'2px 6px', borderRadius:'3px', fontFamily:typography.mono}} {...props} />
-                : <pre style={{background:'#1a1a2e', padding:'1rem', borderRadius:'6px', overflow:'auto'}}><code style={{fontFamily:typography.mono}} {...props} /></pre>
-            }}
-          >{markdownContent}</ReactMarkdown>
-        ) : (
-          <p className="text-muted">Loading markdown...</p>
-        )}
-      </div>
-    );
+    return <MarkdownViewer fileUrl={fileUrl} authenticatedFetch={authenticatedFetch} />;
   }
   function CsvPreview({ fileUrl }) {
     const [rows, setRows] = useState([]);
