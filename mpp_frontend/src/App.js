@@ -8198,6 +8198,7 @@ function AppContent() {
   const { isAuthenticated, loading, user, logout } = useAuth();
   const [needsSetup, setNeedsSetup] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     const checkSetup = async () => {
@@ -8228,8 +8229,8 @@ function AppContent() {
     );
   }
 
-  if (needsSetup) {
-    return <SetupWizard onSetupComplete={() => window.location.reload()} />;
+    if (needsSetup && !showLogin) {
+    return <SetupWizard onSetupComplete={() => window.location.reload()} onShowLogin={() => setShowLogin(true)} />;
   }
 
   if (!isAuthenticated) {
@@ -8252,6 +8253,9 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+
+
 
 
 

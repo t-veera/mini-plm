@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './SetupWizard.css';
 
-const SetupWizard = ({ onSetupComplete }) => {
+const SetupWizard = ({ onSetupComplete, onShowLogin }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -142,7 +142,7 @@ const SetupWizard = ({ onSetupComplete }) => {
             This will create your admin account and a sample product to get you started.
           </p>
           <p className="setup-note" style={{marginTop: "12px"}}>
-            Already have an account? <a href="/login" style={{color: "#4f8ef7"}}>Log in</a>
+            Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onShowLogin(); }} style={{color: "#4f8ef7", cursor: "pointer"}}>Log in</a>
           </p>
         </form>
       </div>
@@ -151,5 +151,7 @@ const SetupWizard = ({ onSetupComplete }) => {
 };
 
 export default SetupWizard;
+
+
 
 
