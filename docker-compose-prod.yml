@@ -29,6 +29,7 @@ services:
       - DJANGO_ALLOWED_HOSTS=*  # Allow any host by default
       - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
       - CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1
+      - SECRET_KEY=change-me
     depends_on:
       db:
         condition: service_healthy
@@ -63,3 +64,4 @@ services:
 volumes:
   postgres_data:
   static_volume:
+

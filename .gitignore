@@ -5,3 +5,8 @@ db.sqlite3
 __pycache__/
 *.pyc
 .env
+
+debug.log
+data.json
+*.bak
+"package copy*.json"

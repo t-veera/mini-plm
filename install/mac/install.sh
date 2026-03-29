@@ -29,6 +29,10 @@ cp mini-plm-main/docker-compose-prod.yml docker-compose-prod.yml
 # Cleanup
 rm -rf mini-plm-main main.zip
 
+# Generate SECRET_KEY
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
+sed -i '' "s|SECRET_KEY=change-me|SECRET_KEY=$SECRET_KEY|" docker-compose-prod.yml
+
 # Configure port
 echo ""
 echo "[3/4] Configuring port..."

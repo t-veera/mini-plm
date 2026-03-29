@@ -36,6 +36,10 @@ read -p "    Enter port to run Mini-PLM on (default: 8080): " PORT
 PORT=${PORT:-8080}
 sed -i "s/- \"80:80\"/- \"$PORT:80\"/" docker-compose-prod.yml
 
+# Generate SECRET_KEY
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
+sed -i "s|SECRET_KEY=change-me|SECRET_KEY=$SECRET_KEY|" docker-compose-prod.yml
+
 # Update CSRF origins
 echo ""
 read -p "    Enter your NAS IP address: " NAS_IP
@@ -52,3 +56,4 @@ echo ""
 echo "=== Done! ==="
 echo "Open your browser and go to: http://$NAS_IP:$PORT"
 echo "The setup wizard will guide you through creating your admin account."
+

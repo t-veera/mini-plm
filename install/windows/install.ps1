@@ -29,6 +29,12 @@ Copy-Item "mini-plm-main\docker-compose-prod.yml" "docker-compose-prod.yml" -For
 Remove-Item -Recurse -Force "mini-plm-main"
 Remove-Item -Force "main.zip"
 
+# Generate SECRET_KEY
+$SECRET_KEY = python -c "import secrets; print(secrets.token_urlsafe(50))"
+$content = Get-Content "docker-compose-prod.yml" -Raw
+$content = $content -replace "SECRET_KEY=change-me", "SECRET_KEY=$SECRET_KEY"
+Set-Content "docker-compose-prod.yml" $content
+
 # Configure port
 Write-Host ""
 Write-Host "[3/4] Configuring port..."
@@ -55,3 +61,4 @@ Write-Host ""
 Write-Host "=== Done! ===" -ForegroundColor Green
 Write-Host "Open your browser and go to: http://$SERVER_IP`:$PORT"
 Write-Host "The setup wizard will guide you through creating your admin account."
+
