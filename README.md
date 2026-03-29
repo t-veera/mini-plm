@@ -38,7 +38,7 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/
 
 **Update:**
 ```bash
-bash ~/mini-plm/install/linux/update.sh
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/update.sh | bash
 ```
 
 ---
@@ -52,7 +52,7 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/
 
 **Update:**
 ```bash
-bash ~/mini-plm/install/macos/update.sh
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/update.sh | bash
 ```
 
 ---
@@ -68,7 +68,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/
 
 **Update:**
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$HOME\mini-plm\install\windows\update.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install/windows/update.ps1" -OutFile "update.ps1"; powershell -ExecutionPolicy Bypass -File update.ps1
 ```
 
 ---
@@ -84,7 +84,7 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synolo
 
 **Update:**
 ```bash
-bash /volume1/docker/mini-plm/install/synology-nas/update.sh
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synology-nas/update.sh | bash
 ```
 
 > Make sure SSH is enabled on your NAS before running. Go to **DSM > Control Panel > Terminal & SNMP > Terminal** and enable SSH.
