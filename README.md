@@ -1,296 +1,420 @@
 # Mini-PLM
 
-A lightweight, self-hosted Product Lifecycle Management (PLM) system designed for small to medium product development teams. Built with Django (backend) and React (frontend), Mini-PLM helps you organize product development stages, manage design files with automatic revision control, and track your development process from concept to production.
+**Self-hosted product lifecycle management built on a methodology I developed over 10 years of shipping hardware products. Built for R&D teams, NPD teams, and hardware hobbyists working across firmware, electronics, and mechanical. The ones currently holding everything together with shared drives, spreadsheets, and Slack threads. No subscriptions, no cloud lock-in, and a structure that actually reflects how cross-domain hardware development works. If Mini-PLM disappears tomorrow, your files, your revision history, and your entire iteration structure are still sitting exactly where you put them on your own storage.**
 
-![Mini-PLM Banner](docs/mini-plm-banner.png)
-
-## 🎯 Why Mini-PLM?
-
-**Your Data Stays Local** - Unlike cloud-based PLM solutions, all your files and data remain on your own server. No vendor lock-in, no monthly subscriptions, no data privacy concerns.
-
-**Universal File Viewer** - Preview multiple file formats directly in your browser without downloading or installing specialized software.
-
-**Integrated Development Process** - Organize your product development using stages and iterations with built-in file revision control.
+**[Live Demo](https://demo.mini-plm.com)** · **[Documentation](https://github.com/t-veera/mini-plm/wiki)** · **[Substack](https://tveera.substack.com)**
 
 ---
 
 ## Table of Contents
 
-1. [Installation](#-installation)
-2. [Current Features](#-current-features)
-3. [How to Use](#-how-to-use)
-4. [File Organization](#-file-organization)
-5. [Technical Stack](#-technical-stack)
-6. [Coming in Next Update](#-coming-in-next-update)
-7. [Use Cases](#-use-cases)
-8. [Troubleshooting](#-troubleshooting)
-9. [Why Choose Mini-PLM](#-why-choose-mini-plm)
-10. [License](#-license)
+1. [Installation](#installation)
+2. [Why this exists](#why-this-exists)
+3. [The Integrated Innovation Lifecycle](#the-integrated-innovation-lifecycle)
+4. [Features](#features)
+5. [Live Demo](#live-demo)
+6. [A note on how this was built](#a-note-on-how-this-was-built)
+7. [Tech stack](#tech-stack)
+8. [Roadmap](#roadmap)
+9. [Self-hosting notes](#self-hosting-notes)
+10. [Contributing](#contributing)
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### Method 1: One-Command Install (Recommended)
+### Prerequisites
 
-**Linux/macOS/WSL:**
+[Docker Desktop](https://docs.docker.com/get-docker/) must be installed before running any of the scripts below. That link will take you to the installer for your operating system.
+
+---
+
+### Linux
+
+**Install:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/install.sh | bash
 ```
 
-**Windows PowerShell:**
+**Update:**
+```bash
+bash ~/mini-plm/install/linux/update.sh
+```
+
+---
+
+### macOS
+
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/install.sh | bash
+```
+
+**Update:**
+```bash
+bash ~/mini-plm/install/macos/update.sh
+```
+
+---
+
+### Windows
+
+Open PowerShell and run:
+
+**Install:**
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install.sh" -OutFile "install.sh"; bash install.sh
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install/windows/install.ps1" -OutFile "install.ps1"; powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-The installer will:
-- Check system requirements (Docker, Docker Compose)
-- Download configuration files
-- Pull pre-built images from GitHub Container Registry
-- Start all services
-- Verify installation
-
-**Access:** Open `http://localhost` in your browser
+**Update:**
+```powershell
+powershell -ExecutionPolicy Bypass -File "$HOME\mini-plm\install\windows\update.ps1"
+```
 
 ---
 
-### Method 2: Manual Docker Installation
+### Synology NAS
 
+SSH into your NAS and run:
+
+**Install:**
 ```bash
-# Download configuration
-curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml -o docker-compose.yml
-
-# Start Mini-PLM
-docker-compose up -d
-
-# Check status
-docker-compose ps
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synology-nas/install.sh | bash
 ```
 
----
+**Update:**
+```bash
+bash /volume1/docker/mini-plm/install/synology-nas/update.sh
+```
 
-### Method 3: Portainer (Docker GUI)
-
-1. Open Portainer web interface
-2. Go to **Stacks** → **Add stack**
-3. Name: `mini-plm`
-4. Paste the contents from: `https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml`
-5. Click **Deploy the stack**
-6. Access at `http://your-server-ip`
+> Make sure SSH is enabled on your NAS before running. Go to **DSM > Control Panel > Terminal & SNMP > Terminal** and enable SSH.
 
 ---
 
-### Method 4: Synology NAS
-
-**Container Manager:**
-1. Open **Container Manager** in DSM
-2. Go to **Project** → **Create**
-3. Choose **Create docker-compose.yml**
-4. Paste URL: `https://raw.githubusercontent.com/t-veera/mini-plm/main/docker-compose.simple.yml`
-5. Click **Next** → **Done**
-6. Access at `http://synology-ip`
+Each installer will ask for a port number and your server's IP address, then handle the rest. Once it finishes, open the address in your browser and the setup wizard will walk you through creating your admin account.
 
 ---
 
-### Method 5: For Developers
-
-If you want to modify the source code:
+### For developers
 
 ```bash
 git clone https://github.com/t-veera/mini-plm.git
 cd mini-plm
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose-dev.yml up --build
+```
+
+The dev compose uses bind mounts and runs Django with `runserver`. Changes reload without rebuilding.
+
+---
+
+## Why this exists
+
+Hardware product development has a tool problem. Not a shortage of tools. The opposite. You've got CAD software for mechanical, KiCad for electronics, VS Code or whatever for firmware, and then a collection of shared drives, spreadsheets, and Slack threads holding it all loosely together.
+
+That works until it doesn't. Until someone asks why a design decision was made three iterations ago and nobody remembers. Until the mechanical engineer doesn't know the firmware team already validated a constraint that would have changed the PCB layout. Until you're trying to run a stage review and the files you need are scattered across four different folder structures that three different people organised differently.
+
+Enterprise PLM tools exist, but they're built for products that are already designed. Teamcenter and Windchill are change control systems optimised for managing released BOMs and supplier documentation. They're not built for the zero-to-production phase, and the overhead of using them during active development is brutal. Most engineering teams avoid putting anything into the system until the design is nearly final, which defeats the purpose.
+
+I spent 10 years shipping hardware products across embedded systems and automation. I kept running into the same problems. I built the **Integrated Innovation Lifecycle (IIL)** methodology to solve them structurally, and then built Mini-PLM to implement that methodology. This is the tool I wanted and couldn't find.
+
+**Mini-PLM is for the zero-to-production phase.** R&D teams, NPD groups, and hardware hobbyists working across firmware, electronics, and mechanical in parallel. People who don't have time to manage a formal enterprise system, and where the decisions made in the first few iterations shape everything that follows.
+
+There is one more thing that none of the SaaS alternatives can offer. Because Mini-PLM runs on your own server, your files live on your storage. Your revision history lives on your storage. Your entire iteration structure lives on your storage. If Mini-PLM shuts down tomorrow, if the company behind it pivots, if you just decide to stop using it, nothing is lost. You open the folder and everything is still there. That is not something you can say about any cloud PLM tool.
+
+---
+
+## The Integrated Innovation Lifecycle
+
+Before getting into the tool, it helps to understand the methodology it implements. The structure of Mini-PLM maps directly to IIL.
+
+IIL combines agile iteration with structured stage gates. Iterations (I1, I2, I3...) are numbered **continuously** across the entire product lifecycle. Every few iterations, you hit a Stage Gate (S1, S2, S3). A stage gate is a formal decision point where you review what was built, assess whether the product is ready to advance, and make a go/no-go call. After S3 clears, you cut a production release.
+
+```
+I1  →  I2  →  I3  →  ⛩ S1
+                           ↓
+               I4  →  I5  →  ⛩ S2
+                                  ↓
+                      I6  →  I7  →  ⛩ S3
+                                         ↓
+                                    🏭 Pv1
+```
+
+Iterations are cheap. Stage gates are consequential. The methodology is designed so that teams can move fast inside iterations and make deliberate decisions at gates. Rather than iterating indefinitely with no checkpoints, or running a rigid waterfall process that collapses when hardware reality doesn't match the plan.
+
+The methodology is covered in depth on the [wiki](https://github.com/t-veera/mini-plm/wiki) and on [Substack](https://tveera.substack.com).
+
+---
+
+## Features
+
+**Universal file preview**
+
+Preview engineering files directly in the browser. No downloads, no switching tools. Supports `.stl`, `.step`, `.dxf`, `.pdf`, `.xlsx`, `.csv`, `.md`, `.py`, `.cpp`, `.ino`, `.js`, `.png`, `.jpg`, and more. KiCad `.kicad_pcb` and `.kicad_sch` preview is in development.
+
+**Automatic revision control**
+
+Every file upload creates a new revision automatically. Revisions are timestamped and selectable from the preview panel. No manual naming conventions, no `_v2_FINAL_final.step`.
+
+**IIL-structured project organisation**
+
+Products are organised by iterations (I1, I2, I3...) and stage gates (S1, S2, S3). Files live under the iteration they were created in, so when you're looking at a `.kicad_pcb` uploaded in I4, you know exactly where it sits in the development timeline and what decisions were active at that point.
+
+**BOM and cost tracking**
+
+Attach cost data to files and track it at the BOM level. DXF files link to child files (for example, a laser-cut part linked to its material specification). Spreadsheets render inline alongside the associated hardware files.
+
+**Cross-domain file organisation**
+
+Firmware (`.ino`, `.py`, `.cpp`), electronics (`.kicad_pcb`, `.kicad_sch`), mechanical (`.step`, `.stl`, `.dxf`), and documentation (`.pdf`, `.md`) in the same place, under the same iteration structure, without forcing any domain into a workflow designed for another.
+
+---
+
+## Live Demo
+
+The demo is seeded with a complete e-reader product running through I1 to I7, S1 to S3. You can browse the full iteration structure, preview files, and explore the BOM view without setting anything up.
+
+**[Try the demo at demo.mini-plm.com](https://demo.mini-plm.com)**
+
+The demo resets hourly. Nothing you do in there persists.
+
+---
+
+## A note on how this was built
+
+### Prerequisites
+
+[Docker Desktop](https://docs.docker.com/get-docker/) must be installed before running any of the scripts below. That link will take you to the installer for your operating system.
+
+---
+
+### Linux
+
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/install.sh | bash
+```
+
+**Update:**
+```bash
+bash ~/mini-plm/install/linux/update.sh
 ```
 
 ---
 
-### System Requirements
+### macOS
 
-- **Docker** and **Docker Compose** installed
-- **2GB RAM** minimum, 4GB recommended  
-- **Port 80** available
-- Any system: Linux, Windows, macOS, ARM devices
-
-### Data Storage
-
-- **Database**: Stored in Docker volume `postgres_data`
-- **Files**: Stored in Docker volume `mini_plm_files`  
-- **Data persists** across container restarts and system reboots
-- **Backup**: Use `docker volume` commands to backup your data
-
----
-
-## ✨ Current Features
-
-### 🗂️ File Management & Universal Preview
-- **Upload & Store**: All files stored locally on your server (no cloud dependency)
-- **Automatic Revision Control**: When you upload the same filename, it creates a new revision with date stamps
-- **Universal File Preview**: View files directly in browser without external software:
-  - **3D Models**: STL files with interactive 3D viewer
-  - **Documents**: PDF, Excel (.xlsx, .xls), Markdown (.md)
-  - **Images**: PNG, JPG, GIF with full preview
-  - **Code**: Python (.py), C, JavaScript, HTML with syntax highlighting
-  - **CAD**: DXF files
-  - **Support for .kicad_sch, .kicad_pcb, STP, and DOCX coming in next update**
-
-### 📊 Product Development Structure
-- **Create Products**: Organize your development projects
-- **Flexible Stages & Iterations**: 
-  - Add stages (⛩️ FaToriiGate) for major milestones and reviews
-  - Add iterations (🥁 FaDrumSteelpan) for development cycles
-  - Customize your process - one product might have 2 iterations → 1 stage → 4 iterations, another might follow a different pattern
-- **Click-to-Upload**: Click on any stage/iteration icon to upload files for that phase
-
-### 💰 File Metadata & Tracking
-- **Cost Tracking**: Right-click on any file to add price and quantity information
-- **Change Documentation**: Add change descriptions when uploading files
-- **Revision History**: Full history of all file changes with dates and descriptions
-
-### 🎨 User Interface
-- **Flexible Split Layout**: Adjustable panels for file browsing and preview
-- **Right-Click Controls**: 
-  - Delete stages/iterations by right-clicking on ⛩️ FaToriiGate or 🥁 FaDrumSteelpan icons
-  - Add file metadata by right-clicking on files
-- **No User Management**: Open access system (user-specific features coming in next update)
-
----
-
-## 💡 How to Use
-
-### Creating Your First Product
-1. Click "New Product" to create a product
-2. Add stages (⛩️ FaToriiGate) for major milestones (concept, prototype, testing, production)
-3. Add iterations (🥁 FaDrumSteelpan) for development cycles within each stage
-4. Click on any stage/iteration to upload relevant files
-
-### File Management
-- **Upload**: Click stage/iteration icon → upload files
-- **Preview**: Click any file to preview in the right panel
-- **Add Metadata**: Right-click file → enter price, quantity
-- **Revisions**: Upload same filename to create new revision automatically
-- **Delete**: Right-click stage/iteration → delete (removes all associated files)
-
-### Organizing Your Development Process
-Mini-PLM is flexible to match your workflow:
-- **Hardware Projects**: Concept → Schematic → PCB → Prototype → Testing → Production
-- **Software Projects**: Requirements → Design → Development → Testing → Release
-- **Mixed Projects**: Research → Proof of Concept → Development → Integration → Validation → Launch
-
----
-
-## 📁 File Organization
-
-Files are automatically organized by stage/iteration with automatic revision tracking:
-
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/install.sh | bash
 ```
-mpp_files/
-├── iteration_1/
-│   ├── schematic_v1.pdf
-│   ├── firmware_code.py (Revision 1)
-│   ├── firmware_code.py (Revision 2)
-│   └── test_results.xlsx
-├── stage_1/
-│   ├── requirements.docx
-│   └── concept_design.stl
-├── iteration_2/
-│   ├── pcb_layout.kicad_pcb
-│   └── assembly_guide.pdf
-└── stage_2/
-    └── final_prototype.stl
+
+**Update:**
+```bash
+bash ~/mini-plm/install/macos/update.sh
 ```
 
 ---
 
-## 🛠️ Technical Stack
+### Windows
 
-- **Backend**: Django + Django REST Framework
-- **Frontend**: React with React Bootstrap
-- **Database**: PostgreSQL
-- **File Preview**: 
-  - React Three Fiber (3D models)
-  - React Syntax Highlighter (code)
-  - React Markdown (markdown)
-  - Native browser viewers (PDF, images, Excel)
-- **Deployment**: Docker Compose with Nginx reverse proxy
+Open PowerShell and run:
 
----
+**Install:**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install/windows/install.ps1" -OutFile "install.ps1"; powershell -ExecutionPolicy Bypass -File install.ps1
+```
 
-## 🔄 Coming in Next Update
-
-The following features are currently in development:
-
-- **📊 BOM Dashboard**: Dedicated Bill of Materials view with component cost tracking and purchasing management
-- **⬇️ Download Options**: Bulk download of files, export project data
-- **👥 User Management**: User-specific file access, permissions, and collaboration features
-- **📈 Enhanced Analytics**: Project cost analysis, timeline tracking, and development metrics
-- **🔧 Additional File Support**: .kicad_sch, .kicad_pcb, STP, and DOCX preview capabilities
+**Update:**
+```powershell
+powershell -ExecutionPolicy Bypass -File "$HOME\mini-plm\install\windows\update.ps1"
+```
 
 ---
 
-## 🤝 Use Cases
+### Synology NAS
 
-Mini-PLM is perfect for:
+SSH into your NAS and run:
 
-- **Hardware Development Teams**: Managing schematics, PCB files, firmware, and test data
-- **IoT Product Development**: Organizing hardware, software, and integration files
-- **Small Manufacturing**: Tracking product development from concept to production
-- **Engineering Consulting**: Managing multiple client projects with full file history
-- **R&D Teams**: Documenting research, prototyping, and validation processes
-- **Maker Spaces & Startups**: Affordable PLM without enterprise complexity
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synology-nas/install.sh | bash
+```
 
----
+**Update:**
+```bash
+bash /volume1/docker/mini-plm/install/synology-nas/update.sh
+```
 
-## 🏗️ System Requirements
-
-- **Server**: Any system capable of running Docker (Linux, Windows, macOS)
-- **RAM**: 2GB minimum, 4GB recommended
-- **Storage**: Depends on your file storage needs
-- **Network**: Local network access for team collaboration
+> Make sure SSH is enabled on your NAS before running. Go to **DSM > Control Panel > Terminal & SNMP > Terminal** and enable SSH.
 
 ---
 
-## 🔧 Troubleshooting
-
-### Application Won't Start
-- Ensure Docker and Docker Compose are installed and running
-- Check that port 80 is not in use by another application
-- Run `docker-compose logs` to see error messages
-
-### Cannot Access from Other Devices
-- Check firewall settings on the host machine
-- Ensure other devices are on the same network
-- Try accessing via the host machine's IP address instead of localhost
-
-### Files Not Uploading
-- Check available disk space on the host system
-- Verify Docker volumes have proper write permissions
-
-### Database Issues
-- Database data persists in Docker volume `postgres_data`
-- To reset database: `docker-compose down -v` (⚠️ This deletes all data)
+Each installer will ask for a port number and your server's IP address, then handle the rest. Once it finishes, open the address in your browser and the setup wizard will walk you through creating your admin account.
 
 ---
 
-## 🌟 Why Choose Mini-PLM?
+### For developers
 
-**All-in-One File Management Tool** - Not just file viewing, but complete version control, metadata tracking, and development process organization for multiple file types - all stored locally on your infrastructure.
+```bash
+git clone https://github.com/t-veera/mini-plm.git
+cd mini-plm
+docker compose -f docker-compose-dev.yml up --build
+```
 
-**Key Benefits:**
-- **Your Data, Your Server**: All files stored locally, no cloud dependencies
-- **Universal File Management**: Handle STL, PDF, code, CAD, images, and more in one system
-- **Automatic Version Control**: Track file revisions with dates and change descriptions
-- **Integrated Metadata**: Add quantity, pricing, and other metadata directly to files
-- **Development Process Tracking**: Organize stages and iterations with complete file history
-- **No External Dependencies**: One tool replaces multiple file viewers and version control systems
+The dev compose uses bind mounts and runs Django with `runserver`. Changes reload without rebuilding.
 
 ---
 
-## 📄 License
+## Installation
 
-[MIT License](LICENSE)
+### Prerequisites
 
-Free to use, modify, and distribute. Contributions welcome!
+[Docker Desktop](https://docs.docker.com/get-docker/) must be installed before running any of the scripts below. That link will take you to the installer for your operating system.
 
 ---
 
-Perfect for teams who need more structure than shared folders but want a simple, powerful, locally-hosted solution for managing their product development lifecycle.
+### Linux
+
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/install.sh | bash
+```
+
+**Update:**
+```bash
+bash ~/mini-plm/install/linux/update.sh
+```
+
+---
+
+### macOS
+
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/install.sh | bash
+```
+
+**Update:**
+```bash
+bash ~/mini-plm/install/macos/update.sh
+```
+
+---
+
+### Windows
+
+Open PowerShell and run:
+
+**Install:**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/t-veera/mini-plm/main/install/windows/install.ps1" -OutFile "install.ps1"; powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+**Update:**
+```powershell
+powershell -ExecutionPolicy Bypass -File "$HOME\mini-plm\install\windows\update.ps1"
+```
+
+---
+
+### Synology NAS
+
+SSH into your NAS and run:
+
+**Install:**
+```bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synology-nas/install.sh | bash
+```
+
+**Update:**
+```bash
+bash /volume1/docker/mini-plm/install/synology-nas/update.sh
+```
+
+> Make sure SSH is enabled on your NAS before running. Go to **DSM > Control Panel > Terminal & SNMP > Terminal** and enable SSH.
+
+---
+
+Each installer will ask for a port number and your server's IP address, then handle the rest. Once it finishes, open the address in your browser and the setup wizard will walk you through creating your admin account.
+
+---
+
+### For developers
+
+```bash
+git clone https://github.com/t-veera/mini-plm.git
+cd mini-plm
+docker compose -f docker-compose-dev.yml up --build
+```
+
+The dev compose uses bind mounts and runs Django with `runserver`. Changes reload without rebuilding.
+
+---
+
+## A note on how this was built
+
+The system architecture is designed by me: the IIL methodology, the iteration and stage gate structure, the file organisation model, and the BOM logic all come from 10 years of hands-on hardware product development. The implementation was vibe coded. I used AI tooling heavily to write the actual code. If you're looking at the frontend and wondering why `App.js` is 8000 lines, that's why. The structure is intentional. The code is a work in progress.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django (Python) |
+| Frontend | React, Bootstrap |
+| Database | PostgreSQL |
+| Reverse proxy | Nginx |
+| Container runtime | Docker, Docker Compose |
+| CI/CD | GitHub Actions to GHCR |
+| Image registry | `ghcr.io/t-veera/mini-plm` |
+| 3D preview | Three.js |
+| Markdown rendering | ReactMarkdown |
+
+Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Silicon) requires a separate build and is on the roadmap.
+
+---
+
+## Roadmap
+
+**In progress:**
+
+- [ ] **KiCad preview:** server-side `kicad-cli` conversion to PDF via a sidecar microservice container. Engineers upload `.kicad_pcb` as the source file and a STEP export as a child file for 3D preview. Conversion happens automatically on upload.
+- [ ] **Frontend refactor:** `App.js` is a monolith at around 8000 lines. Breaking it into components once auth and demo work stabilises.
+
+**Next:**
+
+- [ ] **BOM view improvements:** richer cost rollup, better component linking, editable fields inline
+- [ ] **KPI view:** iteration-level metrics tracked across the lifecycle. Time per iteration, cost delta, defects per stage, readiness scores at gate reviews.
+- [ ] **File grouping and sorting:** organise files within an iteration into folders, with sort controls by name, type, date, and status.
+- [ ] **ARM image builds:** for Oracle Cloud Always Free and Apple Silicon dev machines
+
+**Done:**
+
+- [x] Automatic revision control
+- [x] BOM view with DXF and child file linking
+- [x] Markdown preview with revision switching
+- [x] 3D preview for STL, STEP, DXF
+- [x] Demo environment with seeded e-reader project running I1 through S3
+
+---
+
+## Self-hosting notes
+
+**Synology NAS:** Use named Docker volumes rather than bind mounts to Synology-managed folders to avoid permission issues.
+
+**Render free tier:** The demo runs on Render's free tier, kept warm by UptimeRobot pings every 5 minutes. Render's free PostgreSQL has a 90-day expiry. Set a calendar reminder to recreate the database before it drops.
+
+**Oracle Cloud Always Free:** The strongest free option for a persistent always-on deployment, but it requires ARM image builds which are not currently supported out of the box.
+
+---
+
+## Contributing
+
+This is early stage. If you're running a hardware team or NPD group and something doesn't work the way you need it to, open an issue. I'm more interested in understanding real workflow problems than in collecting feature requests.
+
+Pull requests are welcome. For larger changes, open an issue first so we can align on the approach.
+
+---
+
+**Methodology and process writing:** [tveera.substack.com](https://tveera.substack.com) · **Landing page:** [mini-plm.com](https://mini-plm.com) · **Personal site:** [twishaveera.com](https://twishaveera.com) · **Docs:** [wiki](https://github.com/t-veera/mini-plm/wiki)

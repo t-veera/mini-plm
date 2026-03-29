@@ -148,3 +148,4 @@ const SetupWizard = ({ onSetupComplete }) => {
 };
 
 export default SetupWizard;
+

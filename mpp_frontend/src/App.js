@@ -4002,7 +4002,7 @@ function StlViewerControls({ brightness, setBrightness, contrast, setContrast, g
   
   /* ---------------- EXCEL PREVIEW ---------------- */
   function ExcelPreview({ fileUrl }) {
-    return <ExcelViewer fileUrl={fileUrl} authenticatedFetch={authenticatedFetch} />;
+    return <sewer fileUrl={fileUrl} authenticatedFetch={authenticatedFetch} />;
   }
   /* ---------------- RESIZABLE COLUMN ---------------- */
 function ResizableColumn({ leftContent, rightContent }) {
