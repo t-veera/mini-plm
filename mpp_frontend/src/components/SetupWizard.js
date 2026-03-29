@@ -141,6 +141,9 @@ const SetupWizard = ({ onSetupComplete }) => {
           <p className="setup-note">
             This will create your admin account and a sample product to get you started.
           </p>
+          <p className="setup-note" style={{marginTop: "12px"}}>
+            Already have an account? <a href="/login" style={{color: "#4f8ef7"}}>Log in</a>
+          </p>
         </form>
       </div>
     </div>
@@ -148,4 +151,5 @@ const SetupWizard = ({ onSetupComplete }) => {
 };
 
 export default SetupWizard;
+
 
