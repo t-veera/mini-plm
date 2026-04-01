@@ -6014,9 +6014,9 @@ async function handlePriceUpdate(price) {
   //                 `/media/${selectedRevision.file_path || fileObj.file_path || fileObj.name}`;
 
   // const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl || serverUrl;
-  const serverUrl = selectedRevision.uploaded_file || 
-                  fileObj.uploaded_file || 
-                  (selectedRevision.file_path ? `/media/${selectedRevision.file_path}` : null) ||
+  const normalizeUrl = (url) => url ? url.replace(/^https?:\/\/[^\/]+/, window.location.origin) : null;
+  const serverUrl = normalizeUrl(selectedRevision.uploaded_file) ||
+                  normalizeUrl(fileObj.uploaded_file) ||
                   (fileObj.file_path ? `/media/${fileObj.file_path}` : null) ||
                   `/media/uploads/${fileObj.name}`;
 
@@ -8253,6 +8253,8 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+
 
 
 
