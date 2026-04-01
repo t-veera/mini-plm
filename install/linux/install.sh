@@ -32,7 +32,7 @@ rm -rf mini-plm-main main.zip
 # Configure port
 echo ""
 echo "[3/4] Configuring port..."
-read -p "    Enter port to run Mini-PLM on (default: 8080): " PORT
+read -p "    Enter port to run Mini-PLM on (default: 8080): " PORT </dev/tty
 PORT=${PORT:-8080}
 sed -i "s/- \"80:80\"/- \"$PORT:80\"/" docker-compose-prod.yml
 
@@ -42,7 +42,7 @@ sed -i "s|SECRET_KEY=change-me|SECRET_KEY=$SECRET_KEY|" docker-compose-prod.yml
 
 # Update CSRF origins
 echo ""
-read -p "    Enter your server IP address (or localhost): " SERVER_IP
+read -p "    Enter your server IP address (or localhost): " SERVER_IP </dev/tty
 SERVER_IP=${SERVER_IP:-localhost}
 sed -i "s|CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1|CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://$SERVER_IP:$PORT|" docker-compose-prod.yml
 
@@ -57,4 +57,5 @@ echo ""
 echo "=== Done! ==="
 echo "Open your browser and go to: http://$SERVER_IP:$PORT"
 echo "The setup wizard will guide you through creating your admin account."
+
 

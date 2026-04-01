@@ -36,10 +36,10 @@ sed -i '' "s|SECRET_KEY=change-me|SECRET_KEY=$SECRET_KEY|" docker-compose-prod.y
 # Configure port
 echo ""
 echo "[3/4] Configuring port..."
-read -p "    Enter port to run Mini-PLM on (default: 8080): " PORT
+read -p "    Enter port to run Mini-PLM on (default: 8080): " PORT </dev/tty
 PORT=${PORT:-8080}
 
-read -p "    Enter your server IP address (or press Enter for localhost): " SERVER_IP
+read -p "    Enter your server IP address (or press Enter for localhost): " SERVER_IP </dev/tty
 SERVER_IP=${SERVER_IP:-localhost}
 
 # macOS sed requires '' after -i
@@ -57,3 +57,4 @@ echo ""
 echo "=== Done! ==="
 echo "Open your browser and go to: http://$SERVER_IP:$PORT"
 echo "The setup wizard will guide you through creating your admin account."
+
