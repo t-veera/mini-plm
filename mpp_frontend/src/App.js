@@ -4122,6 +4122,7 @@ function ResizableColumn({ leftContent, rightContent }) {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ visible: false, message: '', onConfirm: null });
   const [moveModal, setMoveModal] = useState({ visible: false, fileToMove: null, containers: [], selected: '' });
+  const [inputModal, setInputModal] = useState({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null });
   // File types that show Qty and Price badges (hardware/manufacturing files)
   const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
   function shouldShowQtyPrice(fileObj) {
@@ -4972,6 +4973,55 @@ async function loadContainerFiles(container, type) {
       setToastMsg(`Failed to move file: ${error.message}`);
     }
   }
+
+  async function handleMoveConfirm() {
+    const { fileToMove, selected } = moveModal;
+    setMoveModal({ visible: false, fileToMove: null, containers: [], selected: '' });
+    const prod = products[selectedProductIndex];
+    const allContainers = [
+      ...(prod.stages || []).map(s => ({ id: s.id, label: s.stage_id, name: s.name, type: 'stage' })),
+      ...(prod.iterations || []).map(i => ({ id: i.id, label: i.iteration_id, name: i.name, type: 'iteration' }))
+    ];
+    const targetContainer = allContainers.find(c => c.label.toLowerCase() === selected.toLowerCase());
+    if (!targetContainer) { setToastMsg(`Container ${selected} does not exist!`); return; }
+    if (fileToMove.container_type === targetContainer.type && fileToMove.container_id === targetContainer.label) {
+      setToastMsg('File is already in that container!'); return;
+    }
+    try {
+      const updateData = targetContainer.type === 'stage' ? { stage_id: targetContainer.id } : { iteration_id: targetContainer.id };
+      const response = await authenticatedFetch(`/api/files/${fileToMove.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+      if (!response.ok) throw new Error('Move failed');
+      const updatedFile = await response.json();
+      const updatedProducts = [...products];
+      const updatedProduct = { ...updatedProducts[selectedProductIndex] };
+      updatedProducts[selectedProductIndex] = updatedProduct;
+      updatedProduct.filesByContainer = { ...updatedProduct.filesByContainer };
+      const currentContainerKey = fileToMove.container_type + '_' + (
+        fileToMove.container_type === 'stage'
+          ? (prod.stages?.find(s => s.stage_id === fileToMove.container_id)?.id || fileToMove.container_id)
+          : (prod.iterations?.find(i => i.iteration_id === fileToMove.container_id)?.id || fileToMove.container_id)
+      );
+      const targetContainerKey = targetContainer.type + '_' + targetContainer.id;
+      if (updatedProduct.filesByContainer[currentContainerKey]) {
+        updatedProduct.filesByContainer[currentContainerKey] = updatedProduct.filesByContainer[currentContainerKey].filter(f => f.id !== fileToMove.id);
+      }
+      if (updatedProduct.filesByContainer[targetContainerKey]) {
+        updatedProduct.filesByContainer[targetContainerKey] = [...(updatedProduct.filesByContainer[targetContainerKey] || []), { ...fileToMove, container_type: targetContainer.type, container_id: targetContainer.label, ...updatedFile }];
+      }
+      setProducts(updatedProducts);
+      if (selectedFileObj?.id === fileToMove.id) setSelectedFileObj(null);
+      hybridStorage.saveProducts(updatedProducts).catch(err => console.error('Error saving after move:', err));
+      setToastMsg(`File moved to ${targetContainer.label} (${targetContainer.name})`);
+    } catch (error) {
+      console.error('Error moving file:', error);
+      setToastMsg(`Failed to move file: ${error.message}`);
+    }
+  }
+
 
 /* Handle remove option */
 async function handleRemoveOption() {
