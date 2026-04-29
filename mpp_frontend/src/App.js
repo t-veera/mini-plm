@@ -20,6 +20,7 @@ import {
   FaRegFilePdf,
   FaImage,
   FaFileAlt,
+  FaFileCode,
   FaJs,
   FaPython,
   FaMarkdown,
@@ -140,12 +141,12 @@ const iconMap = {
   doc: <FaFileWord size={22} style={{ color: '#2B7BF3' }} />,
   docx: <FaFileWord size={22} style={{ color: '#2B7BF3' }} />,
   js: <FaJs size={22} style={{ color: '#e665a4' }} />,
-  xlsx: <FaTable size={22} style={{ color: '#1D6F42' }} />,
-  xls: <FaTable size={22} style={{ color: '#1D6F42' }} />,
-  csv: <FaTable size={22} style={{ color: '#1D6F42' }} />,
+  xlsx: <FaFileAlt size={22} style={{ color: '#1D6F42' }} />,
+  xls: <FaFileAlt size={22} style={{ color: '#1D6F42' }} />,
+  csv: <FaFileAlt size={22} style={{ color: '#1D6F42' }} />,
   py: <FaPython size={22} style={{ color: '#B197FC' }} />,
   cpp: <FaCodepen size={22} style={{ color: '#ff813d' }} />,
-  md: <FaMarkdown size={22} style={{ color: '#74C0FC' }} />,
+  md: <FaFileCode size={22} style={{ color: '#74C0FC' }} />,
   ino: <FaCode size={22} style={{ color: '#FF6B6B' }} />,
   default: <FaFileAlt size={22} style={{ color: '#74C0FC' }} />
 };
@@ -6370,7 +6371,7 @@ function renderFileList(prod) {
                       onContextMenu={(e) => handleFileRightClick(e, fileObj)}
                     >
                       <div className="d-flex align-items-center">
-                        {icon}
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", flexShrink: 0, marginRight: "6px" }}>{icon}</span>
                         <span className="flex-grow-1">{fileObj.name}</span>
                         <div 
                           className="ms-1"
@@ -6589,8 +6590,8 @@ function renderFileList(prod) {
             position: 'fixed',
             top: contextMenu.y,
             left: contextMenu.x,
-            backgroundColor: '${styles.colors.dark}',
-            border: '1px solid ${styles.colors.border}',
+                backgroundColor: styles.colors.dark,
+                border: "1px solid ${styles.colors.border}",
             borderRadius: '4px',
             padding: '0.5rem 0',
             zIndex: 1000,
