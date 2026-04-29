@@ -128,26 +128,26 @@ const styles = {
 
 /* ---------------- FILE ICON MAP ---------------- */
 const iconMap = {
-  pdf: <FaRegFilePdf style={{ marginRight: '4px', color: '#ff3d3d', fontSize: '1.5rem' }} />,
-  png: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
-  jpg: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
-  jpeg: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
-  gif: <FaImage style={{ marginRight: '4px', color: '#63E6BE', fontSize: '1.5rem' }} />,
-  stl: <FaCube style={{ marginRight: '4px', color: '#FFD43B', fontSize: '1.5rem' }} />,
-  dxf: <FaDraftingCompass style={{ marginRight: '4px', color: '${styles.colors.primary}', fontSize: '1.5rem' }} />,
-  stp: <FaCogs style={{ marginRight: '4px', color: '#9775FA', fontSize: '1.5rem' }} />,
-  step: <FaCogs style={{ marginRight: '4px', color: '#9775FA', fontSize: '1.5rem' }} />,
-  doc: <FaFileWord style={{ marginRight: '4px', color: '#2B7BF3', fontSize: '1.5rem' }} />,
-  docx: <FaFileWord style={{ marginRight: '4px', color: '#2B7BF3', fontSize: '1.5rem' }} />,
-  js: <FaJs style={{ marginRight: '4px', color: '#e665a4', fontSize: '1.5rem' }} />,
-  xlsx: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
-  xls: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
-  csv: <FaTable style={{ marginRight: '4px', color: '#1D6F42', fontSize: '1.5rem' }} />,
-  py: <FaPython style={{ marginRight: '4px', color: '#B197FC', fontSize: '1.5rem' }} />,
-  cpp: <FaCodepen style={{ marginRight: '4px', color: '#ff813d', fontSize: '1.5rem' }} />,
-  md: <FaMarkdown style={{ marginRight: '4px', color: '#74C0FC', fontSize: '1.5rem' }} />,
-  ino: <FaCode style={{ marginRight: '4px', color: '#FF6B6B', fontSize: '1.5rem' }} />,
-  default: <FaFileAlt style={{ marginRight: '4px', color: '#74C0FC', fontSize: '1.5rem' }} />
+  pdf: <FaRegFilePdf size={22} style={{ color: '#ff3d3d' }} />,
+  png: <FaImage size={22} style={{ color: '#63E6BE' }} />,
+  jpg: <FaImage size={22} style={{ color: '#63E6BE' }} />,
+  jpeg: <FaImage size={22} style={{ color: '#63E6BE' }} />,
+  gif: <FaImage size={22} style={{ color: '#63E6BE' }} />,
+  stl: <FaCube size={22} style={{ color: '#FFD43B' }} />,
+  dxf: <FaDraftingCompass size={22} style={{ color: '${styles.colors.primary}' }} />,
+  stp: <FaCogs size={22} style={{ color: '#9775FA' }} />,
+  step: <FaCogs size={22} style={{ color: '#9775FA' }} />,
+  doc: <FaFileWord size={22} style={{ color: '#2B7BF3' }} />,
+  docx: <FaFileWord size={22} style={{ color: '#2B7BF3' }} />,
+  js: <FaJs size={22} style={{ color: '#e665a4' }} />,
+  xlsx: <FaTable size={22} style={{ color: '#1D6F42' }} />,
+  xls: <FaTable size={22} style={{ color: '#1D6F42' }} />,
+  csv: <FaTable size={22} style={{ color: '#1D6F42' }} />,
+  py: <FaPython size={22} style={{ color: '#B197FC' }} />,
+  cpp: <FaCodepen size={22} style={{ color: '#ff813d' }} />,
+  md: <FaMarkdown size={22} style={{ color: '#74C0FC' }} />,
+  ino: <FaCode size={22} style={{ color: '#FF6B6B' }} />,
+  default: <FaFileAlt size={22} style={{ color: '#74C0FC' }} />
 };
 
 // Status options for files
@@ -4120,6 +4120,8 @@ function ResizableColumn({ leftContent, rightContent }) {
   const [parentFileForChild, setParentFileForChild] = useState(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, message: '', onConfirm: null });
+  const [moveModal, setMoveModal] = useState({ visible: false, fileToMove: null, containers: [], selected: '' });
   // File types that show Qty and Price badges (hardware/manufacturing files)
   const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
   function shouldShowQtyPrice(fileObj) {
@@ -4285,7 +4287,7 @@ function ResizableColumn({ leftContent, rightContent }) {
   
 
 async function handleCreateProduct() {
-  const prodName = prompt('Enter new product name:');
+      const prodName = await showInputModal('New Product', 'Enter product name');
   console.log('📝 Product name entered:', prodName);
   if (!prodName){
     console.log('❌ No product name, returning early');
@@ -4698,7 +4700,7 @@ async function loadContainerFiles(container, type) {
 
     // If empty => ask user
     const containerLabel = type === 'stage' ? container.stage_id : container.iteration_id;
-    const confirmDel = window.confirm(`Delete ${containerLabel}? It's empty and will be removed.`);
+        const confirmDel = await showConfirm(`Delete ${containerLabel}? It's empty and will be removed.`);
     if (!confirmDel) return;
 
     try {
@@ -4830,7 +4832,7 @@ async function loadContainerFiles(container, type) {
     
     // Show available containers to user
     const containerList = availableContainers.map(c => `${c.label} (${c.name})`).join(', ');
-    const targetLabel = prompt(`Enter container to move file to.\nAvailable: ${containerList}\n\nEnter (e.g., S1, I2):`);
+        const targetLabel = await showInputModal(`Move "${fileToMove.name}"`, `Available: ${containerList} � type a label, e.g. S1, I2`);
     
     if (!targetLabel) return;
     
@@ -4985,7 +4987,7 @@ async function handleRemoveOption() {
     ? `Remove this child file "${fileToRemove.name}"?`
     : `Remove this file "${fileToRemove.name}" and all its child files?`;
   
-  if (!window.confirm(confirmMessage)) {
+      if (!await showConfirm(confirmMessage)) {
     hideContextMenu();
     return;
   }
@@ -5078,7 +5080,27 @@ function getCurrentContainerIdFromFile(fileObj) {
   return fileObj.container_id;
 }
 
-  /* Hide context menu */
+  /* Styled confirm + input helpers */
+  function showConfirm(message) {
+    return new Promise(resolve => {
+      setConfirmModal({
+        visible: true, message,
+        onConfirm: () => { setConfirmModal({ visible: false, message: '', onConfirm: null, onCancel: null }); resolve(true); },
+        onCancel:  () => { setConfirmModal({ visible: false, message: '', onConfirm: null, onCancel: null }); resolve(false); }
+      });
+    });
+  }
+
+  function showInputModal(title, placeholder) {
+    return new Promise(resolve => {
+      setInputModal({ visible: true, title, placeholder, value: '',
+        onConfirm: (val) => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(val || null); },
+        onCancel:  ()    => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(null); }
+      });
+    });
+  }
+
+/* Hide context menu */
   function hideContextMenu() {
     setContextMenu({
       visible: false,
@@ -6050,8 +6072,8 @@ const dataUrl = selectedRevision.dataUrl || fileObj.dataUrl;
           style={{
             width: '90px',
             marginRight: '10px',
-            backgroundColor: '${styles.colors.dark}',
-            color: '${styles.colors.text.light}',
+            backgroundColor: styles.colors.dark,
+            color: styles.colors.text.light,
             border: '1px solid ${styles.colors.border}',
             fontSize: '0.8rem',
             backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e")`
@@ -6425,7 +6447,7 @@ function renderFileList(prod) {
                               color: '#6c757d', 
                               fontSize: '0.7rem' 
                             }}>└</span>
-                            <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center" }}>{childIcon}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "24px", height: "24px", flexShrink: 0, marginRight: "6px" }}>{childIcon}</span>
                             <span style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto' }}>{childFile.name}</span>
                             <div style={{ 
                               display: 'flex', 
@@ -6470,7 +6492,7 @@ function renderFileList(prod) {
                             style={{ 
                               width: '80px',
                               backgroundColor: '${styles.colors.dark}',
-                              color: '${styles.colors.text.light}',
+                              color: styles.colors.text.light,
                               border: '1px solid ${styles.colors.border}',
                               fontSize: '0.8rem',
                               textAlign: 'center',
@@ -6531,12 +6553,12 @@ function renderFileList(prod) {
             style={{
               padding: '0.375rem 1rem',
               cursor: 'pointer',
-              color: '${styles.colors.text.light}',
+              color: styles.colors.text.light,
               fontWeight: 'normal'
             }}
             className="context-menu-item"
             onClick={handleContextMenuUpload}
-            onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
+            onMouseOver={(e) => e.target.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
           >
             Upload Revision
@@ -6545,12 +6567,12 @@ function renderFileList(prod) {
             style={{
               padding: '0.375rem 1rem',
               cursor: 'pointer',
-              color: '${styles.colors.text.light}',
+              color: styles.colors.text.light,
               fontWeight: 'normal'
             }}
             className="context-menu-item"
             onClick={handleQuantityOption}
-            onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
+            onMouseOver={(e) => e.target.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
           >
             Set Quantity
@@ -6559,12 +6581,12 @@ function renderFileList(prod) {
             style={{
               padding: '0.375rem 1rem',
               cursor: 'pointer',
-              color: '${styles.colors.text.light}',
+              color: styles.colors.text.light,
               fontWeight: 'normal'
             }}
             className="context-menu-item"
             onClick={handlePriceOption}
-            onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
+            onMouseOver={(e) => e.target.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
           >
             Set Price
@@ -6573,12 +6595,12 @@ function renderFileList(prod) {
             style={{
               padding: '0.375rem 1rem',
               cursor: 'pointer',
-              color: '${styles.colors.text.light}',
+              color: styles.colors.text.light,
               fontWeight: 'normal'
             }}
             className="context-menu-item"
             onClick={handleMoveOption}
-            onMouseOver={(e) => e.target.style.backgroundColor = '${styles.colors.darkAlt}'}
+            onMouseOver={(e) => e.target.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
           >
             Move
@@ -6587,7 +6609,7 @@ function renderFileList(prod) {
             style={{
               padding: '0.375rem 1rem',
               cursor: 'pointer',
-              color: '${styles.colors.text.light}',
+              color: styles.colors.text.light,
               fontWeight: 'normal',
               backgroundColor: '#dc3545'
             }}
@@ -6601,6 +6623,64 @@ function renderFileList(prod) {
         </div>
       )}
       
+
+      {/* Confirm Modal */}
+      {confirmModal.visible && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1060 }}>
+          <div style={{ backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '6px', padding: '1.5rem', width: '380px', maxWidth: '90%' }}>
+            <p style={{ color: styles.colors.text.light, marginBottom: '1.5rem', fontSize: '0.9rem', lineHeight: '1.5' }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className='btn btn-secondary btn-sm' onClick={confirmModal.onCancel}>Cancel</button>
+              <button className='btn btn-danger btn-sm' onClick={confirmModal.onConfirm}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Modal */}
+      {moveModal.visible && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1060 }}>
+          <div style={{ backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '6px', padding: '1.5rem', width: '380px', maxWidth: '90%' }}>
+            <h6 style={{ color: styles.colors.text.light, marginBottom: '0.25rem', fontSize: '0.9rem' }}>Move File</h6>
+            <p style={{ color: styles.colors.text.muted, marginBottom: '1rem', fontSize: '0.8rem' }}>{moveModal.fileToMove?.name}</p>
+            <select
+              className='form-select form-select-sm mb-3'
+              style={{ backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}` }}
+              value={moveModal.selected}
+              onChange={e => setMoveModal(prev => ({ ...prev, selected: e.target.value }))}
+            >
+              {moveModal.containers.map(cont => (
+                <option key={cont.id} value={cont.label}>{cont.label} — {cont.name} ({cont.type})</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className='btn btn-secondary btn-sm' onClick={() => setMoveModal({ visible: false, fileToMove: null, containers: [], selected: '' })}>Cancel</button>
+              <button className='btn btn-primary btn-sm' onClick={handleMoveConfirm}>Move</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Input Modal */}
+      {inputModal.visible && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1060 }}>
+          <div style={{ backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '6px', padding: '1.5rem', width: '380px', maxWidth: '90%' }}>
+            <h6 style={{ color: styles.colors.text.light, marginBottom: '1rem', fontSize: '0.9rem' }}>{inputModal.title}</h6>
+            <input type='text' className='form-control form-control-sm mb-3'
+              style={{ backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}` }}
+              placeholder={inputModal.placeholder} value={inputModal.value} autoFocus
+              onChange={e => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') inputModal.onConfirm(inputModal.value); if (e.key === 'Escape') inputModal.onCancel(); }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className='btn btn-secondary btn-sm' onClick={inputModal.onCancel}>Cancel</button>
+              <button className='btn btn-primary btn-sm' onClick={() => inputModal.onConfirm(inputModal.value)}>OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hidden file inputs */}
       <input
         type="file"
@@ -6658,7 +6738,7 @@ function renderFileList(prod) {
                   defaultValue={currentFileForModal?.quantity || ''}
                   style={{
                     backgroundColor: '${styles.colors.darkAlt}',
-                    color: '${styles.colors.text.light}',
+                    color: styles.colors.text.light,
                     border: '1px solid ${styles.colors.border}',
                     fontSize: '0.9rem'
                   }}
@@ -6727,7 +6807,7 @@ function renderFileList(prod) {
                   defaultValue={currentFileForModal?.price || ''}
                   style={{
                     backgroundColor: '${styles.colors.darkAlt}',
-                    color: '${styles.colors.text.light}',
+                    color: styles.colors.text.light,
                     border: '1px solid ${styles.colors.border}',
                     fontSize: '0.9rem'
                   }}
