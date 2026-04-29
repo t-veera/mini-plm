@@ -5001,7 +5001,7 @@ async function handleRemoveOption() {
 
     // Delete files from backend
     const deletePromises = filesToDelete.map(fileId => 
-      fetch(`/api/files/${fileId}/`, {
+      authenticatedFetch(`/api/files/${fileId}/`, {
         method: 'DELETE'
       })
     );
@@ -6425,7 +6425,7 @@ function renderFileList(prod) {
                               color: '#6c757d', 
                               fontSize: '0.7rem' 
                             }}>└</span>
-                            {childIcon}
+                            <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center" }}>{childIcon}</span>
                             <span style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto' }}>{childFile.name}</span>
                             <div style={{ 
                               display: 'flex', 
