@@ -11,6 +11,7 @@ import UserMenu from './components/Auth/UserMenu';
 import authenticatedFetch from './utils/authenticatedFetch';
 import { hybridStorage } from './hybridStorage';
 import styles from './constants/styles';
+import useIconTheme from './hooks/useIconTheme';
 
 import ResizableColumn from './components/ResizableColumn/ResizableColumn';
 import FileList from './components/FileList/FileList';
@@ -118,6 +119,7 @@ function MainApp() {
   const [currentFileForModal, setCurrentFileForModal] = useState(null);
   const [tempChangeDescription, setTempChangeDescription] = useState('');
   const [toastMsg, setToastMsg] = useState('');
+  const { activeTheme, setActiveTheme } = useIconTheme();
 
   const hiddenFileInput = useRef(null);
   const contextMenuFileInput = useRef(null);
@@ -685,6 +687,7 @@ function MainApp() {
           childFileInput={childFileInput}
           onContextMenuFileChange={handleContextMenuFileChange}
           onChildFileChange={handleChildFileChange}
+          activeTheme={activeTheme}
         />
       )}
       {viewMode === 'bom' && <BOMViewer prod={normalizedProd} updateFile={updateFile} />}
@@ -780,3 +783,6 @@ function AppContent() {
 export default function App() {
   return <AuthProvider><AppContent /></AuthProvider>;
 }
+
+
+

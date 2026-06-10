@@ -1,7 +1,7 @@
 ﻿import React from 'react';
 import { Table, Form } from 'react-bootstrap';
 import { FaPlus } from 'react-icons/fa';
-import iconMap from '../../constants/iconMap';
+import AppFileIcon from '../FileIcon/AppFileIcon';
 import styles from '../../constants/styles';
 
 const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
@@ -31,6 +31,7 @@ function FileList({
   childFileInput,
   onContextMenuFileChange,
   onChildFileChange,
+  activeTheme = 'default',
 }) {
   if (!prod.selectedContainer || !prod.containerType) {
     return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Select a Stage or Iteration on the left to see or upload files.</p>;
@@ -59,8 +60,7 @@ function FileList({
             </tr>
           ) : (
             parentFiles.map((fileObj) => {
-              const ext = fileObj.name.split('.').pop().toLowerCase();
-              const icon = iconMap[ext] || iconMap.default;
+              const icon = <AppFileIcon filename={fileObj.name} theme={activeTheme} size={24} />;
               const hasRevisions = fileObj.revisions?.length > 0;
               const childFiles = containerFiles.filter(f => f.parent_file === fileObj.id);
 
@@ -117,8 +117,7 @@ function FileList({
                   </tr>
 
                   {childFiles.map(childFile => {
-                    const childExt = childFile.name.split('.').pop().toLowerCase();
-                    const childIcon = iconMap[childExt] || iconMap.default;
+                    const childIcon = <AppFileIcon filename={childFile.name} theme={activeTheme} size={24} />;
                     const hasChildRevisions = childFile.revisions?.length > 0;
                     return (
                       <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: 'rgba(108,117,125,0.6)' } : {}}>
@@ -198,3 +197,6 @@ function FileList({
 }
 
 export default FileList;
+
+
+
