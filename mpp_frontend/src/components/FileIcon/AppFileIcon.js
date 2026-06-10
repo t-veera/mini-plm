@@ -1,32 +1,26 @@
 ﻿import React from 'react';
+import { FileIcon, defaultStyles } from 'react-file-icon';
 
-const materialIconMap = {
-  pdf:     '/icons/material/pdf.svg',
-  png:     '/icons/material/image.svg',
-  jpg:     '/icons/material/image.svg',
-  jpeg:    '/icons/material/image.svg',
-  gif:     '/icons/material/image.svg',
-  stl:     '/icons/material/3d.svg',
-  dxf:     '/icons/material/3d.svg',
-  stp:     '/icons/material/3d.svg',
-  step:    '/icons/material/3d.svg',
-  cpp:     '/icons/material/cpp.svg',
-  py:      '/icons/material/python.svg',
-  js:      '/icons/material/javascript.svg',
-  xlsx:    '/icons/material/table.svg',
-  xls:     '/icons/material/table.svg',
-  csv:     '/icons/material/table.svg',
-  md:      '/icons/material/markdown.svg',
-  ino:     '/icons/material/arduino.svg',
-  doc:     '/icons/material/word.svg',
-  docx:    '/icons/material/word.svg',
-  default: '/icons/material/document.svg',
+const customBaseStyles = {
+  stl:  { color: '#FFD43B', gradientColor: '#e6c200', labelColor: '#FFD43B', glyphColor: 'rgba(0,0,0,0.4)', type: '3d' },
+  stp:  { color: '#9775FA', gradientColor: '#7950f2', labelColor: '#9775FA', glyphColor: 'rgba(0,0,0,0.4)', type: '3d' },
+  step: { color: '#9775FA', gradientColor: '#7950f2', labelColor: '#9775FA', glyphColor: 'rgba(0,0,0,0.4)', type: '3d' },
+  dxf:  { color: '#74C0FC', gradientColor: '#339af0', labelColor: '#74C0FC', glyphColor: 'rgba(0,0,0,0.4)', type: 'vector' },
+  ino:  { color: '#FF6B6B', gradientColor: '#f03e3e', labelColor: '#FF6B6B', glyphColor: 'rgba(0,0,0,0.4)', type: 'code' },
+  md:   { color: '#74C0FC', gradientColor: '#339af0', labelColor: '#74C0FC', glyphColor: 'rgba(0,0,0,0.4)', type: 'document' },
+  txt:  { color: '#9CA3AF', gradientColor: '#6B7280', labelColor: '#9CA3AF', glyphColor: 'rgba(0,0,0,0.4)', type: 'document' },
 };
 
 function AppFileIcon({ filename, size = 32 }) {
   if (!filename) return null;
   const ext = filename.split('.').pop().toLowerCase();
-  const src = materialIconMap[ext] || materialIconMap.default;
+  const baseStyles = defaultStyles[ext] || customBaseStyles[ext] || {
+    color: '#74C0FC',
+    gradientColor: '#339af0',
+    labelColor: '#74C0FC',
+    glyphColor: 'rgba(0,0,0,0.4)',
+    type: 'document'
+  };
 
   return (
     <div style={{
@@ -37,10 +31,11 @@ function AppFileIcon({ filename, size = 32 }) {
       alignItems: 'center',
       justifyContent: 'center'
     }}>
-      <img
-        src={src}
-        alt={ext}
-        style={{ width: size, height: size, objectFit: 'contain' }}
+      <FileIcon
+        extension={ext.toUpperCase()}
+        {...baseStyles}
+        radius={3}
+        labelUppercase
       />
     </div>
   );
