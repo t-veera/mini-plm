@@ -60,7 +60,7 @@ function FileList({
             </tr>
           ) : (
             parentFiles.map((fileObj) => {
-              const icon = <AppFileIcon filename={fileObj.name} theme={activeTheme} size={24} />;
+              const icon = <AppFileIcon filename={fileObj.name} />;
               const hasRevisions = fileObj.revisions?.length > 0;
               const childFiles = containerFiles.filter(f => f.parent_file === fileObj.id);
 
@@ -117,7 +117,7 @@ function FileList({
                   </tr>
 
                   {childFiles.map(childFile => {
-                    const childIcon = <AppFileIcon filename={childFile.name} theme={activeTheme} size={24} />;
+                    const childIcon = <AppFileIcon filename={childFile.name} />;
                     const hasChildRevisions = childFile.revisions?.length > 0;
                     return (
                       <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: 'rgba(108,117,125,0.6)' } : {}}>
@@ -197,6 +197,8 @@ function FileList({
 }
 
 export default FileList;
+
+
 
 
 
