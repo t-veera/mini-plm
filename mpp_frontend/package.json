@@ -14,6 +14,7 @@
     "dxf": "^5.2.0",
     "dxf-parser": "^1.1.2",
     "mammoth": "^1.9.0",
+    "material-icon-theme": "^5.35.0",
     "nth-check": "^2.1.1",
     "occt-import-js": "^0.0.23",
     "path-browserify": "^1.0.1",

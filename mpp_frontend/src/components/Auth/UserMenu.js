@@ -5,9 +5,9 @@ import './UserMenu.css';
 
 const THEMES = [
   {
-    id: 'default',
-    label: 'Default',
-    description: 'Colourful VS Code-style icons',
+    id: 'material',
+    label: 'Material',
+    description: 'VS Code Material icon theme',
     preview: ['js', 'pdf', 'cpp', 'xlsx']
   },
   {
@@ -17,9 +17,9 @@ const THEMES = [
     preview: ['js', 'pdf', 'cpp', 'xlsx']
   },
   {
-    id: 'neon',
-    label: 'Neon',
-    description: 'High contrast, bright accents',
+    id: 'catppuccin',
+    label: 'Catppuccin',
+    description: 'Soothing pastel Mocha palette',
     preview: ['js', 'pdf', 'cpp', 'xlsx']
   }
 ];
@@ -135,3 +135,4 @@ const UserMenu = () => {
 };
 
 export default UserMenu;
+

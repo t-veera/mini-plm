@@ -4,7 +4,7 @@ const STORAGE_KEY = 'mini-plm-icon-theme';
 
 function useIconTheme() {
   const [activeTheme, setActiveTheme] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || 'default';
+    return localStorage.getItem(STORAGE_KEY) || 'material';
   });
 
   useEffect(() => {
@@ -15,3 +15,4 @@ function useIconTheme() {
 }
 
 export default useIconTheme;
+
