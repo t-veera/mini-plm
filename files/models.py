@@ -161,6 +161,25 @@ class Iteration(models.Model):
             self.iteration_number = (last_iteration.iteration_number + 1) if last_iteration else 1
         super().save(*args, **kwargs)
 
+class Folder(models.Model):
+    """Folder model - belongs to a Product, supports unbounded nesting via self-FK.
+
+    parent uses on_delete=PROTECT as a DB-level backstop: the API blocks deleting a
+    non-empty folder with a friendly error, and PROTECT ensures that invariant holds
+    even if a folder is ever deleted outside that guarded path (e.g. Django admin/shell).
+    """
+    name = models.CharField(max_length=255)
+    parent = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True, related_name='children')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='folders')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 class File(models.Model):
     """File model - can belong to either a Stage OR an Iteration"""
     FILE_TYPES = [
@@ -325,6 +344,10 @@ class File(models.Model):
 
     # Parent-child relationship
     parent_file = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='child_files')
+
+    # Folder placement (organizational only - independent of stage/iteration tagging above).
+    # null = root-level / unfiled. SET_NULL so a folder deletion never deletes files.
+    folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name='files')
 
     # File metadata
     current_revision = models.IntegerField(default=1)

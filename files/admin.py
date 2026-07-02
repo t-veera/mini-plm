@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, File, Stage, Iteration, FileRevision
+from .models import Product, File, Stage, Iteration, FileRevision, Folder
 
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
@@ -11,3 +11,4 @@ admin.site.register(Product)
 admin.site.register(Stage)
 admin.site.register(Iteration)
 admin.site.register(FileRevision)
+admin.site.register(Folder)

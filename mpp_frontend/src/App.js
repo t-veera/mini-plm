@@ -108,7 +108,10 @@ function MainApp() {
   const [selectedContainer, setSelectedContainer] = useState(null);
   const [containerType, setContainerType] = useState(null);
   const [selectedFileObj, setSelectedFileObj] = useState(null);
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, fileObj: null });
+  const [folderTree, setFolderTree] = useState([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, fileObj: null, folderObj: null });
   const [parentFileForChild, setParentFileForChild] = useState(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -124,6 +127,7 @@ function MainApp() {
   const hiddenFileInput = useRef(null);
   const contextMenuFileInput = useRef(null);
   const childFileInput = useRef(null);
+  const uploadTargetFolderRef = useRef(null); // when set, next upload lands in this folder
 
   const prod = products[selectedProductIndex] || {};
 
@@ -166,6 +170,15 @@ function MainApp() {
     localStorage.setItem('phasorSelectedProductIndex', selectedProductIndex.toString());
   }, [selectedProductIndex]);
 
+  // Load the product-scoped folder tree whenever the selected product changes.
+  const currentProductId = products[selectedProductIndex]?.id;
+  useEffect(() => {
+    if (!currentProductId) { setFolderTree([]); return; }
+    setCurrentFolderId(null);
+    loadFolderTree(currentProductId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProductId]);
+
   useEffect(() => {
     function handleClick() { if (contextMenu.visible) hideContextMenu(); }
     document.addEventListener('click', handleClick);
@@ -202,16 +215,16 @@ function MainApp() {
     });
   }
 
-  function showInputModal(title, placeholder) {
+  function showInputModal(title, placeholder, initialValue = '') {
     return new Promise(resolve => {
-      setInputModal({ visible: true, title, placeholder, value: '',
+      setInputModal({ visible: true, title, placeholder, value: initialValue,
         onConfirm: val => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(val || null); },
         onCancel:  ()  => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(null); }
       });
     });
   }
 
-  function hideContextMenu() { setContextMenu({ visible: false, x: 0, y: 0, fileObj: null }); }
+  function hideContextMenu() { setContextMenu({ visible: false, x: 0, y: 0, type: null, fileObj: null, folderObj: null }); }
 
   function getCurrentContainerIdFromFile(fileObj) {
     const p = products[selectedProductIndex];
@@ -354,6 +367,117 @@ function MainApp() {
     } catch (error) { console.error(`Failed to load ${type} files:`, error); }
   }
 
+  async function loadFolderTree(productId) {
+    setFoldersLoading(true);
+    try {
+      const response = await authenticatedFetch(`/api/products/${productId}/folders/`);
+      if (response.ok) setFolderTree(await response.json());
+      else setFolderTree([]);
+    } catch (error) {
+      console.error('Failed to load folder tree:', error);
+      setFolderTree([]);
+    } finally {
+      setFoldersLoading(false);
+    }
+  }
+
+  async function handleCreateFolder(parentId, name) {
+    const productId = products[selectedProductIndex]?.id;
+    if (!productId) { setToastMsg('Select a product first!'); return; }
+    try {
+      const response = await authenticatedFetch('/api/folders/', { method: 'POST', body: JSON.stringify({ name, parent: parentId, product: productId }) });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Create failed'); }
+      await loadFolderTree(productId);
+      setToastMsg(`Folder "${name}" created`);
+    } catch (error) { setToastMsg(`Failed to create folder: ${error.message}`); }
+  }
+
+  async function handleRenameFolder(folderId, name) {
+    const productId = products[selectedProductIndex]?.id;
+    try {
+      const response = await authenticatedFetch(`/api/folders/${folderId}/`, { method: 'PATCH', body: JSON.stringify({ name }) });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Rename failed'); }
+      await loadFolderTree(productId);
+      setToastMsg('Folder renamed');
+    } catch (error) { setToastMsg(`Failed to rename folder: ${error.message}`); }
+  }
+
+  async function handleDeleteFolder(folder) {
+    const productId = products[selectedProductIndex]?.id;
+    if (!await showConfirm(`Delete folder "${folder.name}"? It must be empty first.`)) return;
+    try {
+      const response = await authenticatedFetch(`/api/folders/${folder.id}/`, { method: 'DELETE' });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Delete failed'); }
+      if (currentFolderId === folder.id) setCurrentFolderId(folder.parent ?? null);
+      await loadFolderTree(productId);
+      setToastMsg(`Folder "${folder.name}" deleted`);
+    } catch (error) { setToastMsg(error.message); }
+  }
+
+  function handleUploadToFolder(folder) {
+    hideContextMenu();
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Select a Stage or Iteration first!'); return; }
+    uploadTargetFolderRef.current = folder.id;
+    setCurrentFolderId(folder.id); // open the folder so the uploaded file is visible
+    setTimeout(() => hiddenFileInput.current?.click(), 0);
+  }
+
+  async function handleFolderNewSubfolder(folder) {
+    hideContextMenu();
+    const name = await showInputModal('New Subfolder', `Subfolder of "${folder.name}"`);
+    if (!name) return;
+    await handleCreateFolder(folder.id, name);
+  }
+
+  async function handleBackgroundNewFolder() {
+    hideContextMenu();
+    const name = await showInputModal('New Folder', 'Enter folder name');
+    if (!name) return;
+    await handleCreateFolder(currentFolderId, name);
+  }
+
+  async function handleFolderRenamePrompt(folder) {
+    hideContextMenu();
+    const name = await showInputModal('Rename Folder', 'Enter new name', folder.name);
+    if (!name || name === folder.name) return;
+    await handleRenameFolder(folder.id, name);
+  }
+
+  async function handleMoveFileToFolder(fileId, folderId) {
+    const productId = products[selectedProductIndex]?.id;
+    try {
+      const response = await authenticatedFetch(`/api/files/${fileId}/`, { method: 'PATCH', body: JSON.stringify({ folder: folderId }) });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || (Array.isArray(err) ? err[0] : 'Move failed')); }
+      // Update the file's folder locally so it reflects immediately.
+      setProducts(prev => {
+        const updated = [...prev];
+        const updatedProd = { ...updated[selectedProductIndex], filesByContainer: { ...updated[selectedProductIndex].filesByContainer } };
+        Object.keys(updatedProd.filesByContainer).forEach(key => {
+          updatedProd.filesByContainer[key] = updatedProd.filesByContainer[key].map(f => f.id === fileId ? { ...f, folder: folderId } : f);
+        });
+        updated[selectedProductIndex] = updatedProd;
+        return updated;
+      });
+      if (selectedFileObj?.id === fileId) setSelectedFileObj(prev => ({ ...prev, folder: folderId }));
+      if (productId) loadFolderTree(productId);
+      setToastMsg(folderId ? 'File moved into folder' : 'File moved to root');
+    } catch (error) { setToastMsg(`Move failed: ${error.message}`); }
+  }
+
+  async function handleMoveFolder(folderId, newParentId) {
+    const productId = products[selectedProductIndex]?.id;
+    try {
+      const response = await authenticatedFetch(`/api/folders/${folderId}/`, { method: 'PATCH', body: JSON.stringify({ parent: newParentId }) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = err.error || (err.non_field_errors ? err.non_field_errors[0] : (Array.isArray(err) ? err[0] : 'Move failed'));
+        throw new Error(msg);
+      }
+      if (productId) await loadFolderTree(productId);
+      setToastMsg('Folder moved');
+    } catch (error) { setToastMsg(error.message); }
+  }
+
   async function handleContainerRightClick(e, container, type) {
     e.preventDefault();
     const containerKey = `${type}_${container.id}`;
@@ -382,6 +506,14 @@ function MainApp() {
 
   function handlePlusClick() {
     if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Please select a Stage or Iteration first!'); return; }
+    uploadTargetFolderRef.current = currentFolderId; // toolbar upload lands in the selected folder (or root)
+    hiddenFileInput.current.click();
+  }
+
+  function handleBackgroundUpload() {
+    hideContextMenu();
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Please select a Stage or Iteration first!'); return; }
+    uploadTargetFolderRef.current = null; // background upload lands at root
     hiddenFileInput.current.click();
   }
 
@@ -397,6 +529,9 @@ function MainApp() {
       formData.append('is_child_file', 'false');
       if (prod.containerType === 'stage') formData.append('stage_id', prod.selectedContainer.id);
       else formData.append('iteration_id', prod.selectedContainer.id);
+      // Each upload trigger sets the target folder explicitly (null = container root).
+      const targetFolderId = uploadTargetFolderRef.current;
+      if (targetFolderId) formData.append('folder', targetFolderId);
       formData.append('change_description', 'Initial file upload');
       formData.append('status', 'in_work');
       formData.append('quantity', '1');
@@ -417,10 +552,11 @@ function MainApp() {
         return updated;
       });
       setSelectedFileObj({ ...savedFile, dataUrl });
+      if (targetFolderId && prod.id) loadFolderTree(prod.id);
       setToastMsg(savedFile.current_revision > 1 ? `Rev ${savedFile.current_revision} created!` : 'File uploaded!');
       setTimeout(() => { setCurrentFileForModal({ ...savedFile, dataUrl }); setTempChangeDescription(''); setShowChangeDescriptionModal(true); }, 100);
     } catch (err) { setToastMsg(`Upload error: ${err.message}`); }
-    finally { setIsLoading(false); e.target.value = ''; }
+    finally { setIsLoading(false); e.target.value = ''; uploadTargetFolderRef.current = null; }
   }
 
   async function handleContextMenuFileChange(e) {
@@ -515,7 +651,9 @@ function MainApp() {
     handleRevisionChange(childFileObj, revisionNumber);
   }
 
-  function handleFileRightClick(e, fileObj) { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY + 10, fileObj }); }
+  function handleFileRightClick(e, fileObj) { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY + 10, type: 'file', fileObj, folderObj: null }); }
+  function handleFolderRightClick(e, folder) { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY + 10, type: 'folder', fileObj: null, folderObj: folder }); }
+  function handleBackgroundRightClick(e) { e.preventDefault(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY + 10, type: 'background', fileObj: null, folderObj: null }); }
   function handleContextMenuUpload() { if (contextMenu.fileObj) { setCurrentFileForModal(contextMenu.fileObj); contextMenuFileInput.current.click(); } hideContextMenu(); }
   function handleQuantityOption() { if (contextMenu.fileObj) { setCurrentFileForModal(contextMenu.fileObj); setShowQuantityModal(true); } hideContextMenu(); }
   function handlePriceOption() { if (contextMenu.fileObj) { setCurrentFileForModal(contextMenu.fileObj); setShowPriceModal(true); } hideContextMenu(); }
@@ -668,10 +806,15 @@ function MainApp() {
       {viewMode === 'normal' && (
         <FileList
           prod={normalizedProd}
+          folderTree={folderTree}
+          currentFolderId={currentFolderId}
+          setCurrentFolderId={setCurrentFolderId}
           selectedFileObj={selectedFileObj}
           setSelectedFileObj={setSelectedFileObj}
           contextMenu={contextMenu}
           onFileRightClick={handleFileRightClick}
+          onFolderRightClick={handleFolderRightClick}
+          onBackgroundRightClick={handleBackgroundRightClick}
           onAddChildClick={handleAddChildClick}
           onQuantityClick={handleQuantityClick}
           onPriceClick={handlePriceClick}
@@ -682,6 +825,14 @@ function MainApp() {
           onPriceOption={handlePriceOption}
           onMoveOption={handleMoveOption}
           onRemoveOption={handleRemoveOption}
+          onFolderUpload={handleUploadToFolder}
+          onFolderNewSubfolder={handleFolderNewSubfolder}
+          onFolderRename={handleFolderRenamePrompt}
+          onFolderDelete={handleDeleteFolder}
+          onBackgroundNewFolder={handleBackgroundNewFolder}
+          onBackgroundUpload={handleBackgroundUpload}
+          onMoveFileToFolder={handleMoveFileToFolder}
+          onMoveFolder={handleMoveFolder}
           hideContextMenu={hideContextMenu}
           contextMenuFileInput={contextMenuFileInput}
           childFileInput={childFileInput}

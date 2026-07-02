@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from .models import File, FileRevision, Product, Stage, Iteration
+from .models import File, FileRevision, Product, Stage, Iteration, Folder
 
 class UserSerializer(serializers.ModelSerializer):
     """Simple user serializer for owner information"""
@@ -79,6 +79,51 @@ class IterationSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'iteration_number', 'iteration_id', 'created_at', 'updated_at']
+
+class FolderSerializer(serializers.ModelSerializer):
+    """Serializer for folder CRUD (create, rename, move, delete)"""
+    class Meta:
+        model = Folder
+        fields = ['id', 'name', 'parent', 'product', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        """Ensure parent belongs to the same product, and moving a folder can't create a cycle"""
+        parent = data.get('parent', getattr(self.instance, 'parent', None) if self.instance else None)
+        product = data.get('product', getattr(self.instance, 'product', None) if self.instance else None)
+
+        if parent:
+            if product and parent.product_id != product.id:
+                raise serializers.ValidationError("Parent folder must belong to the same product.")
+
+            if self.instance:
+                node = parent
+                while node is not None:
+                    if node.id == self.instance.id:
+                        raise serializers.ValidationError("Cannot move a folder into its own descendant.")
+                    node = node.parent
+
+        return data
+
+class FolderTreeSerializer(serializers.ModelSerializer):
+    """Read-only recursive serializer for the tree endpoint.
+
+    Expects the view to have attached `_prefetched_children` (list of Folder instances)
+    and an annotated `file_count` to each instance up front, so building the tree costs
+    a fixed number of queries regardless of depth/breadth (no N+1 recursion).
+    """
+    children = serializers.SerializerMethodField()
+    file_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Folder
+        fields = ['id', 'name', 'parent', 'product', 'created_at', 'updated_at', 'children', 'file_count']
+
+    def get_children(self, obj):
+        return FolderTreeSerializer(getattr(obj, '_prefetched_children', []), many=True, context=self.context).data
+
+    def get_file_count(self, obj):
+        return getattr(obj, 'file_count', 0)
 
 class ChildFileSerializer(serializers.ModelSerializer):
     """Serializer for child files (nested under parent files)"""
@@ -165,6 +210,7 @@ class FileSerializer(serializers.ModelSerializer):
             'product_id',
             'product_name',
             'parent_file',
+            'folder',
             'is_child_file',
             'current_revision',
             'status',
@@ -219,20 +265,20 @@ class FileSerializer(serializers.ModelSerializer):
         if not self.instance:  # CREATE operation
             stage_id = data.get('stage_id')
             iteration_id = data.get('iteration_id')
-            
+
             # Must provide either stage_id OR iteration_id, but not both
             if not stage_id and not iteration_id:
                 raise serializers.ValidationError("Either stage_id or iteration_id must be provided.")
-            
+
             if stage_id and iteration_id:
                 raise serializers.ValidationError("Cannot provide both stage_id and iteration_id. Choose one.")
-            
+
             # Validate parent file relationship (only during creation)
             parent_file = data.get('parent_file')
             if parent_file:
                 if parent_file.parent_file:
                     raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
-                
+
                 # Ensure parent file is in the same container
                 if stage_id and parent_file.content_object and isinstance(parent_file.content_object, Stage):
                     if parent_file.content_object.id != stage_id:
@@ -240,14 +286,29 @@ class FileSerializer(serializers.ModelSerializer):
                 elif iteration_id and parent_file.content_object and isinstance(parent_file.content_object, Iteration):
                     if parent_file.content_object.id != iteration_id:
                         raise serializers.ValidationError("Child file must be in the same iteration as parent file.")
-        
+
+            folder = data.get('folder')
+            if folder:
+                product = None
+                if stage_id:
+                    product = Stage.objects.filter(id=stage_id).values_list('product_id', flat=True).first()
+                elif iteration_id:
+                    product = Iteration.objects.filter(id=iteration_id).values_list('product_id', flat=True).first()
+                if product and folder.product_id != product:
+                    raise serializers.ValidationError("Folder must belong to the same product as the file.")
+
         else:  # UPDATE operation
             # Only validate parent_file nesting if parent_file is being updated
             parent_file = data.get('parent_file')
             if parent_file is not None:  # Only if parent_file is explicitly being changed
                 if parent_file.parent_file:
                     raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
-        
+
+            folder = data.get('folder')
+            if folder is not None and self.instance.product:
+                if folder.product_id != self.instance.product.id:
+                    raise serializers.ValidationError("Folder must belong to the same product as the file.")
+
         return data
 
     def create(self, validated_data):

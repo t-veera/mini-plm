@@ -1,31 +1,57 @@
-﻿import React from 'react';
+import React, { useState } from 'react';
 import { Table, Form } from 'react-bootstrap';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaFolder, FaFolderOpen, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import AppFileIcon from '../FileIcon/AppFileIcon';
 import styles from '../../constants/styles';
 
 const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
 
-function shouldShowQtyPrice(fileObj) {
-  return showQtyPriceExtensions.includes((fileObj.file_extension || '').toLowerCase());
+// Show qty/price badges for eligible manufacturing files, OR for any file once the
+// user has explicitly set a price or a non-default quantity.
+function qtyPriceFlags(fileObj) {
+  const ext = (fileObj.file_extension || '').toLowerCase();
+  const eligibleExt = showQtyPriceExtensions.includes(ext);
+  const hasPrice = fileObj.price !== null && fileObj.price !== undefined && fileObj.price !== '';
+  const hasQtyVal = fileObj.quantity !== null && fileObj.quantity !== undefined;
+  const showQty = hasQtyVal && (eligibleExt || Number(fileObj.quantity) !== 1);
+  return { showQty, showPrice: hasPrice, showBadges: (hasQtyVal && (eligibleExt || Number(fileObj.quantity) !== 1)) || hasPrice };
 }
+
+const INDENT = 16; // px per nesting level
 
 function FileList({
   prod,
+  folderTree = [],
+  currentFolderId = null,
+  setCurrentFolderId,
   selectedFileObj,
   setSelectedFileObj,
   contextMenu,
   onFileRightClick,
+  onFolderRightClick,
+  onBackgroundRightClick,
   onAddChildClick,
   onQuantityClick,
   onPriceClick,
   onRevisionChange,
   onChildRevisionChange,
+  // file context-menu actions
   onContextMenuUpload,
   onQuantityOption,
   onPriceOption,
   onMoveOption,
   onRemoveOption,
+  // folder context-menu actions
+  onFolderUpload,
+  onFolderNewSubfolder,
+  onFolderRename,
+  onFolderDelete,
+  // background context-menu actions
+  onBackgroundNewFolder,
+  onBackgroundUpload,
+  // drag-and-drop
+  onMoveFileToFolder,
+  onMoveFolder,
   hideContextMenu,
   contextMenuFileInput,
   childFileInput,
@@ -33,148 +59,274 @@ function FileList({
   onChildFileChange,
   activeTheme = 'default',
 }) {
+  const [expanded, setExpanded] = useState({});
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const [dragOverRoot, setDragOverRoot] = useState(false);
+
   if (!prod.selectedContainer || !prod.containerType) {
     return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Select a Stage or Iteration on the left to see or upload files.</p>;
   }
 
   const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
   const containerFiles = prod.filesByContainer[containerKey] || [];
-  const parentFiles = containerFiles.filter(file => !file.is_child_file);
+  const filesInFolder = (folderId) => containerFiles.filter(f => !f.is_child_file && (f.folder ?? null) === folderId);
+  const childrenOf = (fileId) => containerFiles.filter(f => f.parent_file === fileId);
+
+  const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  const expand = (id) => setExpanded(prev => ({ ...prev, [id]: true }));
+
+  // --- drag helpers ---
+  const dragStartFile = (e, fileObj) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('application/json', JSON.stringify({ kind: 'file', id: fileObj.id }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const dragStartFolder = (e, folder) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('application/json', JSON.stringify({ kind: 'folder', id: folder.id }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const parseDrag = (e) => { try { return JSON.parse(e.dataTransfer.getData('application/json')); } catch { return null; } };
+  const dropOnTarget = (e, targetFolderId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+    setDragOverRoot(false);
+    const data = parseDrag(e);
+    if (!data) return;
+    if (data.kind === 'file') onMoveFileToFolder(data.id, targetFolderId);
+    else if (data.kind === 'folder' && data.id !== targetFolderId) onMoveFolder(data.id, targetFolderId);
+  };
+
+  // --- file row (with its child files) ---
+  const renderFileRow = (fileObj, depth) => {
+    const icon = <AppFileIcon filename={fileObj.name} />;
+    const hasRevisions = fileObj.revisions?.length > 0;
+    const childFiles = childrenOf(fileObj.id);
+    const namePad = depth * INDENT + INDENT + 4; // +INDENT lines file icons up under folder icons (past the chevron)
+
+    return (
+      <React.Fragment key={fileObj.id}>
+        <tr
+          draggable
+          onDragStart={e => dragStartFile(e, fileObj)}
+          onClick={() => setSelectedFileObj(fileObj)}
+          className={selectedFileObj?.id === fileObj.id ? 'selected-file-row' : ''}
+        >
+          <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad}px` }} onContextMenu={e => onFileRightClick(e, fileObj)}>
+            <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{icon}</span>
+              <span title={fileObj.name} style={{ flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileObj.name}</span>
+              <div className="ms-1" onClick={e => onAddChildClick(e, fileObj)} style={{ cursor: 'pointer', color: styles.colors.secondary, flexShrink: 0 }}>
+                <FaPlus size={10} />
+              </div>
+              {(() => {
+                const { showQty, showPrice, showBadges } = qtyPriceFlags(fileObj);
+                if (!showBadges) return null;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '6px' }}>
+                    {showQty && <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onQuantityClick(e, fileObj)}>Qty: {fileObj.quantity}</span>}
+                    {showPrice && <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onPriceClick(e, fileObj)}>₹{fileObj.price}</span>}
+                  </div>
+                );
+              })()}
+            </div>
+          </td>
+          <td style={{ whiteSpace: 'nowrap' }}>
+            {(() => {
+              if (fileObj.revisions && fileObj.current_revision) {
+                const currentRev = fileObj.revisions.find(r => r.revision_number === fileObj.current_revision);
+                if (currentRev?.created_at) return new Date(currentRev.created_at).toLocaleDateString('en-GB');
+              }
+              return new Date(fileObj.created_at || fileObj.upload_date).toLocaleDateString('en-GB');
+            })()}
+          </td>
+          <td>
+            <Form.Select
+              size="sm"
+              style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: styles.fonts.size.sm, borderRadius: styles.borderRadius.sm, padding: '0.25rem 0.5rem', textAlign: 'center', cursor: 'pointer' }}
+              value={fileObj.current_revision || 1}
+              onClick={e => e.stopPropagation()}
+              onChange={e => {
+                e.stopPropagation();
+                const revNum = parseInt(e.target.value, 10);
+                if (!selectedFileObj || selectedFileObj.id !== fileObj.id) setSelectedFileObj(fileObj);
+                if (hasRevisions) onRevisionChange(fileObj, revNum);
+              }}
+            >
+              {hasRevisions
+                ? fileObj.revisions.map(rev => <option key={rev.revision_number} value={rev.revision_number}>v {rev.revision_number}.0</option>)
+                : <option value={1}>v 1.0</option>}
+            </Form.Select>
+          </td>
+        </tr>
+
+        {childFiles.map(childFile => {
+          const childIcon = <AppFileIcon filename={childFile.name} />;
+          const hasChildRevisions = childFile.revisions?.length > 0;
+          return (
+            <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: 'rgba(108,117,125,0.6)' } : {}}>
+              <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad + 20}px`, position: 'relative' }} onContextMenu={e => onFileRightClick(e, childFile)}>
+                <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
+                  <span style={{ position: 'absolute', left: `${namePad - 4}px`, color: '#6c757d', fontSize: '0.7rem' }}>└</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{childIcon}</span>
+                  <span title={childFile.name} style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{childFile.name}</span>
+                  {(() => {
+                    const { showQty, showPrice, showBadges } = qtyPriceFlags(childFile);
+                    if (!showBadges) return null;
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '6px' }}>
+                        {showQty && <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onQuantityClick(e, childFile)}>Qty: {childFile.quantity}</span>}
+                        {showPrice && <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onPriceClick(e, childFile)}>₹{childFile.price}</span>}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </td>
+              <td style={{ whiteSpace: 'nowrap' }}>{new Date(childFile.created_at || childFile.upload_date).toLocaleDateString()}</td>
+              <td>
+                <Form.Select
+                  size="sm"
+                  style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: '0.8rem', textAlign: 'center' }}
+                  value={childFile.current_revision || 1}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => {
+                    e.stopPropagation();
+                    const revNum = parseInt(e.target.value, 10);
+                    if (!selectedFileObj || selectedFileObj.id !== childFile.id) setSelectedFileObj(childFile);
+                    if (hasChildRevisions) onChildRevisionChange(childFile, revNum);
+                  }}
+                >
+                  {hasChildRevisions
+                    ? childFile.revisions.map(rev => <option key={rev.revision_number} value={rev.revision_number}>v {rev.revision_number}.0</option>)
+                    : <option value={1}>v 1.0</option>}
+                </Form.Select>
+              </td>
+            </tr>
+          );
+        })}
+      </React.Fragment>
+    );
+  };
+
+  // --- folder row + (when expanded) its nested subfolders and files ---
+  const renderFolder = (folder, depth) => {
+    const isOpen = !!expanded[folder.id];
+    const isSelected = currentFolderId === folder.id;
+    const hasChildren = (folder.children || []).length > 0;
+    const namePad = depth * INDENT + 4;
+
+    return (
+      <React.Fragment key={`folder-${folder.id}`}>
+        <tr
+          draggable
+          onDragStart={e => dragStartFolder(e, folder)}
+          onDragOver={e => { e.preventDefault(); setDragOverFolderId(folder.id); }}
+          onDragLeave={() => setDragOverFolderId(null)}
+          onDrop={e => dropOnTarget(e, folder.id)}
+          onClick={() => setCurrentFolderId(folder.id)}
+          onDoubleClick={() => toggle(folder.id)}
+          onContextMenu={e => onFolderRightClick(e, folder)}
+          style={{
+            backgroundColor: dragOverFolderId === folder.id ? `${styles.colors.iteration}26` : (isSelected ? `${styles.colors.primary}26` : undefined),
+            outline: dragOverFolderId === folder.id ? `1px dashed ${styles.colors.iteration}` : 'none',
+          }}
+        >
+          <td style={{ whiteSpace: 'nowrap', paddingLeft: `${namePad}px` }}>
+            <div className="d-flex align-items-center">
+              <span
+                onClick={e => { e.stopPropagation(); toggle(folder.id); }}
+                style={{ width: '16px', display: 'inline-flex', justifyContent: 'center', color: styles.colors.text.muted, flexShrink: 0 }}
+              >
+                {hasChildren || filesInFolder(folder.id).length > 0 ? (isOpen ? <FaChevronDown size={9} /> : <FaChevronRight size={9} />) : null}
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', width: '24px', height: '24px', justifyContent: 'center', flexShrink: 0, marginRight: '6px', color: styles.colors.stage }}>
+                {isOpen ? <FaFolderOpen size={15} /> : <FaFolder size={15} />}
+              </span>
+              <span className="flex-grow-1">
+                {folder.name}
+                {folder.file_count > 0 && <span style={{ marginLeft: '6px', color: styles.colors.text.muted, fontSize: styles.fonts.size.xs }}>({folder.file_count})</span>}
+              </span>
+            </div>
+          </td>
+          <td style={{ whiteSpace: 'nowrap' }}>{folder.created_at ? new Date(folder.created_at).toLocaleDateString('en-GB') : ''}</td>
+          <td></td>
+        </tr>
+
+        {isOpen && (folder.children || []).map(child => renderFolder(child, depth + 1))}
+        {isOpen && filesInFolder(folder.id).map(file => renderFileRow(file, depth + 1))}
+      </React.Fragment>
+    );
+  };
+
+  const rootFiles = filesInFolder(null);
+  const isEmpty = folderTree.length === 0 && rootFiles.length === 0;
 
   return (
     <>
-      <Table hover borderless className="table-dark table-sm" style={{ cursor: 'pointer', fontSize: '0.85rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #555' }}>
-            <th style={{ fontWeight: '200' }}>Name</th>
-            <th style={{ fontWeight: '200' }}>Date</th>
-            <th style={{ fontWeight: '200' }}>Rev</th>
-          </tr>
-        </thead>
-        <tbody>
-          {parentFiles.length === 0 ? (
-            <tr>
-              <td colSpan="3" className="text-muted">
-                No files in {prod.selectedContainer.container_id || prod.selectedContainer.stage_id || prod.selectedContainer.iteration_id} yet.
-              </td>
+      <div
+        onContextMenu={onBackgroundRightClick}
+        onClick={e => { if (e.target === e.currentTarget) setCurrentFolderId(null); }}
+        onDragOver={e => { e.preventDefault(); setDragOverRoot(true); }}
+        onDragLeave={() => setDragOverRoot(false)}
+        onDrop={e => dropOnTarget(e, null)}
+        style={{ minHeight: '400px', outline: dragOverRoot ? `1px dashed ${styles.colors.iteration}` : 'none' }}
+      >
+        <Table hover borderless className="table-dark table-sm" style={{ cursor: 'pointer', fontSize: '0.85rem', marginBottom: 0 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #555' }}>
+              <th style={{ fontWeight: '200' }}>Name</th>
+              <th style={{ fontWeight: '200' }}>Date</th>
+              <th style={{ fontWeight: '200' }}>Rev</th>
             </tr>
-          ) : (
-            parentFiles.map((fileObj) => {
-              const icon = <AppFileIcon filename={fileObj.name} />;
-              const hasRevisions = fileObj.revisions?.length > 0;
-              const childFiles = containerFiles.filter(f => f.parent_file === fileObj.id);
-
-              return (
-                <React.Fragment key={fileObj.id}>
-                  <tr
-                    onClick={() => setSelectedFileObj(fileObj)}
-                    className={selectedFileObj?.id === fileObj.id ? 'selected-file-row' : ''}
-                  >
-                    <td style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} onContextMenu={e => onFileRightClick(e, fileObj)}>
-                      <div className="d-flex align-items-center">
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{icon}</span>
-                        <span className="flex-grow-1">{fileObj.name}</span>
-                        <div className="ms-1" onClick={e => onAddChildClick(e, fileObj)} style={{ cursor: 'pointer', color: styles.colors.secondary }}>
-                          <FaPlus size={10} />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px', justifyContent: 'flex-end', gap: '4px' }}>
-                          <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem', minWidth: '45px', visibility: (shouldShowQtyPrice(fileObj) && fileObj.quantity) ? 'visible' : 'hidden' }} onClick={e => onQuantityClick(e, fileObj)}>
-                            {fileObj.quantity ? `Qty: ${fileObj.quantity}` : 'Qty: 0'}
-                          </span>
-                          <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem', minWidth: '55px', visibility: (shouldShowQtyPrice(fileObj) && fileObj.price) ? 'visible' : 'hidden' }} onClick={e => onPriceClick(e, fileObj)}>
-                            {fileObj.price ? `₹${fileObj.price}` : '₹0'}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {(() => {
-                        if (fileObj.revisions && fileObj.current_revision) {
-                          const currentRev = fileObj.revisions.find(r => r.revision_number === fileObj.current_revision);
-                          if (currentRev?.created_at) return new Date(currentRev.created_at).toLocaleDateString('en-GB');
-                        }
-                        return new Date(fileObj.created_at || fileObj.upload_date).toLocaleDateString('en-GB');
-                      })()}
-                    </td>
-                    <td>
-                      <Form.Select
-                        size="sm"
-                        style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: styles.fonts.size.sm, borderRadius: styles.borderRadius.sm, padding: '0.25rem 0.5rem', textAlign: 'center', cursor: 'pointer' }}
-                        value={fileObj.current_revision || 1}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => {
-                          e.stopPropagation();
-                          const revNum = parseInt(e.target.value, 10);
-                          if (!selectedFileObj || selectedFileObj.id !== fileObj.id) setSelectedFileObj(fileObj);
-                          if (hasRevisions) onRevisionChange(fileObj, revNum);
-                        }}
-                      >
-                        {hasRevisions
-                          ? fileObj.revisions.map(rev => <option key={rev.revision_number} value={rev.revision_number}>v {rev.revision_number}.0</option>)
-                          : <option value={1}>v 1.0</option>}
-                      </Form.Select>
-                    </td>
-                  </tr>
-
-                  {childFiles.map(childFile => {
-                    const childIcon = <AppFileIcon filename={childFile.name} />;
-                    const hasChildRevisions = childFile.revisions?.length > 0;
-                    return (
-                      <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: 'rgba(108,117,125,0.6)' } : {}}>
-                        <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', paddingLeft: '32px', position: 'relative' }} onContextMenu={e => onFileRightClick(e, childFile)}>
-                          <div className="d-flex align-items-center">
-                            <span style={{ position: 'absolute', left: '8px', color: '#6c757d', fontSize: '0.7rem' }}>└</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{childIcon}</span>
-                            <span style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto' }}>{childFile.name}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px', justifyContent: 'flex-end', gap: '4px' }}>
-                              <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem', minWidth: '45px', visibility: (shouldShowQtyPrice(childFile) && childFile.quantity) ? 'visible' : 'hidden' }} onClick={e => onQuantityClick(e, childFile)}>
-                                {childFile.quantity ? `Qty: ${childFile.quantity}` : 'Qty: 0'}
-                              </span>
-                              <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem', minWidth: '55px', visibility: (shouldShowQtyPrice(childFile) && childFile.price) ? 'visible' : 'hidden' }} onClick={e => onPriceClick(e, childFile)}>
-                                {childFile.price ? `₹${childFile.price}` : '₹0'}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(childFile.created_at || childFile.upload_date).toLocaleDateString()}</td>
-                        <td>
-                          <Form.Select
-                            size="sm"
-                            style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: '0.8rem', textAlign: 'center' }}
-                            value={childFile.current_revision || 1}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => {
-                              e.stopPropagation();
-                              const revNum = parseInt(e.target.value, 10);
-                              if (!selectedFileObj || selectedFileObj.id !== childFile.id) setSelectedFileObj(childFile);
-                              if (hasChildRevisions) onChildRevisionChange(childFile, revNum);
-                            }}
-                          >
-                            {hasChildRevisions
-                              ? childFile.revisions.map(rev => <option key={rev.revision_number} value={rev.revision_number}>v {rev.revision_number}.0</option>)
-                              : <option value={1}>v 1.0</option>}
-                          </Form.Select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              );
-            })
-          )}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {folderTree.map(folder => renderFolder(folder, 0))}
+            {rootFiles.map(file => renderFileRow(file, 0))}
+            {isEmpty && (
+              <tr>
+                <td colSpan="3" className="text-muted">
+                  No folders or files yet. Right-click to add a folder or upload a file.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
+      </div>
 
       {contextMenu.visible && (
         <div
-          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '4px', padding: '0.5rem 0', zIndex: 1000, minWidth: '150px', fontSize: '0.85rem' }}
+          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '4px', padding: '0.5rem 0', zIndex: 1000, minWidth: '160px', fontSize: '0.85rem' }}
           onMouseLeave={hideContextMenu}
         >
-          {[
-            { label: 'Upload Revision', action: onContextMenuUpload },
-            { label: 'Set Quantity',    action: onQuantityOption },
-            { label: 'Set Price',       action: onPriceOption },
-            { label: 'Move',            action: onMoveOption },
+          {contextMenu.type === 'folder' && (() => {
+            const folder = contextMenu.folderObj;
+            const items = [
+              { label: 'Upload File Here', action: () => { expand(folder.id); onFolderUpload(folder); } },
+              { label: 'New Subfolder', action: () => { expand(folder.id); onFolderNewSubfolder(folder); } },
+              { label: 'Rename', action: () => onFolderRename(folder) },
+            ];
+            return (
+              <>
+                {items.map(({ label, action }) => (
+                  <div key={label} style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}
+                    onClick={action}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor = styles.colors.darkAlt}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >{label}</div>
+                ))}
+                <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+                  onClick={() => onFolderDelete(folder)}
+                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
+                  onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+                >Delete Folder</div>
+              </>
+            );
+          })()}
+
+          {contextMenu.type === 'background' && [
+            { label: 'New Folder', action: onBackgroundNewFolder },
+            { label: 'Upload File', action: onBackgroundUpload },
           ].map(({ label, action }) => (
             <div key={label} style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}
               onClick={action}
@@ -182,11 +334,28 @@ function FileList({
               onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >{label}</div>
           ))}
-          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
-            onClick={onRemoveOption}
-            onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
-            onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
-          >Remove</div>
+
+          {contextMenu.type === 'file' && (
+            <>
+              {[
+                { label: 'Upload Revision', action: onContextMenuUpload },
+                { label: 'Set Quantity',    action: onQuantityOption },
+                { label: 'Set Price',       action: onPriceOption },
+                { label: 'Move',            action: onMoveOption },
+              ].map(({ label, action }) => (
+                <div key={label} style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}
+                  onClick={action}
+                  onMouseOver={e => e.currentTarget.style.backgroundColor = styles.colors.darkAlt}
+                  onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >{label}</div>
+              ))}
+              <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+                onClick={onRemoveOption}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+              >Remove</div>
+            </>
+          )}
         </div>
       )}
 
@@ -197,8 +366,3 @@ function FileList({
 }
 
 export default FileList;
-
-
-
-
-

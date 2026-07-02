@@ -16,6 +16,7 @@ from files.views import (
     ProductViewSet,
     StageViewSet,
     IterationViewSet,
+    FolderViewSet,
     initial_setup
 )
 from files.auth_views import login_view, logout_view, check_auth, register_user
@@ -32,6 +33,7 @@ router.register(r'stages', StageViewSet)
 router.register(r'iterations', IterationViewSet)
 router.register(r'files', FileViewSet)
 router.register(r'file-revisions', FileRevisionViewSet)
+router.register(r'folders', FolderViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

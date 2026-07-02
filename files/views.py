@@ -11,10 +11,13 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from .models import File, FileRevision, Product, Stage, Iteration
+from collections import defaultdict
+from django.db.models import Count
+
+from .models import File, FileRevision, Product, Stage, Iteration, Folder
 from .serializers import (
-    FileSerializer, FileRevisionSerializer, ProductSerializer, 
-    StageSerializer, IterationSerializer
+    FileSerializer, FileRevisionSerializer, ProductSerializer,
+    StageSerializer, IterationSerializer, FolderSerializer, FolderTreeSerializer
 )
 
 logger = logging.getLogger('files')
@@ -53,6 +56,37 @@ class ProductViewSet(viewsets.ModelViewSet):
         ).order_by('-updated_at')
         
         serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def folders(self, request, pk=None):
+        """Get the full nested folder tree for a product in one response.
+
+        Fetches all folders for the product with a single annotated query, then builds
+        the parent->children tree in Python. This keeps the query count fixed (2 queries
+        total) regardless of tree depth/breadth, avoiding N+1 recursive lookups.
+        """
+        product = self.get_object()
+        folders = list(
+            Folder.objects.filter(product=product)
+            .select_related('parent')
+            .annotate(file_count=Count('files'))
+        )
+
+        by_parent = defaultdict(list)
+        for folder in folders:
+            by_parent[folder.parent_id].append(folder)
+
+        def attach_children(node):
+            node._prefetched_children = by_parent.get(node.id, [])
+            for child in node._prefetched_children:
+                attach_children(child)
+
+        roots = by_parent.get(None, [])
+        for root in roots:
+            attach_children(root)
+
+        serializer = FolderTreeSerializer(roots, many=True, context={'request': request})
         return Response(serializer.data)
 
 class StageViewSet(viewsets.ModelViewSet):
@@ -249,6 +283,7 @@ class FileViewSet(viewsets.ModelViewSet):
         parent_id = request.data.get('parent_id')
         stage_id = request.data.get('stage_id')
         iteration_id = request.data.get('iteration_id')
+        folder_id = request.data.get('folder') or None
         change_description = request.data.get('change_description', '')
         status_value = request.data.get('status', 'in_work')
         price_value = request.data.get('price')
@@ -283,6 +318,15 @@ class FileViewSet(viewsets.ModelViewSet):
                     return Response({"error": "Parent file must be in the same container."}, status=status.HTTP_400_BAD_REQUEST)
             except File.DoesNotExist:
                 return Response({"error": "Parent file not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Resolve target folder (child files inherit their parent's folder).
+        folder_obj = None
+        if is_child_file and parent_file_obj:
+            folder_obj = parent_file_obj.folder
+        elif folder_id:
+            folder_obj = Folder.objects.filter(id=folder_id, product=container_object.product).first()
+            if not folder_obj:
+                return Response({"error": "Folder not found for this product."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if file exists (for revisions)
         file_lookup = {
@@ -341,6 +385,7 @@ class FileViewSet(viewsets.ModelViewSet):
                 content_type=content_type,
                 object_id=container_object.id,
                 parent_file=parent_file_obj,
+                folder=folder_obj,
                 status=status_value,
                 quantity=int(quantity_value) if quantity_value else 1
             )
@@ -390,6 +435,30 @@ class FileRevisionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(file_id=file_id)
         return queryset
 
+
+class FolderViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing folders (create, rename, move, delete)"""
+    permission_classes = [IsAuthenticated]
+    queryset = Folder.objects.all().select_related('parent', 'product')
+    serializer_class = FolderSerializer
+
+    def get_queryset(self):
+        """Filter folders by product if provided"""
+        queryset = Folder.objects.all().select_related('parent', 'product')
+        product_id = self.request.query_params.get('product_id', None)
+        if product_id is not None:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        """Reject deletion of a non-empty folder (has subfolders or files)"""
+        instance = self.get_object()
+        if instance.children.exists() or instance.files.exists():
+            return Response(
+                {"error": "Folder is not empty. Move or delete its contents before deleting this folder."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().destroy(request, *args, **kwargs)
 
 from rest_framework.decorators import api_view, permission_classes
 @api_view(['GET', 'POST'])
