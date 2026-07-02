@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Form } from 'react-bootstrap';
+import { Table, Form, Spinner } from 'react-bootstrap';
 import { FaPlus, FaFolder, FaFolderOpen, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import AppFileIcon from '../FileIcon/AppFileIcon';
 import styles from '../../constants/styles';
@@ -22,6 +22,7 @@ const INDENT = 16; // px per nesting level
 function FileList({
   prod,
   folderTree = [],
+  foldersLoading = false,
   currentFolderId = null,
   setCurrentFolderId,
   selectedFileObj,
@@ -132,7 +133,7 @@ function FileList({
               })()}
             </div>
           </td>
-          <td style={{ whiteSpace: 'nowrap' }}>
+          <td style={{ whiteSpace: 'nowrap', color: styles.colors.text.muted, fontSize: styles.fonts.size.xs }}>
             {(() => {
               if (fileObj.revisions && fileObj.current_revision) {
                 const currentRev = fileObj.revisions.find(r => r.revision_number === fileObj.current_revision);
@@ -144,7 +145,8 @@ function FileList({
           <td>
             <Form.Select
               size="sm"
-              style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: styles.fonts.size.sm, borderRadius: styles.borderRadius.sm, padding: '0.25rem 0.5rem', textAlign: 'center', cursor: 'pointer' }}
+              className="rev-select shadow-none"
+              style={{ width: '62px', fontSize: styles.fonts.size.xs, borderRadius: styles.borderRadius.sm, padding: '0.15rem 0.35rem', textAlign: 'center', cursor: 'pointer' }}
               value={fileObj.current_revision || 1}
               onClick={e => e.stopPropagation()}
               onChange={e => {
@@ -183,11 +185,12 @@ function FileList({
                   })()}
                 </div>
               </td>
-              <td style={{ whiteSpace: 'nowrap' }}>{new Date(childFile.created_at || childFile.upload_date).toLocaleDateString()}</td>
+              <td style={{ whiteSpace: 'nowrap', color: styles.colors.text.muted, fontSize: styles.fonts.size.xs }}>{new Date(childFile.created_at || childFile.upload_date).toLocaleDateString('en-GB')}</td>
               <td>
                 <Form.Select
                   size="sm"
-                  style={{ width: '80px', backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: '0.8rem', textAlign: 'center' }}
+                  className="rev-select shadow-none"
+                  style={{ width: '62px', fontSize: styles.fonts.size.xs, borderRadius: styles.borderRadius.sm, padding: '0.15rem 0.35rem', textAlign: 'center', cursor: 'pointer' }}
                   value={childFile.current_revision || 1}
                   onClick={e => e.stopPropagation()}
                   onChange={e => {
@@ -249,7 +252,7 @@ function FileList({
               </span>
             </div>
           </td>
-          <td style={{ whiteSpace: 'nowrap' }}>{folder.created_at ? new Date(folder.created_at).toLocaleDateString('en-GB') : ''}</td>
+          <td style={{ whiteSpace: 'nowrap', color: styles.colors.text.muted, fontSize: styles.fonts.size.xs }}>{folder.created_at ? new Date(folder.created_at).toLocaleDateString('en-GB') : ''}</td>
           <td></td>
         </tr>
 
@@ -274,16 +277,25 @@ function FileList({
       >
         <Table hover borderless className="table-dark table-sm" style={{ cursor: 'pointer', fontSize: '0.85rem', marginBottom: 0 }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid #555' }}>
-              <th style={{ fontWeight: '200' }}>Name</th>
-              <th style={{ fontWeight: '200' }}>Date</th>
-              <th style={{ fontWeight: '200' }}>Rev</th>
+            <tr style={{ borderBottom: `1px solid ${styles.colors.border}` }}>
+              {['Name', 'Date', 'Rev'].map(h => (
+                <th key={h} style={{ fontWeight: 500, fontSize: styles.fonts.size.xs, color: styles.colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {folderTree.map(folder => renderFolder(folder, 0))}
             {rootFiles.map(file => renderFileRow(file, 0))}
-            {isEmpty && (
+            {foldersLoading && isEmpty && (
+              <tr>
+                <td colSpan="3" className="text-muted">
+                  <span className="d-flex align-items-center" style={{ gap: '8px' }}>
+                    <Spinner animation="border" size="sm" style={{ width: '13px', height: '13px', color: styles.colors.primary }} /> Loading folders…
+                  </span>
+                </td>
+              </tr>
+            )}
+            {!foldersLoading && isEmpty && (
               <tr>
                 <td colSpan="3" className="text-muted">
                   No folders or files yet. Right-click to add a folder or upload a file.

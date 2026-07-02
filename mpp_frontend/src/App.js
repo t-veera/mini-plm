@@ -96,6 +96,49 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   );
 }
 
+function ToolbarIcon({ icon, label, onClick, color, active = false }) {
+  const base = color || styles.colors.text.muted;
+  return (
+    <div
+      title={label}
+      onClick={onClick}
+      style={{
+        cursor: 'pointer', width: '30px', height: '30px', borderRadius: styles.borderRadius.md,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: active ? styles.colors.text.light : base,
+        background: active ? `${styles.colors.primary}33` : 'transparent',
+        transition: 'background 0.12s ease, color 0.12s ease',
+      }}
+      onMouseOver={e => { e.currentTarget.style.background = styles.colors.darkAlt; e.currentTarget.style.color = styles.colors.text.light; }}
+      onMouseOut={e => { e.currentTarget.style.background = active ? `${styles.colors.primary}33` : 'transparent'; e.currentTarget.style.color = active ? styles.colors.text.light : base; }}
+    >
+      <span style={{ pointerEvents: 'none', display: 'inline-flex' }}>{icon}</span>
+    </div>
+  );
+}
+
+function RailButton({ icon, color, number, selected, onClick, onContextMenu, title }) {
+  return (
+    <div
+      title={title}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      style={{
+        position: 'relative', cursor: 'pointer', width: '36px', height: '36px',
+        borderRadius: styles.borderRadius.md, marginBottom: '4px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: selected ? `${color}26` : 'transparent',
+        transition: 'background 0.12s ease',
+      }}
+      onMouseOver={e => { e.currentTarget.style.background = selected ? `${color}26` : styles.colors.darkAlt; }}
+      onMouseOut={e => { e.currentTarget.style.background = selected ? `${color}26` : 'transparent'; }}
+    >
+      <span style={{ color, display: 'inline-flex', pointerEvents: 'none' }}>{icon}</span>
+      <span style={{ position: 'absolute', bottom: '1px', right: '3px', color: styles.colors.text.muted, fontSize: '9px', fontWeight: 700, lineHeight: 1, pointerEvents: 'none' }}>{number}</span>
+    </div>
+  );
+}
+
 function MainApp() {
   const [viewMode, setViewMode] = useState('normal');
   const [products, setProducts] = useState([]);
@@ -195,6 +238,10 @@ function MainApp() {
       .table { font-size: ${styles.fonts.size.sm} !important; cursor: pointer !important; background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
       .table th, .table td { background-color: ${styles.colors.dark} !important; border-color: ${styles.colors.border} !important; }
       .form-control, .form-select { background-color: ${styles.colors.darkAlt} !important; color: ${styles.colors.text.light} !important; border: 1px solid ${styles.colors.border} !important; }
+      .product-select { background-color: transparent !important; border: none !important; box-shadow: none !important; }
+      .product-select:hover { background-color: ${styles.colors.darkAlt} !important; }
+      .rev-select { color: ${styles.colors.text.muted} !important; background-color: transparent !important; border: 1px solid ${styles.colors.border} !important; }
+      .rev-select:hover { color: ${styles.colors.text.light} !important; background-color: ${styles.colors.darkAlt} !important; }
       .selected-file-row td { background-color: ${styles.colors.primary}26 !important; }
       .context-menu-item:hover { background-color: ${styles.colors.darkAlt} !important; }
       .table-dark { background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
@@ -778,28 +825,27 @@ function MainApp() {
 
   const fileBrowser = (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <div className="d-flex align-items-center gap-2">
+      <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: `1px solid ${styles.colors.border}`, gap: '8px' }}>
+        <div className="d-flex align-items-center" style={{ gap: '2px', minWidth: 0 }}>
           <Form.Select
             size="sm"
             value={selectedProductIndex}
             onChange={handleSelectProduct}
-            style={{ width: 'fit-content', backgroundColor: styles.colors.dark, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}`, fontSize: '0.85rem' }}
-            className="shadow-none"
+            className="shadow-none product-select"
+            style={{ width: 'auto', maxWidth: '170px', color: styles.colors.text.light, fontSize: styles.fonts.size.sm, fontWeight: 600, letterSpacing: '0.3px', paddingLeft: '4px', borderRadius: styles.borderRadius.md, cursor: 'pointer', textOverflow: 'ellipsis' }}
           >
-            {products.map((p, idx) => <option key={idx} value={idx}>{p.name.toUpperCase()}</option>)}
+            {products.map((p, idx) => <option key={idx} value={idx} style={{ background: styles.colors.dark, fontWeight: 400 }}>{p.name.toUpperCase()}</option>)}
           </Form.Select>
-          <div style={{ cursor: 'pointer', color: styles.colors.text.light, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px' }} onClick={handleCreateProduct}>
-            <FaPlus size={20} style={{ transform: 'scale(0.9)', pointerEvents: 'none' }} />
-          </div>
+          <ToolbarIcon label="New product" onClick={handleCreateProduct} icon={<FaPlus size={13} />} />
         </div>
-        <div className="d-flex align-items-center gap-2">
-          <div style={{ cursor: 'pointer' }} onClick={handleAddIteration}><FaDrumSteelpan size={20} color={styles.colors.iteration} style={{ pointerEvents: 'none' }} /></div>
-          <div style={{ cursor: 'pointer' }} onClick={handleAddStage}><FaToriiGate size={20} color={styles.colors.stage} style={{ pointerEvents: 'none' }} /></div>
-          <div style={{ cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }} onClick={handlePlusClick}><FaUpload size={20} style={{ pointerEvents: 'none' }} /></div>
-          <div style={{ cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }} onClick={() => setViewMode('normal')}><FaEye size={20} /></div>
-          <div style={{ cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }} onClick={() => setViewMode('bom')}><FaTable size={20} /></div>
-          <div style={{ cursor: 'pointer', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }} onClick={() => setViewMode('kpi')}><FaChartLine size={20} /></div>
+        <div className="d-flex align-items-center" style={{ gap: '1px' }}>
+          <ToolbarIcon label="Add iteration" onClick={handleAddIteration} color={styles.colors.iteration} icon={<FaDrumSteelpan size={16} />} />
+          <ToolbarIcon label="Add stage" onClick={handleAddStage} color={styles.colors.stage} icon={<FaToriiGate size={16} />} />
+          <ToolbarIcon label="Upload file" onClick={handlePlusClick} icon={<FaUpload size={15} />} />
+          <div style={{ width: '1px', height: '18px', background: styles.colors.border, margin: '0 5px' }} />
+          <ToolbarIcon label="Files" onClick={() => setViewMode('normal')} active={viewMode === 'normal'} icon={<FaEye size={16} />} />
+          <ToolbarIcon label="BOM" onClick={() => setViewMode('bom')} active={viewMode === 'bom'} icon={<FaTable size={15} />} />
+          <ToolbarIcon label="KPIs" onClick={() => setViewMode('kpi')} active={viewMode === 'kpi'} icon={<FaChartLine size={15} />} />
         </div>
       </div>
 
@@ -807,6 +853,7 @@ function MainApp() {
         <FileList
           prod={normalizedProd}
           folderTree={folderTree}
+          foldersLoading={foldersLoading}
           currentFolderId={currentFolderId}
           setCurrentFolderId={setCurrentFolderId}
           selectedFileObj={selectedFileObj}
@@ -857,9 +904,9 @@ function MainApp() {
       </ToastContainer>
 
       <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
-        <Col xs="auto" style={{ width: '50px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
-          <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0.6rem' }}>
-            <div style={{ cursor: 'pointer', fontWeight: '500', color: styles.colors.text.light, marginBottom: '20px', fontSize: '0.9rem' }}>mP</div>
+        <Col xs="auto" style={{ width: '52px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
+          <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0.5rem' }}>
+            <div style={{ width: '30px', height: '30px', borderRadius: styles.borderRadius.md, background: styles.colors.darkAlt, color: styles.colors.text.light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.5px', marginBottom: '14px' }}>mP</div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
               {(() => {
                 const allContainers = [
@@ -871,16 +918,16 @@ function MainApp() {
                   const isStage = container.containerType === 'stage';
                   const isSelected = normalizedProd.selectedContainer?.id === container.id && normalizedProd.containerType === container.containerType;
                   return (
-                    <div key={`${container.containerType}-${container.id}`}
+                    <RailButton
+                      key={`${container.containerType}-${container.id}`}
+                      title={isStage ? `Stage ${container.stage_number}` : `Iteration ${container.iteration_number}`}
+                      selected={isSelected}
+                      color={isStage ? styles.colors.stage : styles.colors.iteration}
+                      number={isStage ? container.stage_number : container.iteration_number}
+                      icon={isStage ? <FaToriiGate size={18} /> : <FaDrumSteelpan size={18} />}
                       onClick={() => handleContainerClick(container, container.containerType)}
                       onContextMenu={e => handleContainerRightClick(e, container, container.containerType)}
-                      style={{ cursor: 'pointer', width: '32px', height: '32px', position: 'relative', borderRadius: '4px', marginBottom: '8px', background: isSelected ? `${styles.colors.primary}64` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      {isStage ? <FaToriiGate size={20} color={styles.colors.stage} /> : <FaDrumSteelpan size={20} color={styles.colors.iteration} />}
-                      <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: styles.colors.dark, color: '#fff', borderRadius: '50%', padding: '0 4px', fontSize: '10px', minWidth: '16px', textAlign: 'center' }}>
-                        {isStage ? container.stage_number : container.iteration_number}
-                      </span>
-                    </div>
+                    />
                   );
                 });
               })()}
@@ -888,7 +935,7 @@ function MainApp() {
           </div>
         </Col>
 
-        <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 50px)' }}>
+        <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 52px)' }}>
           {viewMode === 'normal'
             ? <ResizableColumn leftContent={fileBrowser} rightContent={renderPreview(selectedFileObj, handleRevisionChange, handleChildRevisionChange)} />
             : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
