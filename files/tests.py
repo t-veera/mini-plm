@@ -1,9 +1,18 @@
+import io
+import shutil
+import tempfile
+import zipfile
+
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import Product, Stage, File, Folder
+
+_TMP_MEDIA = tempfile.mkdtemp()
 
 
 class FolderAPITests(APITestCase):
@@ -121,3 +130,54 @@ class FolderAPITests(APITestCase):
 
         response = self.client.patch(f'/api/files/{file_obj.id}/', {'folder': other_folder.id})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+@override_settings(MEDIA_ROOT=_TMP_MEDIA)
+class FolderDownloadTests(APITestCase):
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_TMP_MEDIA, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.user = User.objects.create_user('dl', 'dl@test.com', 'password123')
+        self.client.force_authenticate(user=self.user)
+        self.product = Product.objects.create(name='Widget', owner=self.user)
+        self.stage = Stage.objects.create(product=self.product, name='Design', stage_number=1)
+
+    def make_file(self, name, folder, content=b'data'):
+        return File.objects.create(
+            name=name,
+            owner=self.user,
+            content_type=ContentType.objects.get_for_model(Stage),
+            object_id=self.stage.id,
+            folder=folder,
+            uploaded_file=SimpleUploadedFile(name, content),
+        )
+
+    def test_download_folder_zip_contains_files(self):
+        folder = Folder.objects.create(name='Docs', product=self.product)
+        self.make_file('a.txt', folder, b'AAA')
+        resp = self.client.get(f'/api/folders/{folder.id}/download/?container_type=stage&container_id={self.stage.id}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp['Content-Type'], 'application/zip')
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        self.assertIn('a.txt', zf.namelist())
+        self.assertEqual(zf.read('a.txt'), b'AAA')
+
+    def test_download_folder_zip_preserves_nested_structure(self):
+        root = Folder.objects.create(name='Root', product=self.product)
+        sub = Folder.objects.create(name='Sub', parent=root, product=self.product)
+        self.make_file('top.txt', root, b'TOP')
+        self.make_file('deep.txt', sub, b'DEEP')
+        resp = self.client.get(f'/api/folders/{root.id}/download/?container_type=stage&container_id={self.stage.id}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        names = set(zipfile.ZipFile(io.BytesIO(resp.content)).namelist())
+        self.assertIn('top.txt', names)
+        self.assertIn('Sub/deep.txt', names)
+
+    def test_download_folder_requires_auth(self):
+        self.client.force_authenticate(user=None)
+        folder = Folder.objects.create(name='Docs', product=self.product)
+        resp = self.client.get(f'/api/folders/{folder.id}/download/')
+        self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Toast, ToastContainer, Spinner, Form } from 'react-bootstrap';
-import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan } from 'react-icons/fa';
+import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaDownload } from 'react-icons/fa';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SetupWizard from './components/SetupWizard';
@@ -20,6 +20,16 @@ import KPIDashboard from './components/KPIDashboard/KPIDashboard';
 import { ConfirmModal, InputModal, MoveModal, QuantityModal, PriceModal, ChangeDescriptionModal } from './components/Modals/Modals';
 import Model3DPreview from './components/viewers/Model3DPreview';
 import { CodePreview, MarkdownPreview, CsvPreview, ExcelPreview } from './components/viewers/FilePreviewers';
+
+function triggerDownload(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  if (filename) a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange) {
   if (!fileObj) return <p className="text-muted">No file selected</p>;
@@ -55,6 +65,15 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
           {selectedRevision.description}
         </span>
       )}
+      <button
+        onClick={() => triggerDownload(serverUrl, fileObj.name)}
+        title={`Download ${fileObj.name}`}
+        style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'transparent', color: styles.colors.text.muted, border: `1px solid ${styles.colors.border}`, borderRadius: styles.borderRadius.md, padding: '4px 10px', fontSize: styles.fonts.size.sm }}
+        onMouseOver={e => { e.currentTarget.style.background = styles.colors.darkAlt; e.currentTarget.style.color = styles.colors.text.light; }}
+        onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = styles.colors.text.muted; }}
+      >
+        <FaDownload size={13} /> Download
+      </button>
     </div>
   );
 
@@ -525,6 +544,31 @@ function MainApp() {
     } catch (error) { setToastMsg(error.message); }
   }
 
+  function getFileDownloadUrl(fileObj) {
+    if (!fileObj) return null;
+    const normalizeUrl = (url) => url ? url.replace(/^https?:\/\/[^/]+/, window.location.origin) : null;
+    const rev = fileObj.selected_revision_obj || fileObj.latest_revision;
+    return normalizeUrl(rev?.uploaded_file) || normalizeUrl(fileObj.uploaded_file) || (fileObj.file_path ? `/media/${fileObj.file_path}` : null);
+  }
+
+  function handleDownloadFile(fileObj) {
+    const url = getFileDownloadUrl(fileObj);
+    if (!url) { setToastMsg('No file available to download'); return; }
+    triggerDownload(url, fileObj.name);
+  }
+
+  function handleDownloadOption() {
+    if (contextMenu.fileObj) handleDownloadFile(contextMenu.fileObj);
+    hideContextMenu();
+  }
+
+  function handleDownloadFolder(folder) {
+    hideContextMenu();
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Select a Stage or Iteration first!'); return; }
+    const url = `/api/folders/${folder.id}/download/?container_type=${prod.containerType}&container_id=${prod.selectedContainer.id}`;
+    triggerDownload(url, `${folder.name}.zip`);
+  }
+
   async function handleContainerRightClick(e, container, type) {
     e.preventDefault();
     const containerKey = `${type}_${container.id}`;
@@ -876,6 +920,8 @@ function MainApp() {
           onFolderNewSubfolder={handleFolderNewSubfolder}
           onFolderRename={handleFolderRenamePrompt}
           onFolderDelete={handleDeleteFolder}
+          onFolderDownload={handleDownloadFolder}
+          onDownloadOption={handleDownloadOption}
           onBackgroundNewFolder={handleBackgroundNewFolder}
           onBackgroundUpload={handleBackgroundUpload}
           onMoveFileToFolder={handleMoveFileToFolder}

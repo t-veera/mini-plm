@@ -47,6 +47,8 @@ function FileList({
   onFolderNewSubfolder,
   onFolderRename,
   onFolderDelete,
+  onFolderDownload,
+  onDownloadOption,
   // background context-menu actions
   onBackgroundNewFolder,
   onBackgroundUpload,
@@ -117,7 +119,7 @@ function FileList({
           <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad}px` }} onContextMenu={e => onFileRightClick(e, fileObj)}>
             <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{icon}</span>
-              <span title={fileObj.name} style={{ flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileObj.name}</span>
+              <span title={fileObj.name} style={{ flex: '0 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileObj.name}</span>
               <div className="ms-1" onClick={e => onAddChildClick(e, fileObj)} style={{ cursor: 'pointer', color: styles.colors.secondary, flexShrink: 0 }}>
                 <FaPlus size={10} />
               </div>
@@ -314,6 +316,7 @@ function FileList({
           {contextMenu.type === 'folder' && (() => {
             const folder = contextMenu.folderObj;
             const items = [
+              { label: 'Download as Zip', action: () => onFolderDownload(folder) },
               { label: 'Upload File Here', action: () => { expand(folder.id); onFolderUpload(folder); } },
               { label: 'New Subfolder', action: () => { expand(folder.id); onFolderNewSubfolder(folder); } },
               { label: 'Rename', action: () => onFolderRename(folder) },
@@ -350,6 +353,7 @@ function FileList({
           {contextMenu.type === 'file' && (
             <>
               {[
+                { label: 'Download',        action: onDownloadOption },
                 { label: 'Upload Revision', action: onContextMenuUpload },
                 { label: 'Set Quantity',    action: onQuantityOption },
                 { label: 'Set Price',       action: onPriceOption },

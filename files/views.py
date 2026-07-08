@@ -11,6 +11,8 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+import io
+import zipfile
 from collections import defaultdict
 from django.db.models import Count
 
@@ -151,29 +153,6 @@ class FileViewSet(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
-
-    def partial_update(self, request, *args, **kwargs):
-        """Override to debug the 500 error"""
-        import traceback
-        
-        print(f"=== PATCH DEBUG ===")
-        print(f"File ID: {kwargs.get('pk')}")
-        print(f"Request data: {request.data}")
-        
-        try:
-            # Call the parent method
-            result = super().partial_update(request, *args, **kwargs)
-            print(f"✅ Update successful")
-            return result
-            
-        except Exception as e:
-            print(f"❌ ERROR TYPE: {type(e).__name__}")
-            print(f"❌ ERROR MESSAGE: {str(e)}")
-            print(f"❌ FULL TRACEBACK:")
-            traceback.print_exc()
-            
-            # Re-raise the exception so Django handles it normally
-            raise
 
     def list(self, request, *args, **kwargs):
         """List files with optional filtering"""
@@ -459,6 +438,84 @@ class FolderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        """Download a folder (and its subfolders) as a zip.
+
+        Scoped to a single stage/iteration via container_type + container_id query
+        params so the archive matches what the user sees in the current view. The
+        nested folder structure is preserved as directories inside the zip.
+        """
+        folder = self.get_object()
+        container_type = request.query_params.get('container_type')
+        container_id = request.query_params.get('container_id')
+
+        # Build parent/child maps for this product's folders (single query).
+        all_folders = list(Folder.objects.filter(product=folder.product).values('id', 'parent_id', 'name'))
+        children_map = defaultdict(list)
+        name_map, parent_map = {}, {}
+        for f in all_folders:
+            children_map[f['parent_id']].append(f['id'])
+            name_map[f['id']] = f['name']
+            parent_map[f['id']] = f['parent_id']
+
+        # Collect the target folder plus all descendants.
+        subtree, stack = set(), [folder.id]
+        while stack:
+            fid = stack.pop()
+            subtree.add(fid)
+            stack.extend(children_map.get(fid, []))
+
+        # Relative path of a folder within the zip (relative to the target folder).
+        def rel_path(fid):
+            parts, cur = [], fid
+            while cur is not None and cur != folder.id:
+                parts.append(name_map.get(cur, ''))
+                cur = parent_map.get(cur)
+            return '/'.join(reversed(parts))
+
+        files_qs = File.objects.filter(folder_id__in=subtree)
+        if container_type and container_id:
+            ct = None
+            if container_type == 'stage':
+                ct = ContentType.objects.get_for_model(Stage)
+            elif container_type == 'iteration':
+                ct = ContentType.objects.get_for_model(Iteration)
+            if ct is not None:
+                files_qs = files_qs.filter(content_type=ct, object_id=container_id)
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            used = set()
+            for f in files_qs:
+                # Use the current revision's file, falling back to the file's own upload.
+                rev = f.revisions.filter(revision_number=f.current_revision).first() or f.latest_revision
+                field = rev.uploaded_file if (rev and rev.uploaded_file) else f.uploaded_file
+                if not field:
+                    continue
+                folder_path = rel_path(f.folder_id)
+                arcname = f"{folder_path + '/' if folder_path else ''}{f.name}"
+                # De-duplicate identical archive paths.
+                base, i = arcname, 1
+                while arcname in used:
+                    stem, dot, ext = base.rpartition('.')
+                    arcname = (f"{stem}_{i}{dot}{ext}" if dot else f"{base}_{i}")
+                    i += 1
+                used.add(arcname)
+                try:
+                    field.open('rb')
+                    data = field.read()
+                    field.close()
+                except Exception:
+                    continue
+                zf.writestr(arcname, data)
+
+        buffer.seek(0)
+        safe_name = ''.join(c for c in folder.name if c.isalnum() or c in (' ', '-', '_')).strip() or 'folder'
+        response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{safe_name}.zip"'
+        return response
 
 from rest_framework.decorators import api_view, permission_classes
 @api_view(['GET', 'POST'])
