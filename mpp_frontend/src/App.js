@@ -19,6 +19,7 @@ import BOMViewer from './components/BOMViewer/BOMViewer';
 import KPIDashboard from './components/KPIDashboard/KPIDashboard';
 import { ConfirmModal, InputModal, MoveModal, QuantityModal, PriceModal, ChangeDescriptionModal } from './components/Modals/Modals';
 import Model3DPreview from './components/viewers/Model3DPreview';
+import KicadSchematicViewer from './components/viewers/KicadSchematicViewer';
 import { CodePreview, MarkdownPreview, CsvPreview, ExcelPreview } from './components/viewers/FilePreviewers';
 
 function triggerDownload(url, filename) {
@@ -86,6 +87,9 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
 
   if (nameLower.endsWith('.pdf'))
     return wrap(<div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '1000px', border: 'none' }} title={fileObj.name} /></div>);
+
+  if (['.kicad_sch', '.sch'].some(e => nameLower.endsWith(e)))
+    return wrap(<KicadSchematicViewer key={fileUrl} fileUrl={fileUrl} />);
 
   if (['.stl', '.dxf', '.stp', '.step'].some(e => nameLower.endsWith(e)))
     return wrap(<Model3DPreview fileUrl={fileUrl} />);
