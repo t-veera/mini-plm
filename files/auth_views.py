@@ -1,6 +1,6 @@
 ﻿from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -37,8 +37,17 @@ def login_view(request):
         )
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([])  # Skip SessionAuthentication's CSRF enforcement
+@permission_classes([AllowAny])
 def logout_view(request):
+    # Logout must always invalidate the server-side session, even if a CSRF
+    # token is missing or stale. With DRF's default SessionAuthentication, a
+    # missing/invalid CSRF token makes authentication raise 403 *before*
+    # logout() runs, so the sessionid cookie is never cleared and the user is
+    # silently re-authenticated on the next page refresh. Dropping the
+    # authenticators removes that CSRF gate; logout() still flushes
+    # request.session (loaded from the cookie by SessionMiddleware,
+    # independent of DRF auth) and expires the session cookie.
     logout(request)
     return Response({'success': True, 'message': 'Logged out successfully'})
 
