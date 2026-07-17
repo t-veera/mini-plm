@@ -149,7 +149,7 @@ The methodology is covered in depth on the [wiki](https://github.com/t-veera/min
 
 **Universal file preview**
 
-Preview engineering files directly in the browser. No downloads, no switching tools. Supports `.stl`, `.step`, `.dxf`, `.pdf`, `.xlsx`, `.csv`, `.md`, `.py`, `.cpp`, `.ino`, `.js`, `.png`, `.jpg`, and more. KiCad `.kicad_pcb` and `.kicad_sch` preview is in development.
+Preview engineering files directly in the browser. No downloads, no switching tools. Supports `.stl`, `.step`, `.dxf`, `.pdf`, `.xlsx`, `.csv`, `.md`, `.py`, `.cpp`, `.ino`, `.js`, `.png`, `.jpg`, KiCad schematics (`.kicad_sch`), and more. KiCad `.kicad_pcb` (PCB layout) preview is in development.
 
 **Automatic revision control**
 
@@ -207,9 +207,8 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **In progress:**
 
-- [ ] **KiCad preview:** server-side `kicad-cli` conversion to PDF via a sidecar microservice container. Engineers upload `.kicad_pcb` as the source file and a STEP export as a child file for 3D preview. Conversion happens automatically on upload.
-- [ ] **File grouping and sorting:** organise files within an iteration into folders, with sort controls by name, type, date, and status.
-- [ ] **Frontend refactor:** `App.js` is a monolith at around 8000 lines. Breaking it into components once auth and demo work stabilises.
+- [ ] **KiCad PCB preview (`.kicad_pcb`):** board-layout rendering to match the in-browser schematic preview. Under evaluation: a client-side renderer like the schematic viewer, or server-side `kicad-cli` conversion via a sidecar container.
+- [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
 
 **Next:**
 
@@ -219,6 +218,9 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **Done:**
 
+- [x] **KiCad schematic (`.kicad_sch`) preview:** rendered in-browser from the file's embedded symbol graphics, with no server-side conversion. Pan, zoom, and fit, plus a graceful fallback for legacy `.sch` files.
+- [x] **File organisation into folders:** create, rename, move, and nest folders, drag-and-drop files and folders, and folder downloads.
+- [x] **Frontend refactor:** `App.js` split from ~8000 lines into components (FileList, BOMViewer, KPI, file viewers, modals).
 - [x] Automatic revision control
 - [x] BOM view with DXF and child file linking
 - [x] Markdown preview with revision switching
