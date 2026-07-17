@@ -20,6 +20,7 @@ import KPIDashboard from './components/KPIDashboard/KPIDashboard';
 import { ConfirmModal, InputModal, MoveModal, QuantityModal, PriceModal, ChangeDescriptionModal } from './components/Modals/Modals';
 import Model3DPreview from './components/viewers/Model3DPreview';
 import KicadSchematicViewer from './components/viewers/KicadSchematicViewer';
+import KicadPcbViewer from './components/viewers/KicadPcbViewer';
 import { CodePreview, MarkdownPreview, CsvPreview, ExcelPreview } from './components/viewers/FilePreviewers';
 
 function triggerDownload(url, filename) {
@@ -90,6 +91,9 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
 
   if (['.kicad_sch', '.sch'].some(e => nameLower.endsWith(e)))
     return wrap(<KicadSchematicViewer key={fileUrl} fileUrl={fileUrl} />);
+
+  if (nameLower.endsWith('.kicad_pcb'))
+    return wrap(<KicadPcbViewer key={fileUrl} fileUrl={fileUrl} />);
 
   if (['.stl', '.dxf', '.stp', '.step'].some(e => nameLower.endsWith(e)))
     return wrap(<Model3DPreview fileUrl={fileUrl} />);

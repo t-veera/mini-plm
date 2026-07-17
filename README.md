@@ -149,7 +149,7 @@ The methodology is covered in depth on the [wiki](https://github.com/t-veera/min
 
 **Universal file preview**
 
-Preview engineering files directly in the browser. No downloads, no switching tools. Supports `.stl`, `.step`, `.dxf`, `.pdf`, `.xlsx`, `.csv`, `.md`, `.py`, `.cpp`, `.ino`, `.js`, `.png`, `.jpg`, KiCad schematics (`.kicad_sch`), and more. KiCad `.kicad_pcb` (PCB layout) preview is in development.
+Preview engineering files directly in the browser. No downloads, no switching tools. Supports `.stl`, `.step`, `.dxf`, `.pdf`, `.xlsx`, `.csv`, `.md`, `.py`, `.cpp`, `.ino`, `.js`, `.png`, `.jpg`, KiCad schematics and boards (`.kicad_sch`, `.kicad_pcb`), and more.
 
 **Automatic revision control**
 
@@ -207,7 +207,6 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **In progress:**
 
-- [ ] **KiCad PCB preview (`.kicad_pcb`):** board-layout rendering to match the in-browser schematic preview. Under evaluation: a client-side renderer like the schematic viewer, or server-side `kicad-cli` conversion via a sidecar container.
 - [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
 
 **Next:**
@@ -219,6 +218,7 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 **Done:**
 
 - [x] **KiCad schematic (`.kicad_sch`) preview:** rendered in-browser from the file's embedded symbol graphics, with no server-side conversion. Pan, zoom, and fit, plus a graceful fallback for legacy `.sch` files.
+- [x] **KiCad PCB (`.kicad_pcb`) preview:** in-browser top-down board render — outline, copper zones and tracks, pads with drills, vias, and silkscreen — in the same pan/zoom canvas. No server-side conversion.
 - [x] **File organisation into folders:** create, rename, move, and nest folders, drag-and-drop files and folders, and folder downloads.
 - [x] **Frontend refactor:** `App.js` split from ~8000 lines into components (FileList, BOMViewer, KPI, file viewers, modals).
 - [x] Automatic revision control
