@@ -150,7 +150,7 @@ export default function KicadCanvas({ fileUrl, parse, kind = 'file', renderStats
   };
 
   const shell = (children) => (
-    <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}>
+    <div style={{ height: '100%', minHeight: '320px', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}>
       {children}
     </div>
   );
@@ -161,7 +161,7 @@ export default function KicadCanvas({ fileUrl, parse, kind = 'file', renderStats
 
   if (state.status === 'error') {
     return shell(
-      <div style={{ padding: '1rem', color: '#ddd', background: '#1b1e22', minHeight: '600px' }}>
+      <div style={{ padding: '1rem', color: '#ddd', background: '#1b1e22', height: '100%', overflow: 'auto' }}>
         <p style={{ color: state.legacy ? '#e0b040' : '#e06060', fontWeight: 600 }}>
           {state.legacy ? `⚠ Legacy ${kind} format` : `⚠ Cannot render ${kind}`}
         </p>
@@ -198,7 +198,7 @@ export default function KicadCanvas({ fileUrl, parse, kind = 'file', renderStats
   const v = viewRef.current;
   const bg = state.background || '#ffffff';
   return shell(
-    <div style={{ background: bg, position: 'relative', height: '600px' }}>
+    <div style={{ background: bg, position: 'relative', height: '100%' }}>
       <div
         style={{
           position: 'absolute',

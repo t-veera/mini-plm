@@ -118,16 +118,16 @@ function FileList({
         >
           <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad}px` }} onContextMenu={e => onFileRightClick(e, fileObj)}>
             <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{icon}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '12px' }}>{icon}</span>
               <span title={fileObj.name} style={{ flex: '0 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileObj.name}</span>
-              <div className="ms-1" onClick={e => onAddChildClick(e, fileObj)} style={{ cursor: 'pointer', color: styles.colors.secondary, flexShrink: 0 }}>
+              <div className="ms-2" onClick={e => onAddChildClick(e, fileObj)} style={{ cursor: 'pointer', color: styles.colors.secondary, flexShrink: 0 }}>
                 <FaPlus size={10} />
               </div>
               {(() => {
                 const { showQty, showPrice, showBadges } = qtyPriceFlags(fileObj);
                 if (!showBadges) return null;
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '10px' }}>
                     {showQty && <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onQuantityClick(e, fileObj)}>Qty: {fileObj.quantity}</span>}
                     {showPrice && <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onPriceClick(e, fileObj)}>₹{fileObj.price}</span>}
                   </div>
@@ -173,13 +173,13 @@ function FileList({
               <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad + 20}px`, position: 'relative' }} onContextMenu={e => onFileRightClick(e, childFile)}>
                 <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
                   <span style={{ position: 'absolute', left: `${namePad - 4}px`, color: '#6c757d', fontSize: '0.7rem' }}>└</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '6px' }}>{childIcon}</span>
-                  <span title={childFile.name} style={{ marginLeft: '4px', minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{childFile.name}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '12px' }}>{childIcon}</span>
+                  <span title={childFile.name} style={{ minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{childFile.name}</span>
                   {(() => {
                     const { showQty, showPrice, showBadges } = qtyPriceFlags(childFile);
                     if (!showBadges) return null;
                     return (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '10px' }}>
                         {showQty && <span className="badge bg-warning" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onQuantityClick(e, childFile)}>Qty: {childFile.quantity}</span>}
                         {showPrice && <span className="badge bg-success" style={{ cursor: 'pointer', fontSize: '0.7rem' }} onClick={e => onPriceClick(e, childFile)}>₹{childFile.price}</span>}
                       </div>
@@ -245,7 +245,7 @@ function FileList({
               >
                 {hasChildren || filesInFolder(folder.id).length > 0 ? (isOpen ? <FaChevronDown size={9} /> : <FaChevronRight size={9} />) : null}
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', width: '24px', height: '24px', justifyContent: 'center', flexShrink: 0, marginRight: '6px', color: styles.colors.stage }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', width: '24px', height: '24px', justifyContent: 'center', flexShrink: 0, marginRight: '12px', color: styles.colors.stage }}>
                 {isOpen ? <FaFolderOpen size={15} /> : <FaFolder size={15} />}
               </span>
               <span className="flex-grow-1">
@@ -277,7 +277,7 @@ function FileList({
         onDrop={e => dropOnTarget(e, null)}
         style={{ minHeight: '400px', outline: dragOverRoot ? `1px dashed ${styles.colors.iteration}` : 'none' }}
       >
-        <Table hover borderless className="table-dark table-sm" style={{ cursor: 'pointer', fontSize: '0.85rem', marginBottom: 0 }}>
+        <Table hover className="table-dark file-table" style={{ cursor: 'pointer', fontSize: '0.85rem', marginBottom: 0 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${styles.colors.border}` }}>
               {['Name', 'Date', 'Rev'].map(h => (

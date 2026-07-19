@@ -58,7 +58,7 @@ export function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosit
 
     return (
       <>
-        <gridHelper args={[50, 50, 'white', 'gray']} position={[0, gridPosition, 0]} />
+        <gridHelper args={[50, 50, '#5a6675', '#39424e']} position={[0, gridPosition, 0]} />
         <directionalLight castShadow position={[10, 15, 10]} intensity={brightness} />
         <directionalLight position={[-10, 10, -10]} intensity={brightness * 0.5} />
         <ambientLight intensity={0.4} />
@@ -66,7 +66,7 @@ export function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosit
           <primitive object={geometry} attach="geometry" />
           <meshStandardMaterial color={materialColor} roughness={0.5} metalness={0.1} emissiveIntensity={contrast - 1} wireframe={false} />
         </mesh>
-        <OrbitControls enableZoom={true} enableRotate={true} enablePan={true} zoomSpeed={1.2} rotateSpeed={1.0} panSpeed={0.8} />
+        <OrbitControls makeDefault enableDamping dampingFactor={0.12} enableZoom={true} enableRotate={true} enablePan={true} zoomSpeed={1.2} rotateSpeed={1.0} panSpeed={0.8} />
       </>
     );
   };
@@ -74,33 +74,3 @@ export function StlViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosit
   return <group><ThreeScene /></group>;
 }
 
-export function StlViewerControls({ brightness, setBrightness, contrast, setContrast, gridPosition, setGridPosition, showControls, setShowControls }) {
-  return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
-      <div style={{ pointerEvents: 'auto' }}>
-        <div
-          style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem', zIndex: 20 }}
-          onClick={() => setShowControls(!showControls)}
-        >
-          {showControls ? 'Hide Controls' : 'Show Controls'}
-        </div>
-        {showControls && (
-          <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'rgba(0,0,0,0.36)', padding: '10px', borderRadius: '5px', zIndex: 20, color: 'white', fontSize: '0.8rem', width: '200px' }}>
-            <div className="mb-2">
-              <label className="d-block mb-1">Brightness: {brightness.toFixed(1)}</label>
-              <input type="range" min="0.5" max="3" step="0.1" value={brightness} onChange={(e) => setBrightness(parseFloat(e.target.value))} style={{ width: '100%' }} />
-            </div>
-            <div className="mb-2">
-              <label className="d-block mb-1">Contrast: {contrast.toFixed(1)}</label>
-              <input type="range" min="0.5" max="2" step="0.1" value={contrast} onChange={(e) => setContrast(parseFloat(e.target.value))} style={{ width: '100%' }} />
-            </div>
-            <div className="mb-2">
-              <label className="d-block mb-1">Grid Position: {gridPosition.toFixed(1)}</label>
-              <input type="range" min="-5" max="0" step="0.5" value={gridPosition} onChange={(e) => setGridPosition(parseFloat(e.target.value))} style={{ width: '100%' }} />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

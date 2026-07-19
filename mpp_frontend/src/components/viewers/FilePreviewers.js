@@ -25,13 +25,13 @@ export function CodePreview({ fileUrl, extension }) {
   else if (extension === '.ts') language = 'typescript';
 
   if (error) return (
-    <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
       <p className="text-danger">Error loading code: {error}</p>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
       {codeContent
         ? <SyntaxHighlighter language={language} style={materialDark} showLineNumbers>{codeContent}</SyntaxHighlighter>
         : <p className="text-muted">Loading code...</p>}
@@ -56,13 +56,13 @@ export function CsvPreview({ fileUrl }) {
   }, [fileUrl]);
 
   if (error) return (
-    <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
       <p className="text-danger">Error loading CSV: {error}</p>
     </div>
   );
 
   return (
-    <div style={{ maxHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className="excel-scroll-container">
+    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className="excel-scroll-container">
       {rows.length === 0
         ? <p className="text-muted p-2">Loading CSV data...</p>
         : (

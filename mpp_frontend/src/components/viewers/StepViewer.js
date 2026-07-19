@@ -172,8 +172,8 @@ function StepModel({ fileUrl, brightness, contrast, gridPosition, materialColor 
       <ambientLight intensity={brightness * 0.5} />
       <directionalLight position={[10, 10, 10]} intensity={brightness * contrast} castShadow />
       <directionalLight position={[-5, 5, -5]} intensity={brightness * 0.3} />
-      <gridHelper args={[20, 20, '#444', '#333']} position={[0, gridPosition, 0]} />
-      <OrbitControls enableDamping dampingFactor={0.1} />
+      <gridHelper args={[20, 20, '#5a6675', '#39424e']} position={[0, gridPosition, 0]} />
+      <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
       {geometry && <primitive ref={groupRef} object={geometry} />}
     </>
   );

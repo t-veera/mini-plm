@@ -187,12 +187,12 @@ function DxfViewer({ fileUrl, brightness = 1.5, contrast = 1.2, gridPosition = -
     const scaleFactor = size > 0 ? 10 / size : 1;
     return (
       <>
-        <gridHelper args={[50, 50, 'white', 'gray']} position={[0, gridPosition, 0]} />
+        <gridHelper args={[50, 50, '#5a6675', '#39424e']} position={[0, gridPosition, 0]} />
         <ambientLight intensity={0.8} />
         <directionalLight position={[0, 0, 10]} intensity={brightness * 0.3} />
         <directionalLight position={[10, 10, 5]} intensity={brightness * 0.2} />
         <primitive object={dxfEntities} scale={[scaleFactor, scaleFactor, scaleFactor]} />
-        <OrbitControls enableZoom={true} enableRotate={true} enablePan={true} zoomSpeed={1.2} rotateSpeed={1.0} panSpeed={0.8} />
+        <OrbitControls makeDefault enableDamping dampingFactor={0.12} enableZoom={true} enableRotate={true} enablePan={true} zoomSpeed={1.2} rotateSpeed={1.0} panSpeed={0.8} />
       </>
     );
   };

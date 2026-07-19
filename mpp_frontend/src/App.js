@@ -79,15 +79,22 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
     </div>
   );
 
-  const wrap = (content) => <div style={{ maxWidth: '100%', overflow: 'auto' }}>{revisionSelector}{content}</div>;
+  // Previews fill the pane's full height; `fill=false` keeps the natural
+  // document flow (markdown reads better scrolling as a normal page).
+  const wrap = (content, fill = true) => (
+    <div style={{ maxWidth: '100%', height: fill ? '100%' : 'auto', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: fill ? 'hidden' : 'auto' }}>
+      {revisionSelector}
+      <div style={{ flex: fill ? '1 1 auto' : '0 0 auto', minHeight: 0, overflow: fill ? 'hidden' : 'visible' }}>{content}</div>
+    </div>
+  );
   const fileUrl = serverUrl;
   const nameLower = fileObj.name.toLowerCase();
 
   if (['.png', '.jpg', '.jpeg', '.gif'].some(e => nameLower.endsWith(e)))
-    return wrap(<div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}><img src={fileUrl} alt={fileObj.name} style={{ maxWidth: '100%', height: 'auto' }} /></div>);
+    return wrap(<div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}><img src={fileUrl} alt={fileObj.name} style={{ maxWidth: '100%', height: 'auto' }} /></div>);
 
   if (nameLower.endsWith('.pdf'))
-    return wrap(<div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '1000px', border: 'none' }} title={fileObj.name} /></div>);
+    return wrap(<div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '100%', border: 'none' }} title={fileObj.name} /></div>);
 
   if (['.kicad_sch', '.sch'].some(e => nameLower.endsWith(e)))
     return wrap(<KicadSchematicViewer key={fileUrl} fileUrl={fileUrl} />);
@@ -104,7 +111,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   }
 
   if (['.md', '.markdown'].some(e => nameLower.endsWith(e)))
-    return wrap(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />);
+    return wrap(<MarkdownPreview key={fileUrl + selectedRevision?.revision_number} fileUrl={fileUrl} />, false);
 
   if (nameLower.endsWith('.csv'))
     return wrap(<CsvPreview fileUrl={fileUrl} />);
@@ -115,7 +122,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   const fileSize = fileObj.file_size || fileObj.size || 0;
   const uploadDate = fileObj.created_at || fileObj.upload_date;
   return wrap(
-    <div style={{ minHeight: '600px', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
       <p className="text-muted">No preview available for {fileObj.name}</p>
       <p>Size: {(fileSize / 1024).toFixed(2)} KB</p>
       <p>Upload date: {uploadDate ? new Date(uploadDate).toLocaleDateString() : 'Unknown'}</p>
@@ -329,6 +336,8 @@ function MainApp() {
       .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
       .table { font-size: ${styles.fonts.size.sm} !important; cursor: pointer !important; background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
       .table th, .table td { background-color: ${styles.colors.dark} !important; border-color: ${styles.colors.border} !important; }
+      .file-table > :not(caption) > * > * { padding: 0.55rem 0.5rem !important; border-bottom: 1px solid ${styles.colors.border} !important; }
+      .file-table > tbody > tr:last-child > * { border-bottom: none !important; }
       .form-control, .form-select { background-color: ${styles.colors.darkAlt} !important; color: ${styles.colors.text.light} !important; border: 1px solid ${styles.colors.border} !important; }
       .product-select { background-color: transparent !important; border: none !important; box-shadow: none !important; }
       .product-select:hover { background-color: ${styles.colors.darkAlt} !important; }
