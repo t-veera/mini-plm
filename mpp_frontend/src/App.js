@@ -123,6 +123,18 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   );
 }
 
+const LAST_SELECTION_KEY = 'phasorLastSelection';
+
+// Remembers where the user left off (product / stage-iteration / file) so a fresh
+// login lands on that view instead of an empty screen.
+function loadLastSelection() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_SELECTION_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
 function ToolbarIcon({ icon, label, onClick, color, active = false }) {
   const base = color || styles.colors.text.muted;
   return (
@@ -170,10 +182,7 @@ function MainApp() {
   const [viewMode, setViewMode] = useState('normal');
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedProductIndex, setSelectedProductIndex] = useState(() => {
-    const idx = localStorage.getItem('phasorSelectedProductIndex');
-    return idx ? parseInt(idx, 10) : 0;
-  });
+  const [selectedProductIndex, setSelectedProductIndex] = useState(0);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState(null);
   const [containerType, setContainerType] = useState(null);
@@ -198,8 +207,53 @@ function MainApp() {
   const contextMenuFileInput = useRef(null);
   const childFileInput = useRef(null);
   const uploadTargetFolderRef = useRef(null); // when set, next upload lands in this folder
+  const pendingFolderIdRef = useRef(null); // folder to open once the restored product's tree loads
 
   const prod = products[selectedProductIndex] || {};
+
+  // Reopen the product / container / file the user was last on. Falls back to the
+  // first product whenever any part of the saved selection no longer exists.
+  async function restoreLastSelection(loadedProducts) {
+    const saved = loadLastSelection();
+    const savedIndex = saved ? loadedProducts.findIndex(p => p.id === saved.productId) : -1;
+    const productIndex = savedIndex >= 0 ? savedIndex : 0;
+    setSelectedProductIndex(productIndex);
+    if (savedIndex < 0 || !saved.containerType || !saved.containerId) return;
+
+    const product = loadedProducts[productIndex];
+    const containers = saved.containerType === 'stage' ? product.stages : product.iterations;
+    const container = (containers || []).find(c => c.id === saved.containerId);
+    if (!container) return;
+
+    setSelectedContainer(container);
+    setContainerType(saved.containerType);
+    setProducts(prev => prev.map((p, i) => i === productIndex
+      ? { ...p, selectedContainer: container, containerType: saved.containerType }
+      : p));
+
+    try {
+      const endpoint = saved.containerType === 'stage'
+        ? `/api/stages/${container.id}/files/`
+        : `/api/iterations/${container.id}/files/`;
+      const response = await authenticatedFetch(endpoint);
+      if (!response.ok) return;
+      const files = await response.json();
+      const containerKey = `${saved.containerType}_${container.id}`;
+      setProducts(prev => prev.map((p, i) => i === productIndex
+        ? { ...p, filesByContainer: { ...p.filesByContainer, [containerKey]: files } }
+        : p));
+      if (!saved.fileId) return;
+      const file = files.find(f => f.id === saved.fileId)
+        || files.flatMap(f => f.child_files || []).find(c => c.id === saved.fileId);
+      if (!file) return;
+      setSelectedFileObj(file);
+      // The folder tree effect may run before or after this resolves, so cover both.
+      pendingFolderIdRef.current = file.folder ?? null;
+      setCurrentFolderId(file.folder ?? null);
+    } catch (error) {
+      console.error('Failed to restore last container:', error);
+    }
+  }
 
   useEffect(() => {
     const checkSetupAndLoadData = async () => {
@@ -214,7 +268,7 @@ function MainApp() {
           const backendProducts = await response.json();
           const enriched = backendProducts.map(p => ({ ...p, selectedContainer: null, containerType: null, filesByContainer: p.filesByContainer || {} }));
           setProducts(enriched);
-          if (enriched.length > 0) setSelectedProductIndex(0);
+          if (enriched.length > 0) await restoreLastSelection(enriched);
         } else {
           const loaded = await hybridStorage.loadProducts();
           setProducts(loaded);
@@ -228,6 +282,7 @@ function MainApp() {
       }
     };
     checkSetupAndLoadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -236,15 +291,25 @@ function MainApp() {
     return () => clearTimeout(id);
   }, [products, isLoading]);
 
+  // Remember the current spot so the next login can reopen it.
   useEffect(() => {
-    localStorage.setItem('phasorSelectedProductIndex', selectedProductIndex.toString());
-  }, [selectedProductIndex]);
+    if (isLoading) return;
+    const productId = products[selectedProductIndex]?.id;
+    if (!productId) return;
+    localStorage.setItem(LAST_SELECTION_KEY, JSON.stringify({
+      productId,
+      containerType: containerType || null,
+      containerId: selectedContainer?.id ?? null,
+      fileId: selectedFileObj?.id ?? null,
+    }));
+  }, [products, selectedProductIndex, containerType, selectedContainer, selectedFileObj, isLoading]);
 
   // Load the product-scoped folder tree whenever the selected product changes.
   const currentProductId = products[selectedProductIndex]?.id;
   useEffect(() => {
     if (!currentProductId) { setFolderTree([]); return; }
-    setCurrentFolderId(null);
+    setCurrentFolderId(pendingFolderIdRef.current);
+    pendingFolderIdRef.current = null;
     loadFolderTree(currentProductId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProductId]);
