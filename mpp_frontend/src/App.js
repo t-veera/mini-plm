@@ -14,6 +14,7 @@ import styles from './constants/styles';
 import useIconTheme from './hooks/useIconTheme';
 
 import ResizableColumn from './components/ResizableColumn/ResizableColumn';
+import ErrorBoundary from './components/ErrorBoundary';
 import FileList from './components/FileList/FileList';
 import BOMViewer from './components/BOMViewer/BOMViewer';
 import KPIDashboard from './components/KPIDashboard/KPIDashboard';
@@ -311,15 +312,22 @@ function MainApp() {
     }));
   }, [products, selectedProductIndex, containerType, selectedContainer, selectedFileObj, isLoading]);
 
-  // Load the product-scoped folder tree whenever the selected product changes.
+  // On product change, reset the folder selection (restore uses pendingFolderIdRef to
+  // reopen the last folder). The tree itself is loaded per-container by the effect below.
   const currentProductId = products[selectedProductIndex]?.id;
   useEffect(() => {
-    if (!currentProductId) { setFolderTree([]); return; }
     setCurrentFolderId(pendingFolderIdRef.current);
     pendingFolderIdRef.current = null;
-    loadFolderTree(currentProductId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProductId]);
+
+  // Folders are scoped to a stage/iteration, so (re)load the tree whenever the selected
+  // container changes. No container selected => no folders.
+  useEffect(() => {
+    if (!selectedContainer || !containerType) { setFolderTree([]); return; }
+    loadFolderTree(selectedContainer, containerType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContainer, containerType]);
 
   useEffect(() => {
     function handleClick() { if (contextMenu.visible) hideContextMenu(); }
@@ -494,6 +502,7 @@ function MainApp() {
     setSelectedContainer(container);
     setContainerType(type);
     setSelectedFileObj(null);
+    setCurrentFolderId(null); // don't carry a folder selection across containers
     loadContainerFiles(container, type);
   }
 
@@ -515,10 +524,12 @@ function MainApp() {
     } catch (error) { console.error(`Failed to load ${type} files:`, error); }
   }
 
-  async function loadFolderTree(productId) {
+  async function loadFolderTree(container, type) {
+    if (!container || !type) { setFolderTree([]); return; }
     setFoldersLoading(true);
     try {
-      const response = await authenticatedFetch(`/api/products/${productId}/folders/`);
+      const endpoint = type === 'stage' ? `/api/stages/${container.id}/folders/` : `/api/iterations/${container.id}/folders/`;
+      const response = await authenticatedFetch(endpoint);
       if (response.ok) setFolderTree(await response.json());
       else setFolderTree([]);
     } catch (error) {
@@ -529,35 +540,40 @@ function MainApp() {
     }
   }
 
+  // Reload the current container's folder tree after a folder mutation.
+  function refreshFolders() {
+    if (selectedContainer && containerType) loadFolderTree(selectedContainer, containerType);
+  }
+
   async function handleCreateFolder(parentId, name) {
-    const productId = products[selectedProductIndex]?.id;
-    if (!productId) { setToastMsg('Select a product first!'); return; }
+    if (!selectedContainer || !containerType) { setToastMsg('Select a Stage or Iteration first!'); return; }
     try {
-      const response = await authenticatedFetch('/api/folders/', { method: 'POST', body: JSON.stringify({ name, parent: parentId, product: productId }) });
+      const body = { name, parent: parentId };
+      if (containerType === 'stage') body.stage_id = selectedContainer.id;
+      else body.iteration_id = selectedContainer.id;
+      const response = await authenticatedFetch('/api/folders/', { method: 'POST', body: JSON.stringify(body) });
       if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Create failed'); }
-      await loadFolderTree(productId);
+      await loadFolderTree(selectedContainer, containerType);
       setToastMsg(`Folder "${name}" created`);
     } catch (error) { setToastMsg(`Failed to create folder: ${error.message}`); }
   }
 
   async function handleRenameFolder(folderId, name) {
-    const productId = products[selectedProductIndex]?.id;
     try {
       const response = await authenticatedFetch(`/api/folders/${folderId}/`, { method: 'PATCH', body: JSON.stringify({ name }) });
       if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Rename failed'); }
-      await loadFolderTree(productId);
+      refreshFolders();
       setToastMsg('Folder renamed');
     } catch (error) { setToastMsg(`Failed to rename folder: ${error.message}`); }
   }
 
   async function handleDeleteFolder(folder) {
-    const productId = products[selectedProductIndex]?.id;
     if (!await showConfirm(`Delete folder "${folder.name}"? It must be empty first.`)) return;
     try {
       const response = await authenticatedFetch(`/api/folders/${folder.id}/`, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Delete failed'); }
       if (currentFolderId === folder.id) setCurrentFolderId(folder.parent ?? null);
-      await loadFolderTree(productId);
+      refreshFolders();
       setToastMsg(`Folder "${folder.name}" deleted`);
     } catch (error) { setToastMsg(error.message); }
   }
@@ -592,7 +608,6 @@ function MainApp() {
   }
 
   async function handleMoveFileToFolder(fileId, folderId) {
-    const productId = products[selectedProductIndex]?.id;
     try {
       const response = await authenticatedFetch(`/api/files/${fileId}/`, { method: 'PATCH', body: JSON.stringify({ folder: folderId }) });
       if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || (Array.isArray(err) ? err[0] : 'Move failed')); }
@@ -607,13 +622,12 @@ function MainApp() {
         return updated;
       });
       if (selectedFileObj?.id === fileId) setSelectedFileObj(prev => ({ ...prev, folder: folderId }));
-      if (productId) loadFolderTree(productId);
+      refreshFolders();
       setToastMsg(folderId ? 'File moved into folder' : 'File moved to root');
     } catch (error) { setToastMsg(`Move failed: ${error.message}`); }
   }
 
   async function handleMoveFolder(folderId, newParentId) {
-    const productId = products[selectedProductIndex]?.id;
     try {
       const response = await authenticatedFetch(`/api/folders/${folderId}/`, { method: 'PATCH', body: JSON.stringify({ parent: newParentId }) });
       if (!response.ok) {
@@ -621,7 +635,7 @@ function MainApp() {
         const msg = err.error || (err.non_field_errors ? err.non_field_errors[0] : (Array.isArray(err) ? err[0] : 'Move failed'));
         throw new Error(msg);
       }
-      if (productId) await loadFolderTree(productId);
+      refreshFolders();
       setToastMsg('Folder moved');
     } catch (error) { setToastMsg(error.message); }
   }
@@ -725,7 +739,7 @@ function MainApp() {
         return updated;
       });
       setSelectedFileObj({ ...savedFile, dataUrl });
-      if (targetFolderId && prod.id) loadFolderTree(prod.id);
+      if (targetFolderId) refreshFolders(); // refresh file counts on the target folder
       setToastMsg(savedFile.current_revision > 1 ? `Rev ${savedFile.current_revision} created!` : 'File uploaded!');
       setTimeout(() => { setCurrentFileForModal({ ...savedFile, dataUrl }); setTempChangeDescription(''); setShowChangeDescriptionModal(true); }, 100);
     } catch (err) { setToastMsg(`Upload error: ${err.message}`); }
@@ -869,6 +883,24 @@ function MainApp() {
     } catch (error) { setToastMsg(`Move failed: ${error.message}`); }
   }
 
+  async function handleRenameOption() {
+    if (!contextMenu.fileObj) { hideContextMenu(); return; }
+    const fileObj = contextMenu.fileObj;
+    hideContextMenu();
+    const newName = await showInputModal('Rename File', 'Enter new file name', fileObj.name);
+    if (!newName || newName === fileObj.name) return;
+    try {
+      const response = await authenticatedFetch(`/api/files/${fileObj.id}/`, { method: 'PATCH', body: JSON.stringify({ name: newName }) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || (Array.isArray(err.name) ? err.name[0] : 'Rename failed'));
+      }
+      // Persisted on the File record; reflect it in the list/preview immediately.
+      updateFile(fileObj.id, { name: newName });
+      setToastMsg(`Renamed to "${newName}"`);
+    } catch (error) { setToastMsg(`Rename failed: ${error.message}`); }
+  }
+
   async function handleRemoveOption() {
     if (!contextMenu.fileObj) { hideContextMenu(); return; }
     const fileToRemove = contextMenu.fileObj;
@@ -977,6 +1009,7 @@ function MainApp() {
 
       {viewMode === 'normal' && (
         <FileList
+          key={`${normalizedProd.containerType}_${normalizedProd.selectedContainer?.id}`}
           prod={normalizedProd}
           folderTree={folderTree}
           foldersLoading={foldersLoading}
@@ -997,6 +1030,7 @@ function MainApp() {
           onQuantityOption={handleQuantityOption}
           onPriceOption={handlePriceOption}
           onMoveOption={handleMoveOption}
+          onRenameOption={handleRenameOption}
           onRemoveOption={handleRemoveOption}
           onFolderUpload={handleUploadToFolder}
           onFolderNewSubfolder={handleFolderNewSubfolder}
@@ -1065,7 +1099,11 @@ function MainApp() {
 
         <Col className="p-0 m-0" style={{ height: '100%', overflow: 'hidden', maxWidth: 'calc(100vw - 52px)' }}>
           {viewMode === 'normal'
-            ? <ResizableColumn leftContent={fileBrowser} rightContent={renderPreview(selectedFileObj, handleRevisionChange, handleChildRevisionChange)} />
+            ? <ResizableColumn leftContent={fileBrowser} rightContent={
+                <ErrorBoundary resetKey={`${selectedFileObj?.id}-${selectedFileObj?.current_revision || 1}`}>
+                  {renderPreview(selectedFileObj, handleRevisionChange, handleChildRevisionChange)}
+                </ErrorBoundary>
+              } />
             : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
         </Col>
       </Row>

@@ -81,20 +81,40 @@ class IterationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'iteration_number', 'iteration_id', 'created_at', 'updated_at']
 
 class FolderSerializer(serializers.ModelSerializer):
-    """Serializer for folder CRUD (create, rename, move, delete)"""
+    """Serializer for folder CRUD (create, rename, move, delete).
+
+    Folders are scoped to a single stage/iteration. On create the caller passes
+    stage_id or iteration_id; product is derived from that container.
+    """
+    stage_id = serializers.IntegerField(write_only=True, required=False)
+    iteration_id = serializers.IntegerField(write_only=True, required=False)
+    container_type = serializers.CharField(read_only=True)
+
     class Meta:
         model = Folder
-        fields = ['id', 'name', 'parent', 'product', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'parent', 'product', 'container_type', 'created_at', 'updated_at', 'stage_id', 'iteration_id']
+        read_only_fields = ['id', 'product', 'container_type', 'created_at', 'updated_at']
+
+    def _target_container(self, data):
+        """(content_type_id, object_id) the folder should live in, for create or update."""
+        stage_id = data.get('stage_id')
+        iteration_id = data.get('iteration_id')
+        if stage_id:
+            return ContentType.objects.get_for_model(Stage).id, stage_id
+        if iteration_id:
+            return ContentType.objects.get_for_model(Iteration).id, iteration_id
+        if self.instance:
+            return self.instance.content_type_id, self.instance.object_id
+        return None, None
 
     def validate(self, data):
-        """Ensure parent belongs to the same product, and moving a folder can't create a cycle"""
+        """Keep a subfolder in the same container as its parent; block cycles on move."""
         parent = data.get('parent', getattr(self.instance, 'parent', None) if self.instance else None)
-        product = data.get('product', getattr(self.instance, 'product', None) if self.instance else None)
 
         if parent:
-            if product and parent.product_id != product.id:
-                raise serializers.ValidationError("Parent folder must belong to the same product.")
+            ct_id, obj_id = self._target_container(data)
+            if ct_id and (parent.content_type_id != ct_id or parent.object_id != obj_id):
+                raise serializers.ValidationError("Parent folder must be in the same stage/iteration.")
 
             if self.instance:
                 node = parent
@@ -105,6 +125,26 @@ class FolderSerializer(serializers.ModelSerializer):
 
         return data
 
+    def create(self, validated_data):
+        stage_id = validated_data.pop('stage_id', None)
+        iteration_id = validated_data.pop('iteration_id', None)
+
+        container = None
+        if stage_id:
+            container = Stage.objects.filter(id=stage_id).first()
+            if not container:
+                raise serializers.ValidationError("Stage not found.")
+        elif iteration_id:
+            container = Iteration.objects.filter(id=iteration_id).first()
+            if not container:
+                raise serializers.ValidationError("Iteration not found.")
+        else:
+            raise serializers.ValidationError("Either stage_id or iteration_id must be provided.")
+
+        validated_data['content_object'] = container
+        validated_data['product'] = container.product
+        return super().create(validated_data)
+
 class FolderTreeSerializer(serializers.ModelSerializer):
     """Read-only recursive serializer for the tree endpoint.
 
@@ -114,10 +154,11 @@ class FolderTreeSerializer(serializers.ModelSerializer):
     """
     children = serializers.SerializerMethodField()
     file_count = serializers.SerializerMethodField()
+    container_type = serializers.CharField(read_only=True)
 
     class Meta:
         model = Folder
-        fields = ['id', 'name', 'parent', 'product', 'created_at', 'updated_at', 'children', 'file_count']
+        fields = ['id', 'name', 'parent', 'product', 'container_type', 'created_at', 'updated_at', 'children', 'file_count']
 
     def get_children(self, obj):
         return FolderTreeSerializer(getattr(obj, '_prefetched_children', []), many=True, context=self.context).data
@@ -289,13 +330,15 @@ class FileSerializer(serializers.ModelSerializer):
 
             folder = data.get('folder')
             if folder:
-                product = None
+                ct, obj_id = None, None
                 if stage_id:
-                    product = Stage.objects.filter(id=stage_id).values_list('product_id', flat=True).first()
+                    ct = ContentType.objects.get_for_model(Stage).id
+                    obj_id = stage_id
                 elif iteration_id:
-                    product = Iteration.objects.filter(id=iteration_id).values_list('product_id', flat=True).first()
-                if product and folder.product_id != product:
-                    raise serializers.ValidationError("Folder must belong to the same product as the file.")
+                    ct = ContentType.objects.get_for_model(Iteration).id
+                    obj_id = iteration_id
+                if ct and (folder.content_type_id != ct or folder.object_id != obj_id):
+                    raise serializers.ValidationError("Folder must be in the same stage/iteration as the file.")
 
         else:  # UPDATE operation
             # Only validate parent_file nesting if parent_file is being updated
@@ -305,9 +348,9 @@ class FileSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError("Cannot create a child file of a child file. Only one level of nesting is allowed.")
 
             folder = data.get('folder')
-            if folder is not None and self.instance.product:
-                if folder.product_id != self.instance.product.id:
-                    raise serializers.ValidationError("Folder must belong to the same product as the file.")
+            if folder is not None:
+                if folder.content_type_id != self.instance.content_type_id or folder.object_id != self.instance.object_id:
+                    raise serializers.ValidationError("Folder must be in the same stage/iteration as the file.")
 
         return data
 

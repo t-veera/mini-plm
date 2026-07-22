@@ -41,6 +41,7 @@ function FileList({
   onQuantityOption,
   onPriceOption,
   onMoveOption,
+  onRenameOption,
   onRemoveOption,
   // folder context-menu actions
   onFolderUpload,
@@ -229,8 +230,7 @@ function FileList({
           onDragOver={e => { e.preventDefault(); setDragOverFolderId(folder.id); }}
           onDragLeave={() => setDragOverFolderId(null)}
           onDrop={e => dropOnTarget(e, folder.id)}
-          onClick={() => setCurrentFolderId(folder.id)}
-          onDoubleClick={() => toggle(folder.id)}
+          onClick={() => { setCurrentFolderId(folder.id); toggle(folder.id); }}
           onContextMenu={e => onFolderRightClick(e, folder)}
           style={{
             backgroundColor: dragOverFolderId === folder.id ? `${styles.colors.iteration}26` : (isSelected ? `${styles.colors.primary}26` : undefined),
@@ -353,6 +353,7 @@ function FileList({
           {contextMenu.type === 'file' && (
             <>
               {[
+                { label: 'Rename',          action: onRenameOption },
                 { label: 'Download',        action: onDownloadOption },
                 { label: 'Upload Revision', action: onContextMenuUpload },
                 { label: 'Set Quantity',    action: onQuantityOption },

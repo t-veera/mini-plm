@@ -2,23 +2,65 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import typography from '../../styles/typography';
 
+// Preview caps: a sheet with more than this many rows/cols is truncated before
+// rendering. sheet_to_html emits an unvirtualized table with white-space:nowrap,
+// so a very large (or formatting-inflated) sheet would otherwise freeze the tab.
+const MAX_ROWS = 1000;
+const MAX_COLS = 50;
+
 function ExcelViewer({ fileUrl, authenticatedFetch }) {
   const [html, setHtml] = useState('');
   const [sheetNames, setSheetNames] = useState([]);
   const [activeSheet, setActiveSheet] = useState(0);
   const [workbookRef, setWorkbookRef] = useState(null);
+  const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState(null);
 
   function renderSheet(wb, index) {
-    const sheetName = wb.SheetNames[index];
-    const worksheet = wb.Sheets[sheetName];
-    const htmlStr = XLSX.utils.sheet_to_html(worksheet, { editable: false });
-    setHtml(htmlStr);
-    setActiveSheet(index);
+    try {
+      if (!wb || !wb.SheetNames?.length) return;
+      const sheetName = wb.SheetNames[index];
+      const worksheet = wb.Sheets[sheetName];
+      if (!worksheet) {
+        setHtml('<div style="padding:1rem;color:#888">This sheet is empty.</div>');
+        setTruncated(false);
+        setActiveSheet(index);
+        return;
+      }
+
+      // Clamp the render range for large sheets (clone so the workbook is untouched).
+      let ws = worksheet;
+      let isTruncated = false;
+      const ref = worksheet['!ref'];
+      if (ref) {
+        const range = XLSX.utils.decode_range(ref);
+        const rows = range.e.r - range.s.r + 1;
+        const cols = range.e.c - range.s.c + 1;
+        if (rows > MAX_ROWS || cols > MAX_COLS) {
+          isTruncated = true;
+          const clamped = {
+            s: { r: range.s.r, c: range.s.c },
+            e: { r: Math.min(range.e.r, range.s.r + MAX_ROWS - 1), c: Math.min(range.e.c, range.s.c + MAX_COLS - 1) },
+          };
+          // Drop merges so a merge spanning past the clamped range can't trip up the export.
+          ws = { ...worksheet, '!ref': XLSX.utils.encode_range(clamped), '!merges': [] };
+        }
+      }
+
+      const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+      setHtml(htmlStr);
+      setTruncated(isTruncated);
+      setActiveSheet(index);
+    } catch (err) {
+      console.error('Failed to render sheet:', err);
+      setError(err.message || 'Failed to render this sheet');
+    }
   }
 
   useEffect(() => {
     async function fetchExcel() {
+      setError(null);
+      setTruncated(false);
       try {
         const res = await authenticatedFetch(fileUrl);
         if (!res.ok) throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
@@ -53,12 +95,17 @@ function ExcelViewer({ fileUrl, authenticatedFetch }) {
       {sheetNames.length > 1 && (
         <div style={styles.tabBar}>
           {sheetNames.map((name, i) => (
-            <button key={i} onClick={() => renderSheet(workbookRef, i)} style={{
+            <button key={i} type="button" onClick={() => renderSheet(workbookRef, i)} style={{
               ...styles.tab,
               background: activeSheet === i ? '#4a9eff' : '#2a2a3e',
               color: activeSheet === i ? '#fff' : '#aaa',
             }}>{name}</button>
           ))}
+        </div>
+      )}
+      {truncated && (
+        <div style={styles.truncatedNote}>
+          Large sheet — showing the first {MAX_ROWS} rows × {MAX_COLS} columns. Download the file to see everything.
         </div>
       )}
       <div className="excel-wrap" style={styles.tableWrap} dangerouslySetInnerHTML={{ __html: html }} />
@@ -101,6 +148,14 @@ const styles = {
     flex: 1,
     overflow: 'auto',
     padding: '8px',
+  },
+  truncatedNote: {
+    flexShrink: 0,
+    padding: '5px 10px',
+    fontSize: '11px',
+    color: '#e0c068',
+    background: '#2a2410',
+    borderBottom: '1px solid #444',
   },
 };
 

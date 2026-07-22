@@ -162,7 +162,11 @@ class Iteration(models.Model):
         super().save(*args, **kwargs)
 
 class Folder(models.Model):
-    """Folder model - belongs to a Product, supports unbounded nesting via self-FK.
+    """Folder model - scoped to a single Stage OR Iteration, supports unbounded nesting.
+
+    Folders belong to one container (stage/iteration) via the generic FK below, mirroring
+    how File is attached, so each iteration/stage has its own independent folders. `product`
+    is retained (derived from the container) for convenient product-wide queries.
 
     parent uses on_delete=PROTECT as a DB-level backstop: the API blocks deleting a
     non-empty folder with a friendly error, and PROTECT ensures that invariant holds
@@ -171,6 +175,13 @@ class Folder(models.Model):
     name = models.CharField(max_length=255)
     parent = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True, related_name='children')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='folders')
+
+    # Container (Stage OR Iteration) this folder lives in. Nullable only so the migration
+    # can add the column before backfilling; new folders always set it.
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True, related_name='folders')
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -179,6 +190,14 @@ class Folder(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def container_type(self):
+        if isinstance(self.content_object, Stage):
+            return 'stage'
+        elif isinstance(self.content_object, Iteration):
+            return 'iteration'
+        return None
 
 class File(models.Model):
     """File model - can belong to either a Stage OR an Iteration"""

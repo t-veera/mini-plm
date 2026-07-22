@@ -14,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 import io
 import zipfile
 from collections import defaultdict
-from django.db.models import Count
+from django.db.models import Count, Q
 
 from .models import File, FileRevision, Product, Stage, Iteration, Folder
 from .serializers import (
@@ -23,6 +23,41 @@ from .serializers import (
 )
 
 logger = logging.getLogger('files')
+
+
+def build_folder_tree_response(folders, request):
+    """Build the nested parent->children tree (in Python) from a flat folder list.
+
+    `folders` must already be filtered to the desired scope and annotated with
+    `file_count`. Query count stays fixed regardless of tree depth/breadth.
+    """
+    folders = list(folders)
+    by_parent = defaultdict(list)
+    for folder in folders:
+        by_parent[folder.parent_id].append(folder)
+
+    def attach_children(node):
+        node._prefetched_children = by_parent.get(node.id, [])
+        for child in node._prefetched_children:
+            attach_children(child)
+
+    roots = by_parent.get(None, [])
+    for root in roots:
+        attach_children(root)
+
+    serializer = FolderTreeSerializer(roots, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+def container_folders_response(container, content_type, request):
+    """Folder tree for one stage/iteration, with file counts scoped to that container."""
+    folders = (
+        Folder.objects.filter(content_type=content_type, object_id=container.id)
+        .select_related('parent')
+        .annotate(file_count=Count('files', filter=Q(files__content_type=content_type, files__object_id=container.id)))
+    )
+    return build_folder_tree_response(folders, request)
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     """ViewSet for managing products"""
@@ -115,9 +150,16 @@ class StageViewSet(viewsets.ModelViewSet):
             content_type=stage_content_type,
             object_id=stage.id
         ).order_by('-updated_at')
-        
+
         serializer = FileSerializer(files, many=True, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def folders(self, request, pk=None):
+        """Nested folder tree scoped to this stage."""
+        stage = self.get_object()
+        ct = ContentType.objects.get_for_model(Stage)
+        return container_folders_response(stage, ct, request)
 
 class IterationViewSet(viewsets.ModelViewSet):
     """ViewSet for managing iterations"""
@@ -143,9 +185,16 @@ class IterationViewSet(viewsets.ModelViewSet):
             content_type=iteration_content_type,
             object_id=iteration.id
         ).order_by('-updated_at')
-        
+
         serializer = FileSerializer(files, many=True, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def folders(self, request, pk=None):
+        """Nested folder tree scoped to this iteration."""
+        iteration = self.get_object()
+        ct = ContentType.objects.get_for_model(Iteration)
+        return container_folders_response(iteration, ct, request)
 
 class FileViewSet(viewsets.ModelViewSet):
     """ViewSet for managing files"""
@@ -303,9 +352,9 @@ class FileViewSet(viewsets.ModelViewSet):
         if is_child_file and parent_file_obj:
             folder_obj = parent_file_obj.folder
         elif folder_id:
-            folder_obj = Folder.objects.filter(id=folder_id, product=container_object.product).first()
+            folder_obj = Folder.objects.filter(id=folder_id, content_type=content_type, object_id=container_object.id).first()
             if not folder_obj:
-                return Response({"error": "Folder not found for this product."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Folder not found in this stage/iteration."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if file exists (for revisions)
         file_lookup = {
