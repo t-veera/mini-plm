@@ -155,6 +155,10 @@ Preview engineering files directly in the browser. No downloads, no switching to
 
 Every file upload creates a new revision automatically. Revisions are timestamped and selectable from the preview panel. No manual naming conventions, no `_v2_FINAL_final.step`.
 
+**Drag-and-drop from your file manager**
+
+Drop a single file, a selection of files, or an entire folder — like a cloned firmware repo — straight from Windows Explorer or Finder onto an iteration, stage, or folder. The folder structure is recreated as you had it, and re-dropping the same folder later versions the files that changed instead of making duplicates.
+
 **IIL-structured project organisation**
 
 Products are organised by iterations (I1, I2, I3...) and stage gates (S1, S2, S3). Files live under the iteration they were created in, so when you're looking at a `.kicad_pcb` uploaded in I4, you know exactly where it sits in the development timeline and what decisions were active at that point.
@@ -207,6 +211,7 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **In progress:**
 
+- [ ] **Copy and move across iterations and stages:** right-click a file or folder and copy or move it into another iteration or stage. File move across containers works today; copy semantics and full folder-subtree move/copy are being finished.
 - [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
 
 **Next:**
@@ -217,6 +222,10 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **Done:**
 
+- [x] **Drag-and-drop upload from your computer:** drop files, multiple files, or an entire folder (e.g. a cloned firmware repo) straight from the OS file manager onto an iteration, stage, or folder. Nested folder structure is recreated automatically, and re-dropping the same folder versions the changed files instead of duplicating them.
+- [x] **Interactive image preview:** zoom (buttons or Ctrl/pinch), rotate, fit-to-view, actual-size, and drag-to-pan — image zoom stays inside the preview instead of zooming the whole page.
+- [x] **Folder improvements:** delete a non-empty folder (with confirmation) in one action, file counts that roll up from subfolders, and folders that stay expanded when you leave an iteration and come back.
+- [x] **Nameable stages and iterations:** name a stage or iteration when you create it (or leave it blank for the auto `S#`/`I#` id), rename it later from a right-click menu, and hover to see its name.
 - [x] **KiCad schematic (`.kicad_sch`) preview:** rendered in-browser from the file's embedded symbol graphics, with no server-side conversion. Pan, zoom, and fit, plus a graceful fallback for legacy `.sch` files.
 - [x] **KiCad PCB (`.kicad_pcb`) preview:** in-browser top-down board render — outline, copper zones and tracks, pads with drills, vias, and silkscreen — in the same pan/zoom canvas. No server-side conversion.
 - [x] **File organisation into folders:** create, rename, move, and nest folders, drag-and-drop files and folders, and folder downloads.

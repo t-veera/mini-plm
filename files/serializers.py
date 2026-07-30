@@ -41,7 +41,9 @@ class FileRevisionSerializer(serializers.ModelSerializer):
 class StageSerializer(serializers.ModelSerializer):
     """Serializer for stages"""
     stage_id = serializers.CharField(read_only=True)
-    
+    # Optional: model.save() defaults a blank name to the generated id (S1, S2, ...).
+    name = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
     class Meta:
         model = Stage
         fields = [
@@ -62,7 +64,9 @@ class StageSerializer(serializers.ModelSerializer):
 class IterationSerializer(serializers.ModelSerializer):
     """Serializer for iterations"""
     iteration_id = serializers.CharField(read_only=True)
-    
+    # Optional: model.save() defaults a blank name to the generated id (I1, I2, ...).
+    name = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
     class Meta:
         model = Iteration
         fields = [

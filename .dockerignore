@@ -1,5 +1,7 @@
-node_modules
-npm-debug.log
+# NOTE: bare names only match at the context root. Use **/ to catch nested dirs
+# (mpp_frontend/node_modules alone was ~1GB of build context).
+**/node_modules
+**/npm-debug.log
 yarn-debug.log
 yarn-error.log
 .git
@@ -15,9 +17,13 @@ Dockerfile
 .env.test
 .env.production
 venv/
-node_modules/
 mpp_files/
+**/build
+staticfiles/
+static/
 db.sqlite3
-__pycache__
+**/__pycache__
+*.sqlite3
+.claude/
 
 

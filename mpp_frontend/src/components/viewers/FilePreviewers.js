@@ -18,11 +18,20 @@ export function CodePreview({ fileUrl, extension }) {
       .catch(err => setError(err.message));
   }, [fileUrl]);
 
-  let language = 'javascript';
-  if (extension === '.py') language = 'python';
-  else if (extension === '.cpp' || extension === '.ino') language = 'cpp';
-  else if (extension === '.java') language = 'java';
-  else if (extension === '.ts') language = 'typescript';
+  const langByExt = {
+    '.py': 'python',
+    '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.ino': 'cpp',
+    '.h': 'cpp', '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp',
+    '.c': 'c',
+    '.java': 'java', '.kt': 'kotlin', '.swift': 'swift',
+    '.ts': 'typescript', '.tsx': 'tsx', '.js': 'javascript', '.jsx': 'jsx',
+    '.rs': 'rust', '.go': 'go', '.rb': 'ruby', '.php': 'php', '.sql': 'sql',
+    '.sh': 'bash', '.bat': 'batch',
+    '.json': 'json', '.xml': 'xml', '.yml': 'yaml', '.yaml': 'yaml',
+    '.toml': 'toml', '.ini': 'ini', '.cfg': 'ini',
+    '.txt': 'text', '.log': 'text',
+  };
+  const language = langByExt[extension] || 'text';
 
   if (error) return (
     <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>

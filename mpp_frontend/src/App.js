@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Toast, ToastContainer, Spinner, Form } from 'react-bootstrap';
-import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaDownload } from 'react-icons/fa';
+import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaDownload, FaFolderPlus } from 'react-icons/fa';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SetupWizard from './components/SetupWizard';
@@ -20,9 +20,12 @@ import BOMViewer from './components/BOMViewer/BOMViewer';
 import KPIDashboard from './components/KPIDashboard/KPIDashboard';
 import { ConfirmModal, InputModal, MoveModal, QuantityModal, PriceModal, ChangeDescriptionModal } from './components/Modals/Modals';
 import Model3DPreview from './components/viewers/Model3DPreview';
+import ImageViewer from './components/viewers/ImageViewer';
+import DocViewer from './components/viewers/DocViewer';
 import KicadSchematicViewer from './components/viewers/KicadSchematicViewer';
 import KicadPcbViewer from './components/viewers/KicadPcbViewer';
 import { CodePreview, MarkdownPreview, CsvPreview, ExcelPreview } from './components/viewers/FilePreviewers';
+import { readDropEntries, isIgnoredDropPath } from './utils/dropUpload';
 
 function triggerDownload(url, filename) {
   const a = document.createElement('a');
@@ -91,8 +94,8 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   const fileUrl = serverUrl;
   const nameLower = fileObj.name.toLowerCase();
 
-  if (['.png', '.jpg', '.jpeg', '.gif'].some(e => nameLower.endsWith(e)))
-    return wrap(<div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}><img src={fileUrl} alt={fileObj.name} style={{ maxWidth: '100%', height: 'auto' }} /></div>);
+  if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'].some(e => nameLower.endsWith(e)))
+    return wrap(<ImageViewer key={fileUrl} fileUrl={fileUrl} name={fileObj.name} />);
 
   if (nameLower.endsWith('.pdf'))
     return wrap(<div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '100%', border: 'none' }} title={fileObj.name} /></div>);
@@ -106,7 +109,9 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   if (['.stl', '.dxf', '.stp', '.step'].some(e => nameLower.endsWith(e)))
     return wrap(<Model3DPreview fileUrl={fileUrl} />);
 
-  if (['.js', '.py', '.cpp', '.java', '.ts', '.ino'].some(e => nameLower.endsWith(e))) {
+  if (['.js', '.jsx', '.ts', '.tsx', '.py', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx',
+       '.ino', '.java', '.txt', '.log', '.json', '.xml', '.yml', '.yaml', '.toml', '.ini', '.cfg',
+       '.sh', '.bat', '.rs', '.go', '.rb', '.php', '.sql', '.kt', '.swift'].some(e => nameLower.endsWith(e))) {
     const ext = nameLower.substring(nameLower.lastIndexOf('.'));
     return wrap(<CodePreview fileUrl={fileUrl} extension={ext} />);
   }
@@ -119,6 +124,9 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
 
   if (['.xls', '.xlsx'].some(e => nameLower.endsWith(e)))
     return wrap(<ExcelPreview fileUrl={fileUrl} />);
+
+  if (['.docx', '.docm', '.doc'].some(e => nameLower.endsWith(e)))
+    return wrap(<DocViewer key={fileUrl} fileUrl={fileUrl} name={fileObj.name} />);
 
   const fileSize = fileObj.file_size || fileObj.size || 0;
   const uploadDate = fileObj.created_at || fileObj.upload_date;
@@ -199,6 +207,9 @@ function MainApp() {
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, fileObj: null, folderObj: null });
+  const [containerMenu, setContainerMenu] = useState({ visible: false, x: 0, y: 0, container: null, type: null });
+  const [transferModal, setTransferModal] = useState({ visible: false, mode: 'move', kind: 'file', item: null, target: '', options: [] });
+  const [dropUpload, setDropUpload] = useState({ active: false, done: 0, total: 0 });
   const [parentFileForChild, setParentFileForChild] = useState(null);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -212,6 +223,7 @@ function MainApp() {
   const { activeTheme, setActiveTheme } = useIconTheme();
 
   const hiddenFileInput = useRef(null);
+  const folderInput = useRef(null);
   const contextMenuFileInput = useRef(null);
   const childFileInput = useRef(null);
   const uploadTargetFolderRef = useRef(null); // when set, next upload lands in this folder
@@ -330,10 +342,13 @@ function MainApp() {
   }, [selectedContainer, containerType]);
 
   useEffect(() => {
-    function handleClick() { if (contextMenu.visible) hideContextMenu(); }
+    function handleClick() {
+      if (contextMenu.visible) hideContextMenu();
+      if (containerMenu.visible) setContainerMenu({ visible: false, x: 0, y: 0, container: null, type: null });
+    }
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
-  }, [contextMenu.visible]);
+  }, [contextMenu.visible, containerMenu.visible]);
 
   useEffect(() => {
     const styleTag = document.createElement('style');
@@ -374,7 +389,7 @@ function MainApp() {
   function showInputModal(title, placeholder, initialValue = '') {
     return new Promise(resolve => {
       setInputModal({ visible: true, title, placeholder, value: initialValue,
-        onConfirm: val => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(val || null); },
+        onConfirm: val => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(val ?? ''); },
         onCancel:  ()  => { setInputModal({ visible: false, title: '', placeholder: '', value: '', onConfirm: null, onCancel: null }); resolve(null); }
       });
     });
@@ -454,8 +469,10 @@ function MainApp() {
   async function handleAddStage() {
     const currentProduct = products[selectedProductIndex];
     if (!currentProduct?.id) { alert('Select a product first'); return; }
+    const name = await showInputModal('New Stage', 'Name (optional — defaults to S#)', '');
+    if (name === null) return; // cancelled
     try {
-      const response = await authenticatedFetch('/api/stages/', { method: 'POST', body: JSON.stringify({ product: currentProduct.id, name: `Stage ${(currentProduct.stages?.length || 0) + 1}`, type: 'workflow', color: '#007bff' }) });
+      const response = await authenticatedFetch('/api/stages/', { method: 'POST', body: JSON.stringify({ product: currentProduct.id, name: name.trim(), type: 'workflow', color: '#007bff' }) });
       if (!response.ok) throw new Error(await response.text());
       const newStage = await response.json();
       const updated = [...products];
@@ -476,8 +493,10 @@ function MainApp() {
   async function handleAddIteration() {
     const currentProduct = products[selectedProductIndex];
     if (!currentProduct?.id) { alert('Select a product first'); return; }
+    const name = await showInputModal('New Iteration', 'Name (optional — defaults to I#)', '');
+    if (name === null) return; // cancelled
     try {
-      const response = await authenticatedFetch('/api/iterations/', { method: 'POST', body: JSON.stringify({ product: currentProduct.id, name: `Iteration ${(currentProduct.iterations?.length || 0) + 1}`, type: 'design', color: '#28a745' }) });
+      const response = await authenticatedFetch('/api/iterations/', { method: 'POST', body: JSON.stringify({ product: currentProduct.id, name: name.trim(), type: 'design', color: '#28a745' }) });
       if (!response.ok) throw new Error(await response.text());
       const newIteration = await response.json();
       const updated = [...products];
@@ -506,11 +525,11 @@ function MainApp() {
     loadContainerFiles(container, type);
   }
 
-  async function loadContainerFiles(container, type) {
+  async function loadContainerFiles(container, type, force = false) {
     try {
       const containerKey = `${type}_${container.id}`;
       const currentProduct = products[selectedProductIndex];
-      if (currentProduct.filesByContainer?.[containerKey]?.length > 0) return;
+      if (!force && currentProduct.filesByContainer?.[containerKey]?.length > 0) return;
       const endpoint = type === 'stage' ? `/api/stages/${container.id}/files/` : `/api/iterations/${container.id}/files/`;
       const response = await authenticatedFetch(endpoint);
       if (response.ok) {
@@ -568,12 +587,20 @@ function MainApp() {
   }
 
   async function handleDeleteFolder(folder) {
-    if (!await showConfirm(`Delete folder "${folder.name}"? It must be empty first.`)) return;
+    const hasContents = (folder.children?.length > 0) || (folder.file_count > 0);
+    const msg = hasContents
+      ? `Delete folder "${folder.name}" and everything inside it (subfolders and files)? This can't be undone.`
+      : `Delete folder "${folder.name}"?`;
+    if (!await showConfirm(msg)) return;
     try {
-      const response = await authenticatedFetch(`/api/folders/${folder.id}/`, { method: 'DELETE' });
+      const url = `/api/folders/${folder.id}/${hasContents ? '?recursive=true' : ''}`;
+      const response = await authenticatedFetch(url, { method: 'DELETE' });
       if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Delete failed'); }
       if (currentFolderId === folder.id) setCurrentFolderId(folder.parent ?? null);
       refreshFolders();
+      if (hasContents && prod.selectedContainer && prod.containerType) {
+        loadContainerFiles(prod.selectedContainer, prod.containerType, true); // resync after files removed
+      }
       setToastMsg(`Folder "${folder.name}" deleted`);
     } catch (error) { setToastMsg(error.message); }
   }
@@ -665,13 +692,46 @@ function MainApp() {
     triggerDownload(url, `${folder.name}.zip`);
   }
 
-  async function handleContainerRightClick(e, container, type) {
+  function handleContainerRightClick(e, container, type) {
     e.preventDefault();
+    e.stopPropagation();
+    setContainerMenu({ visible: true, x: e.clientX, y: e.clientY + 6, container, type });
+  }
+
+  function hideContainerMenu() { setContainerMenu({ visible: false, x: 0, y: 0, container: null, type: null }); }
+
+  async function handleRenameContainer(container, type) {
+    hideContainerMenu();
+    const label = type === 'stage' ? container.stage_id : container.iteration_id;
+    const name = await showInputModal(`Rename ${label}`, 'Enter a name', container.name || '');
+    if (name === null) return;
+    const finalName = name.trim() || label; // blank -> fall back to the S#/I# id
+    try {
+      const endpoint = type === 'stage' ? `/api/stages/${container.id}/` : `/api/iterations/${container.id}/`;
+      const response = await authenticatedFetch(endpoint, { method: 'PATCH', body: JSON.stringify({ name: finalName }) });
+      if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.name?.[0] || err.error || 'Rename failed'); }
+      const updatedContainer = await response.json();
+      setProducts(prev => {
+        const updated = [...prev];
+        const updatedProd = { ...updated[selectedProductIndex] };
+        const listKey = type === 'stage' ? 'stages' : 'iterations';
+        updatedProd[listKey] = (updatedProd[listKey] || []).map(c => c.id === container.id ? { ...c, ...updatedContainer } : c);
+        if (updatedProd.selectedContainer?.id === container.id) updatedProd.selectedContainer = { ...updatedProd.selectedContainer, ...updatedContainer };
+        updated[selectedProductIndex] = updatedProd;
+        return updated;
+      });
+      if (selectedContainer?.id === container.id) setSelectedContainer(prev => ({ ...prev, ...updatedContainer }));
+      setToastMsg(`Renamed to "${finalName}"`);
+    } catch (error) { setToastMsg(`Rename failed: ${error.message}`); }
+  }
+
+  async function handleDeleteContainer(container, type) {
+    hideContainerMenu();
     const containerKey = `${type}_${container.id}`;
     const fileList = prod.filesByContainer[containerKey] || [];
     if (fileList.length > 0) { setToastMsg(`Cannot delete a ${type} with files!`); return; }
     const containerLabel = type === 'stage' ? container.stage_id : container.iteration_id;
-    if (!await showConfirm(`Delete ${containerLabel}? It's empty and will be removed.`)) return;
+    if (!await showConfirm(`Delete ${containerLabel} ("${container.name}")? It's empty and will be removed.`)) return;
     try {
       const endpoint = type === 'stage' ? `/api/stages/${container.id}/` : `/api/iterations/${container.id}/`;
       const response = await authenticatedFetch(endpoint, { method: 'DELETE' });
@@ -697,6 +757,12 @@ function MainApp() {
     hiddenFileInput.current.click();
   }
 
+  function handleUploadFolderClick() {
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Please select a Stage or Iteration first!'); return; }
+    uploadTargetFolderRef.current = currentFolderId; // folder upload lands in the selected folder (or root)
+    folderInput.current?.click();
+  }
+
   function handleBackgroundUpload() {
     hideContextMenu();
     if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Please select a Stage or Iteration first!'); return; }
@@ -704,46 +770,180 @@ function MainApp() {
     hiddenFileInput.current.click();
   }
 
-  async function handleFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) { e.target.value = ''; return; }
-    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('No container selected.'); e.target.value = ''; return; }
-    setIsLoading(true);
-    try {
+  const readFileAsDataUrl = (file) =>
+    new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+
+  // Merge a freshly-uploaded top-level file into the container's file list (dedup by name).
+  function addUploadedFileToState(savedFile, dataUrl, containerKey) {
+    setProducts(prev => {
+      const updated = [...prev];
+      const updatedProd = { ...updated[selectedProductIndex], filesByContainer: { ...updated[selectedProductIndex].filesByContainer } };
+      const existing = [...(updatedProd.filesByContainer[containerKey] || [])];
+      const existingIdx = existing.findIndex(f => f.name === savedFile.name && !f.is_child_file);
+      if (existingIdx !== -1 && savedFile.current_revision > 1) existing[existingIdx] = { ...existing[existingIdx], ...savedFile, dataUrl };
+      else existing.push({ ...savedFile, dataUrl });
+      updatedProd.filesByContainer[containerKey] = existing;
+      updated[selectedProductIndex] = updatedProd;
+      return updated;
+    });
+  }
+
+  // POST one top-level file into the given folder (null = root); returns { ...savedFile, dataUrl }.
+  // Retries transient failures (e.g. a WSL2 bind-mount write hiccup); the backend create
+  // is atomic, so a failed attempt leaves no partial row to collide with.
+  async function uploadOneFile(file, targetFolderId, attempts = 3) {
+    const buildForm = () => {
       const formData = new FormData();
       formData.append('uploaded_file', file);
       formData.append('original_name', file.name);
       formData.append('is_child_file', 'false');
       if (prod.containerType === 'stage') formData.append('stage_id', prod.selectedContainer.id);
       else formData.append('iteration_id', prod.selectedContainer.id);
-      // Each upload trigger sets the target folder explicitly (null = container root).
-      const targetFolderId = uploadTargetFolderRef.current;
       if (targetFolderId) formData.append('folder', targetFolderId);
       formData.append('change_description', 'Initial file upload');
       formData.append('status', 'in_work');
       formData.append('quantity', '1');
-      const response = await authenticatedFetch('/api/files/', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(response.statusText);
-      const savedFile = await response.json();
-      const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-      const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
-      setProducts(prev => {
-        const updated = [...prev];
-        const updatedProd = { ...updated[selectedProductIndex], filesByContainer: { ...updated[selectedProductIndex].filesByContainer } };
-        const existing = [...(updatedProd.filesByContainer[containerKey] || [])];
-        const existingIdx = existing.findIndex(f => f.name === file.name && !f.is_child_file);
-        if (existingIdx !== -1 && savedFile.current_revision > 1) existing[existingIdx] = { ...existing[existingIdx], ...savedFile, dataUrl };
-        else existing.push({ ...savedFile, dataUrl });
-        updatedProd.filesByContainer[containerKey] = existing;
-        updated[selectedProductIndex] = updatedProd;
-        return updated;
-      });
-      setSelectedFileObj({ ...savedFile, dataUrl });
+      return formData;
+    };
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await authenticatedFetch('/api/files/', { method: 'POST', body: buildForm() });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const savedFile = await response.json();
+        const dataUrl = await readFileAsDataUrl(file);
+        const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
+        addUploadedFileToState(savedFile, dataUrl, containerKey);
+        return { ...savedFile, dataUrl };
+      } catch (err) {
+        lastErr = err;
+        if (i < attempts - 1) await new Promise(r => setTimeout(r, 300 * (i + 1)));
+      }
+    }
+    throw lastErr;
+  }
+
+  async function handleFileChange(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) { e.target.value = ''; return; }
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('No container selected.'); e.target.value = ''; return; }
+    // Each upload trigger sets the target folder explicitly (null = container root).
+    const targetFolderId = uploadTargetFolderRef.current;
+    setIsLoading(true);
+    try {
+      let last = null;
+      for (const file of files) last = await uploadOneFile(file, targetFolderId);
+      if (last) setSelectedFileObj(last);
       if (targetFolderId) refreshFolders(); // refresh file counts on the target folder
-      setToastMsg(savedFile.current_revision > 1 ? `Rev ${savedFile.current_revision} created!` : 'File uploaded!');
-      setTimeout(() => { setCurrentFileForModal({ ...savedFile, dataUrl }); setTempChangeDescription(''); setShowChangeDescriptionModal(true); }, 100);
+      if (files.length === 1 && last) {
+        setToastMsg(last.current_revision > 1 ? `Rev ${last.current_revision} created!` : 'File uploaded!');
+        setTimeout(() => { setCurrentFileForModal(last); setTempChangeDescription(''); setShowChangeDescriptionModal(true); }, 100);
+      } else {
+        setToastMsg(`${files.length} files uploaded`);
+      }
     } catch (err) { setToastMsg(`Upload error: ${err.message}`); }
     finally { setIsLoading(false); e.target.value = ''; uploadTargetFolderRef.current = null; }
+  }
+
+  // Low-level folder create that returns the created folder object (id needed for nesting).
+  async function apiCreateFolder(parentId, name) {
+    const body = { name, parent: parentId ?? null };
+    if (prod.containerType === 'stage') body.stage_id = prod.selectedContainer.id;
+    else body.iteration_id = prod.selectedContainer.id;
+    const response = await authenticatedFetch('/api/folders/', { method: 'POST', body: JSON.stringify(body) });
+    if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || 'Folder create failed'); }
+    return response.json();
+  }
+
+  // Find a folder's name by id within the nested folder tree.
+  function findFolderName(nodes, id) {
+    for (const n of nodes || []) {
+      if (n.id === id) return n.name;
+      const found = findFolderName(n.children, id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // Shared uploader for a resolved list of { file, relativePath } — used by both the
+  // drag-drop path and the "Upload folder" picker. Recreates the folder structure under
+  // `targetFolderId` (null = container root) and uploads each file, versioning changes.
+  async function uploadEntries(entries, targetFolderId) {
+    if (!entries.length) { setToastMsg('Nothing to upload (folders like .git/.pio/node_modules are skipped).'); return; }
+    // Pin the target container so the async refresh below hits the right one even if
+    // the selection changes while a big folder is uploading.
+    const container = prod.selectedContainer;
+    const containerType = prod.containerType;
+    setIsLoading(true);
+    setDropUpload({ active: true, done: 0, total: entries.length });
+    let ok = 0;
+    let failed = 0;
+    let last = null;
+    try {
+      // Resolve each directory path to a folder id once. The backend create is
+      // idempotent (get-or-create by container+parent+name), so re-uploading the same
+      // folder merges into the existing structure and files version instead of
+      // duplicating — no reliance on the client's (possibly stale) folder tree.
+      const pathToId = new Map([['', targetFolderId ?? null]]);
+      // If dropped ONTO a folder whose name matches a dropped top-level folder, merge
+      // into it instead of nesting (so re-dropping "inkframe-reader" onto the existing
+      // "inkframe-reader" updates it rather than making inkframe-reader/inkframe-reader).
+      const targetName = targetFolderId ? findFolderName(folderTree, targetFolderId) : null;
+      if (targetName) pathToId.set(targetName, targetFolderId);
+      const ensureFolder = async (dirPath) => {
+        if (pathToId.has(dirPath)) return pathToId.get(dirPath);
+        const parts = dirPath.split('/');
+        const name = parts[parts.length - 1];
+        const parentPath = parts.slice(0, -1).join('/');
+        const parentId = await ensureFolder(parentPath);
+        const created = await apiCreateFolder(parentId, name);
+        pathToId.set(dirPath, created.id);
+        return created.id;
+      };
+
+      for (const { file, relativePath } of entries) {
+        try {
+          const parts = relativePath.split('/');
+          const fullDir = parts.slice(0, -1).join('/'); // '' for a top-level file
+          const folderId = await ensureFolder(fullDir);
+          last = await uploadOneFile(file, folderId);
+          ok += 1;
+        } catch (err) {
+          failed += 1;
+          console.error(`Upload failed for ${relativePath}:`, err);
+        }
+        setDropUpload({ active: true, done: ok + failed, total: entries.length });
+      }
+    } finally {
+      if (last) setSelectedFileObj(last);
+      // Await the resync so new folders/files render immediately (no need to switch away).
+      await loadFolderTree(container, containerType);
+      await loadContainerFiles(container, containerType, true);
+      setIsLoading(false);
+      setDropUpload({ active: false, done: 0, total: 0 });
+      setToastMsg(`Uploaded ${ok} file${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`);
+    }
+  }
+
+  // Drag-drop path: read the OS DataTransfer (files/folders), then upload.
+  async function handleExternalDrop(dataTransfer, targetFolderId) {
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Select a Stage or Iteration first!'); return; }
+    let entries;
+    try { entries = await readDropEntries(dataTransfer); } catch (err) { setToastMsg(`Could not read dropped items: ${err.message}`); return; }
+    await uploadEntries(entries, targetFolderId);
+  }
+
+  // "Upload folder" picker path (webkitdirectory): reliable full-tree capture with no
+  // browser entry-expiry, so nothing gets silently skipped on large repos.
+  async function handleFolderInputChange(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!prod.selectedContainer || !prod.containerType) { setToastMsg('Select a Stage or Iteration first!'); return; }
+    const entries = files
+      .map(file => ({ file, relativePath: file.webkitRelativePath || file.name }))
+      .filter(({ relativePath }) => !isIgnoredDropPath(relativePath));
+    await uploadEntries(entries, uploadTargetFolderRef.current);
+    uploadTargetFolderRef.current = null;
   }
 
   async function handleContextMenuFileChange(e) {
@@ -883,6 +1083,42 @@ function MainApp() {
     } catch (error) { setToastMsg(`Move failed: ${error.message}`); }
   }
 
+  // --- Feature 3: copy/move a file or folder into another stage/iteration ---
+  function openTransfer(kind, item, mode) {
+    hideContextMenu();
+    if (!item) return;
+    const cur = prod.selectedContainer;
+    const options = [
+      ...(prod.stages || []).map(s => ({ key: `stage_${s.id}`, id: s.id, type: 'stage', label: s.stage_id, name: s.name })),
+      ...(prod.iterations || []).map(i => ({ key: `iteration_${i.id}`, id: i.id, type: 'iteration', label: i.iteration_id, name: i.name })),
+    ].filter(o => !(prod.containerType === o.type && cur?.id === o.id)); // exclude the current container
+    if (!options.length) { setToastMsg('No other stage or iteration to target. Create one first.'); return; }
+    setTransferModal({ visible: true, mode, kind, item, target: options[0].key, options });
+  }
+
+  const handleFileCopyTo = () => openTransfer('file', contextMenu.fileObj, 'copy');
+  const handleFileMoveTo = () => openTransfer('file', contextMenu.fileObj, 'move');
+  const handleFolderCopyTo = (folder) => openTransfer('folder', folder, 'copy');
+  const handleFolderMoveTo = (folder) => openTransfer('folder', folder, 'move');
+
+  async function handleTransferConfirm() {
+    const { mode, kind, item, target, options } = transferModal;
+    const opt = (options || []).find(o => o.key === target);
+    setTransferModal({ visible: false, mode: 'move', kind: 'file', item: null, target: '', options: [] });
+    if (!opt || !item) return;
+    const body = opt.type === 'stage' ? { stage_id: opt.id } : { iteration_id: opt.id };
+    const base = kind === 'file' ? 'files' : 'folders';
+    try {
+      const res = await authenticatedFetch(`/api/${base}/${item.id}/${mode}/`, { method: 'POST', body: JSON.stringify(body) });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `${mode} failed`); }
+      // Resync current view (a move removes the item; a copy leaves it) and the target's tree.
+      refreshFolders();
+      if (prod.selectedContainer && prod.containerType) await loadContainerFiles(prod.selectedContainer, prod.containerType, true);
+      if (selectedFileObj?.id === item.id && kind === 'file' && mode === 'move') setSelectedFileObj(null);
+      setToastMsg(`${kind === 'file' ? 'File' : 'Folder'} ${mode === 'copy' ? 'copied' : 'moved'} to ${opt.label}`);
+    } catch (e) { setToastMsg(`${mode === 'copy' ? 'Copy' : 'Move'} failed: ${e.message}`); }
+  }
+
   async function handleRenameOption() {
     if (!contextMenu.fileObj) { hideContextMenu(); return; }
     const fileObj = contextMenu.fileObj;
@@ -1000,6 +1236,7 @@ function MainApp() {
           <ToolbarIcon label="Add iteration" onClick={handleAddIteration} color={styles.colors.iteration} icon={<FaDrumSteelpan size={16} />} />
           <ToolbarIcon label="Add stage" onClick={handleAddStage} color={styles.colors.stage} icon={<FaToriiGate size={16} />} />
           <ToolbarIcon label="Upload file" onClick={handlePlusClick} icon={<FaUpload size={15} />} />
+          <ToolbarIcon label="Upload folder" onClick={handleUploadFolderClick} icon={<FaFolderPlus size={15} />} />
           <div style={{ width: '1px', height: '18px', background: styles.colors.border, margin: '0 5px' }} />
           <ToolbarIcon label="Files" onClick={() => setViewMode('normal')} active={viewMode === 'normal'} icon={<FaEye size={16} />} />
           <ToolbarIcon label="BOM" onClick={() => setViewMode('bom')} active={viewMode === 'bom'} icon={<FaTable size={15} />} />
@@ -1013,6 +1250,7 @@ function MainApp() {
           prod={normalizedProd}
           folderTree={folderTree}
           foldersLoading={foldersLoading}
+          dropUpload={dropUpload}
           currentFolderId={currentFolderId}
           setCurrentFolderId={setCurrentFolderId}
           selectedFileObj={selectedFileObj}
@@ -1032,6 +1270,10 @@ function MainApp() {
           onMoveOption={handleMoveOption}
           onRenameOption={handleRenameOption}
           onRemoveOption={handleRemoveOption}
+          onFileCopyTo={handleFileCopyTo}
+          onFileMoveTo={handleFileMoveTo}
+          onFolderCopyTo={handleFolderCopyTo}
+          onFolderMoveTo={handleFolderMoveTo}
           onFolderUpload={handleUploadToFolder}
           onFolderNewSubfolder={handleFolderNewSubfolder}
           onFolderRename={handleFolderRenamePrompt}
@@ -1042,6 +1284,7 @@ function MainApp() {
           onBackgroundUpload={handleBackgroundUpload}
           onMoveFileToFolder={handleMoveFileToFolder}
           onMoveFolder={handleMoveFolder}
+          onExternalDrop={handleExternalDrop}
           hideContextMenu={hideContextMenu}
           contextMenuFileInput={contextMenuFileInput}
           childFileInput={childFileInput}
@@ -1053,7 +1296,19 @@ function MainApp() {
       {viewMode === 'bom' && <BOMViewer prod={normalizedProd} updateFile={updateFile} />}
       {viewMode === 'kpi' && <KPIDashboard prod={normalizedProd} />}
 
-      <input type="file" ref={hiddenFileInput} onChange={handleFileChange} style={{ display: 'none' }} />
+      <input type="file" multiple ref={hiddenFileInput} onChange={handleFileChange} style={{ display: 'none' }} />
+      {/* Folder picker: webkitdirectory/directory set imperatively so the browser lets
+          the user choose a whole folder and delivers every file with webkitRelativePath. */}
+      <input
+        type="file"
+        multiple
+        ref={el => {
+          folderInput.current = el;
+          if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); }
+        }}
+        onChange={handleFolderInputChange}
+        style={{ display: 'none' }}
+      />
     </>
   );
 
@@ -1082,7 +1337,7 @@ function MainApp() {
                   return (
                     <RailButton
                       key={`${container.containerType}-${container.id}`}
-                      title={isStage ? `Stage ${container.stage_number}` : `Iteration ${container.iteration_number}`}
+                      title={`${isStage ? container.stage_id : container.iteration_id} — ${container.name || (isStage ? `Stage ${container.stage_number}` : `Iteration ${container.iteration_number}`)}`}
                       selected={isSelected}
                       color={isStage ? styles.colors.stage : styles.colors.iteration}
                       number={isStage ? container.stage_number : container.iteration_number}
@@ -1107,6 +1362,49 @@ function MainApp() {
             : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
         </Col>
       </Row>
+
+      {containerMenu.visible && (
+        <div
+          style={{ position: 'fixed', top: containerMenu.y, left: containerMenu.x, backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '4px', padding: '0.5rem 0', zIndex: 1000, minWidth: '150px', fontSize: '0.85rem' }}
+          onMouseLeave={hideContainerMenu}
+        >
+          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}
+            onClick={() => handleRenameContainer(containerMenu.container, containerMenu.type)}
+            onMouseOver={e => e.currentTarget.style.backgroundColor = styles.colors.darkAlt}
+            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+          >Rename</div>
+          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+            onClick={() => handleDeleteContainer(containerMenu.container, containerMenu.type)}
+            onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
+            onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+          >Delete</div>
+        </div>
+      )}
+
+      {transferModal.visible && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1060 }}>
+          <div style={{ backgroundColor: styles.colors.dark, border: `1px solid ${styles.colors.border}`, borderRadius: '6px', padding: '1.5rem', width: '420px', maxWidth: '90%' }}>
+            <h6 style={{ color: styles.colors.text.light, marginBottom: '0.25rem', fontSize: '0.95rem' }}>
+              {transferModal.mode === 'copy' ? 'Copy' : 'Move'} {transferModal.kind} to iteration/stage
+            </h6>
+            <p style={{ color: styles.colors.text.muted, marginBottom: '1rem', fontSize: '0.8rem' }}>{transferModal.item?.name}</p>
+            <select
+              className="form-select form-select-sm mb-3"
+              style={{ backgroundColor: styles.colors.darkAlt, color: styles.colors.text.light, border: `1px solid ${styles.colors.border}` }}
+              value={transferModal.target}
+              onChange={e => setTransferModal(prev => ({ ...prev, target: e.target.value }))}
+            >
+              {transferModal.options.map(o => (
+                <option key={o.key} value={o.key}>{o.label} — {o.name} ({o.type})</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setTransferModal({ visible: false, mode: 'move', kind: 'file', item: null, target: '', options: [] })}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={handleTransferConfirm}>{transferModal.mode === 'copy' ? 'Copy' : 'Move'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal modal={confirmModal} />
       <InputModal modal={inputModal} setModal={setInputModal} />

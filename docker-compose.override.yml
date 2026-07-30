@@ -1,4 +1,31 @@
 services:
+  # Reverse proxy so the app is reachable on http://localhost (port 80) as a single
+  # origin — needed so browser-saved logins for localhost autofill and CSRF passes.
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  frontend:
+    environment:
+      # Allow requests proxied through nginx (Host: localhost) and let the HMR
+      # client pick the page's port for its websocket.
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true
+      - WDS_SOCKET_PORT=0
+      # Windows/WSL2 bind mounts don't deliver inotify events, so webpack never sees
+      # host edits. Poll instead so code changes actually hot-reload.
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      # Empty = same-origin: axios uses relative /api URLs, which go through nginx on
+      # port 80 (not cross-origin to :8000), so the session cookie + CSRF match.
+      - REACT_APP_API_URL=
+
   backend:
     build:
       context: .
@@ -12,9 +39,11 @@ services:
       - DEBUG=True
       - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
       - DATABASE_URL=postgres://postgres:postgres@db:5432/mini_plm
+      # Trust the dev origins so CSRF origin check passes for writes (POST/PUT/PATCH).
+      - CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:3000,http://localhost:8000
     command: >
       bash -c "python manage.py migrate &&
-               gunicorn --bind 0.0.0.0:8000 mpp_backend.wsgi:application"
+               gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 --graceful-timeout 30 mpp_backend.wsgi:application"
 
 volumes:
   static_volume:

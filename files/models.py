@@ -120,6 +120,9 @@ class Stage(models.Model):
         if not self.stage_number:
             last_stage = Stage.objects.filter(product=self.product).order_by('-stage_number').first()
             self.stage_number = (last_stage.stage_number + 1) if last_stage else 1
+        # Default the name to the generated id (S1, S2, ...) when none was given.
+        if not (self.name or '').strip():
+            self.name = f"S{self.stage_number}"
         super().save(*args, **kwargs)
 
 class Iteration(models.Model):
@@ -159,6 +162,9 @@ class Iteration(models.Model):
         if not self.iteration_number:
             last_iteration = Iteration.objects.filter(product=self.product).order_by('-iteration_number').first()
             self.iteration_number = (last_iteration.iteration_number + 1) if last_iteration else 1
+        # Default the name to the generated id (I1, I2, ...) when none was given.
+        if not (self.name or '').strip():
+            self.name = f"I{self.iteration_number}"
         super().save(*args, **kwargs)
 
 class Folder(models.Model):

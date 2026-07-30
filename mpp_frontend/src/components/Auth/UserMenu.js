@@ -1,41 +1,16 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import useIconTheme from '../../hooks/useIconTheme';
 import './UserMenu.css';
-
-const THEMES = [
-  {
-    id: 'material',
-    label: 'Material',
-    description: 'VS Code Material icon theme',
-    preview: ['js', 'pdf', 'cpp', 'xlsx']
-  },
-  {
-    id: 'minimal',
-    label: 'Minimal',
-    description: 'Monochrome, low distraction',
-    preview: ['js', 'pdf', 'cpp', 'xlsx']
-  },
-  {
-    id: 'catppuccin',
-    label: 'Catppuccin',
-    description: 'Soothing pastel Mocha palette',
-    preview: ['js', 'pdf', 'cpp', 'xlsx']
-  }
-];
 
 const UserMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showThemes, setShowThemes] = useState(false);
   const { user, logout } = useAuth();
-  const { activeTheme, setActiveTheme } = useIconTheme();
   const menuRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsOpen(false);
-        setShowThemes(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -45,7 +20,6 @@ const UserMenu = () => {
   const handleLogout = async () => {
     await logout();
     setIsOpen(false);
-    setShowThemes(false);
   };
 
   if (!user) return null;
@@ -54,7 +28,7 @@ const UserMenu = () => {
     <div className="user-menu-container" ref={menuRef}>
       <button
         className="user-menu-trigger"
-        onClick={() => { setIsOpen(!isOpen); setShowThemes(false); }}
+        onClick={() => setIsOpen(!isOpen)}
         title={user.username}
       >
         <div className="user-avatar">
@@ -72,50 +46,6 @@ const UserMenu = () => {
               {user.is_staff && <div className="user-info-badge">Admin</div>}
             </div>
           </div>
-
-          <div className="user-menu-divider"></div>
-
-          {/* Icon theme picker */}
-          <button
-            className="user-menu-item"
-            onClick={() => setShowThemes(!showThemes)}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-              <circle cx="8" cy="8" r="2" fill="currentColor"/>
-              <path d="M8 2V1M8 15v-1M2 8H1M15 8h-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            Icon Theme
-            <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '11px' }}>
-              {THEMES.find(t => t.id === activeTheme)?.label}
-            </span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginLeft: '4px', transform: showThemes ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          {/* Theme options */}
-          {showThemes && (
-            <div className="user-menu-themes">
-              {THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  className={`user-menu-theme-option ${activeTheme === theme.id ? 'active' : ''}`}
-                  onClick={() => { setActiveTheme(theme.id); setShowThemes(false); }}
-                >
-                  <div className="theme-option-info">
-                    <span className="theme-option-label">{theme.label}</span>
-                    <span className="theme-option-desc">{theme.description}</span>
-                  </div>
-                  {activeTheme === theme.id && (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 7l3.5 3.5L12 3" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
 
           <div className="user-menu-divider"></div>
 

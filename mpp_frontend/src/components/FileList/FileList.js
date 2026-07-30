@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, Form, Spinner } from 'react-bootstrap';
 import { FaPlus, FaFolder, FaFolderOpen, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import AppFileIcon from '../FileIcon/AppFileIcon';
@@ -6,10 +6,22 @@ import styles from '../../constants/styles';
 
 const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
 
+// Software / source / text / doc files are never manufacturable parts, so they never
+// carry quantity or price (badges hidden and the context-menu options suppressed).
+const SOFTWARE_EXTENSIONS = [
+  'py', 'cpp', 'c', 'h', 'hpp', 'hh', 'hxx', 'cxx', 'cc', 'js', 'jsx', 'ts', 'tsx',
+  'ino', 'java', 'kt', 'swift', 'rs', 'go', 'rb', 'php', 'sql', 'sh', 'bat',
+  'txt', 'md', 'markdown', 'json', 'xml', 'yml', 'yaml', 'toml', 'ini', 'cfg', 'log',
+  'html', 'css', 'doc', 'docx', 'pdf',
+];
+export const isSoftwareExt = (fileObj) =>
+  SOFTWARE_EXTENSIONS.includes((fileObj.file_extension || '').toLowerCase().replace(/^\./, ''));
+
 // Show qty/price badges for eligible manufacturing files, OR for any file once the
-// user has explicitly set a price or a non-default quantity.
+// user has explicitly set a price or a non-default quantity. Never for software files.
 function qtyPriceFlags(fileObj) {
-  const ext = (fileObj.file_extension || '').toLowerCase();
+  if (isSoftwareExt(fileObj)) return { showQty: false, showPrice: false, showBadges: false };
+  const ext = (fileObj.file_extension || '').toLowerCase().replace(/^\./, '');
   const eligibleExt = showQtyPriceExtensions.includes(ext);
   const hasPrice = fileObj.price !== null && fileObj.price !== undefined && fileObj.price !== '';
   const hasQtyVal = fileObj.quantity !== null && fileObj.quantity !== undefined;
@@ -23,6 +35,7 @@ function FileList({
   prod,
   folderTree = [],
   foldersLoading = false,
+  dropUpload = { active: false, done: 0, total: 0 },
   currentFolderId = null,
   setCurrentFolderId,
   selectedFileObj,
@@ -43,12 +56,16 @@ function FileList({
   onMoveOption,
   onRenameOption,
   onRemoveOption,
+  onFileCopyTo,
+  onFileMoveTo,
   // folder context-menu actions
   onFolderUpload,
   onFolderNewSubfolder,
   onFolderRename,
   onFolderDelete,
   onFolderDownload,
+  onFolderCopyTo,
+  onFolderMoveTo,
   onDownloadOption,
   // background context-menu actions
   onBackgroundNewFolder,
@@ -56,6 +73,7 @@ function FileList({
   // drag-and-drop
   onMoveFileToFolder,
   onMoveFolder,
+  onExternalDrop,
   hideContextMenu,
   contextMenuFileInput,
   childFileInput,
@@ -63,16 +81,37 @@ function FileList({
   onChildFileChange,
   activeTheme = 'default',
 }) {
-  const [expanded, setExpanded] = useState({});
+  // Persist which folders are open per container, so re-opening an iteration keeps
+  // the same folders unpacked (component is remounted per container via `key`).
+  const containerKey = (prod.selectedContainer && prod.containerType)
+    ? `${prod.containerType}_${prod.selectedContainer.id}` : null;
+  const expandStorageKey = containerKey ? `plm.expandedFolders.${containerKey}` : null;
+  const [expanded, setExpanded] = useState(() => {
+    if (!expandStorageKey) return {};
+    try { return JSON.parse(localStorage.getItem(expandStorageKey)) || {}; } catch { return {}; }
+  });
   const [dragOverFolderId, setDragOverFolderId] = useState(null);
   const [dragOverRoot, setDragOverRoot] = useState(false);
+
+  useEffect(() => {
+    if (!expandStorageKey) return;
+    try { localStorage.setItem(expandStorageKey, JSON.stringify(expanded)); } catch { /* ignore quota errors */ }
+  }, [expanded, expandStorageKey]);
 
   if (!prod.selectedContainer || !prod.containerType) {
     return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Select a Stage or Iteration on the left to see or upload files.</p>;
   }
 
-  const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
-  const containerFiles = prod.filesByContainer[containerKey] || [];
+  // Dedupe by id so a stray duplicate (e.g. from an interrupted upload) can't produce
+  // React "two children with the same key" warnings or duplicated rows.
+  const containerFiles = (() => {
+    const seen = new Set();
+    return (prod.filesByContainer[containerKey] || []).filter(f => {
+      if (seen.has(f.id)) return false;
+      seen.add(f.id);
+      return true;
+    });
+  })();
   const filesInFolder = (folderId) => containerFiles.filter(f => !f.is_child_file && (f.folder ?? null) === folderId);
   const childrenOf = (fileId) => containerFiles.filter(f => f.parent_file === fileId);
 
@@ -96,6 +135,11 @@ function FileList({
     e.stopPropagation();
     setDragOverFolderId(null);
     setDragOverRoot(false);
+    // Files dragged in from the OS (Explorer/Finder) — upload them, preserving folders.
+    if (e.dataTransfer.files?.length || Array.from(e.dataTransfer.types || []).includes('Files')) {
+      onExternalDrop?.(e.dataTransfer, targetFolderId);
+      return;
+    }
     const data = parseDrag(e);
     if (!data) return;
     if (data.kind === 'file') onMoveFileToFolder(data.id, targetFolderId);
@@ -269,6 +313,12 @@ function FileList({
 
   return (
     <>
+      {dropUpload.active && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '8px', borderRadius: styles.borderRadius.md, backgroundColor: `${styles.colors.iteration}1f`, border: `1px solid ${styles.colors.iteration}55`, color: styles.colors.text.light, fontSize: styles.fonts.size.sm }}>
+          <Spinner animation="border" size="sm" style={{ width: '15px', height: '15px', color: styles.colors.iteration }} />
+          <span>Uploading files… {dropUpload.done}/{dropUpload.total}</span>
+        </div>
+      )}
       <div
         onContextMenu={onBackgroundRightClick}
         onClick={e => { if (e.target === e.currentTarget) setCurrentFolderId(null); }}
@@ -299,8 +349,8 @@ function FileList({
             )}
             {!foldersLoading && isEmpty && (
               <tr>
-                <td colSpan="3" className="text-muted">
-                  No folders or files yet. Right-click to add a folder or upload a file.
+                <td colSpan="3" style={{ color: styles.colors.text.light, fontSize: styles.fonts.size.sm, padding: '12px 8px' }}>
+                  No folders or files yet. Right-click to add a folder, or use the upload buttons above.
                 </td>
               </tr>
             )}
@@ -319,6 +369,8 @@ function FileList({
               { label: 'Download as Zip', action: () => onFolderDownload(folder) },
               { label: 'Upload File Here', action: () => { expand(folder.id); onFolderUpload(folder); } },
               { label: 'New Subfolder', action: () => { expand(folder.id); onFolderNewSubfolder(folder); } },
+              { label: 'Copy to iteration/stage…', action: () => onFolderCopyTo(folder) },
+              { label: 'Move to iteration/stage…', action: () => onFolderMoveTo(folder) },
               { label: 'Rename', action: () => onFolderRename(folder) },
             ];
             return (
@@ -356,9 +408,14 @@ function FileList({
                 { label: 'Rename',          action: onRenameOption },
                 { label: 'Download',        action: onDownloadOption },
                 { label: 'Upload Revision', action: onContextMenuUpload },
-                { label: 'Set Quantity',    action: onQuantityOption },
-                { label: 'Set Price',       action: onPriceOption },
-                { label: 'Move',            action: onMoveOption },
+                // Qty/price only for manufacturable files, not software/docs.
+                ...(!isSoftwareExt(contextMenu.fileObj || {}) ? [
+                  { label: 'Set Quantity',    action: onQuantityOption },
+                  { label: 'Set Price',       action: onPriceOption },
+                ] : []),
+                { label: 'Move within…',    action: onMoveOption },
+                { label: 'Copy to iteration/stage…', action: onFileCopyTo },
+                { label: 'Move to iteration/stage…', action: onFileMoveTo },
               ].map(({ label, action }) => (
                 <div key={label} style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}
                   onClick={action}

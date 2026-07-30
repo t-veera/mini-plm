@@ -1,6 +1,7 @@
 import os
 import logging
 import mimetypes
+import hashlib
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -14,6 +15,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 import io
 import zipfile
 from collections import defaultdict
+from django.db import transaction
 from django.db.models import Count, Q
 
 from .models import File, FileRevision, Product, Stage, Iteration, Folder
@@ -38,8 +40,13 @@ def build_folder_tree_response(folders, request):
 
     def attach_children(node):
         node._prefetched_children = by_parent.get(node.id, [])
+        # Roll the descendants' file counts up so a folder whose files live only in
+        # subfolders still shows a count (and doesn't look empty).
+        total = getattr(node, 'file_count', 0) or 0
         for child in node._prefetched_children:
             attach_children(child)
+            total += getattr(child, 'file_count', 0) or 0
+        node.file_count = total
 
     roots = by_parent.get(None, [])
     for root in roots:
@@ -196,12 +203,130 @@ class IterationViewSet(viewsets.ModelViewSet):
         ct = ContentType.objects.get_for_model(Iteration)
         return container_folders_response(iteration, ct, request)
 
+def _hash_filelike(f):
+    h = hashlib.sha256()
+    for chunk in f.chunks():
+        h.update(chunk)
+    return h.hexdigest()
+
+
+def _same_content(uploaded, stored_fieldfile):
+    """True if the uploaded file is byte-identical to the stored revision. Checks size
+    first (cheap), then SHA-256. Rewinds the uploaded file so it can still be saved.
+    Any error returns False (fall through to creating a normal revision)."""
+    try:
+        up_size = getattr(uploaded, 'size', None)
+        try:
+            st_size = stored_fieldfile.size
+        except Exception:
+            st_size = None
+        if up_size is not None and st_size is not None and up_size != st_size:
+            return False
+        up_hash = _hash_filelike(uploaded)
+        try:
+            uploaded.seek(0)
+        except Exception:
+            pass
+        stored_fieldfile.open('rb')
+        try:
+            st_hash = _hash_filelike(stored_fieldfile)
+        finally:
+            stored_fieldfile.close()
+        return up_hash == st_hash
+    except Exception:
+        return False
+
+
+def resolve_target_container(data):
+    """Resolve a copy/move target from request data. Returns (content_type, container)
+    or (None, None) if neither a valid stage_id nor iteration_id was given."""
+    stage_id = data.get('stage_id')
+    iteration_id = data.get('iteration_id')
+    if stage_id:
+        obj = Stage.objects.filter(id=stage_id).first()
+        if obj:
+            return ContentType.objects.get_for_model(Stage), obj
+    if iteration_id:
+        obj = Iteration.objects.filter(id=iteration_id).first()
+        if obj:
+            return ContentType.objects.get_for_model(Iteration), obj
+    return None, None
+
+
+def duplicate_file(src, content_type, container, folder, user, parent=None):
+    """Copy a File (and all its revisions) into a target container/folder. Revisions
+    reference the same stored files (identical content), so no bytes are re-written."""
+    new_file = File.objects.create(
+        owner=user,
+        name=src.name,
+        description=src.description,
+        file_type=src.file_type,
+        uploaded_file=src.uploaded_file.name if src.uploaded_file else '',
+        content_type=content_type,
+        object_id=container.id,
+        parent_file=parent,
+        folder=(None if parent else folder),
+        status=src.status,
+        quantity=src.quantity,
+        price=src.price,
+        metadata=src.metadata,
+    )
+    for rev in src.revisions.all().order_by('revision_number'):
+        FileRevision.objects.create(
+            file=new_file,
+            revision_number=rev.revision_number,
+            uploaded_file=rev.uploaded_file.name if rev.uploaded_file else '',
+            file_path=rev.file_path,
+            file_size=rev.file_size,
+            description=rev.description,
+            status=rev.status,
+            price=rev.price,
+            created_by=user,
+        )
+    if src.current_revision:
+        new_file.current_revision = src.current_revision
+        new_file.save(update_fields=['current_revision'])
+    return new_file
+
+
 class FileViewSet(viewsets.ModelViewSet):
     """ViewSet for managing files"""
     permission_classes = [IsAuthenticated]  # Require authentication
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    @action(detail=True, methods=['post'])
+    def move(self, request, pk=None):
+        """Move a file (and its child files) to another stage/iteration root."""
+        f = self.get_object()
+        if f.parent_file_id:
+            return Response({"error": "Move the parent file instead of a child file."}, status=status.HTTP_400_BAD_REQUEST)
+        content_type, container = resolve_target_container(request.data)
+        if not container:
+            return Response({"error": "Target stage/iteration not found."}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            File.objects.filter(parent_file=f).update(content_type=content_type, object_id=container.id, folder=None)
+            f.content_type = content_type
+            f.object_id = container.id
+            f.folder = None
+            f.save()
+        return Response(FileSerializer(f, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'])
+    def copy(self, request, pk=None):
+        """Copy a file (and its child files) into another stage/iteration root."""
+        f = self.get_object()
+        if f.parent_file_id:
+            return Response({"error": "Copy the parent file instead of a child file."}, status=status.HTTP_400_BAD_REQUEST)
+        content_type, container = resolve_target_container(request.data)
+        if not container:
+            return Response({"error": "Target stage/iteration not found."}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            new_file = duplicate_file(f, content_type, container, None, request.user)
+            for child in File.objects.filter(parent_file=f):
+                duplicate_file(child, content_type, container, None, request.user, parent=new_file)
+        return Response(FileSerializer(new_file, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     def list(self, request, *args, **kwargs):
         """List files with optional filtering"""
@@ -367,14 +492,26 @@ class FileViewSet(viewsets.ModelViewSet):
             file_lookup['parent_file'] = parent_file_obj
         else:
             file_lookup['parent_file__isnull'] = True
+            # Scope by folder so a same-named file in a different folder is its own file,
+            # and re-uploading into the same folder versions the existing one.
+            file_lookup['folder'] = folder_obj
 
         existing_file = File.objects.filter(**file_lookup).first()
 
         if existing_file:
             # Creating a revision of existing file
             logger.debug(f"Creating revision for existing file: {existing_file.name}")
-            
+
             last_revision = FileRevision.objects.filter(file=existing_file).order_by('-revision_number').first()
+
+            # Skip the upload entirely if the content is byte-identical to the current
+            # revision (e.g. re-dropping a folder) — only genuinely changed files should
+            # get a new version.
+            if last_revision and getattr(last_revision, 'uploaded_file', None):
+                if _same_content(uploaded_file, last_revision.uploaded_file):
+                    serializer = FileSerializer(existing_file, context={'request': request})
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+
             revision_number = 1 if last_revision is None else last_revision.revision_number + 1
 
             new_revision = FileRevision(
@@ -423,26 +560,32 @@ class FileViewSet(viewsets.ModelViewSet):
                     file_instance.price = float(price_value)
                 except (ValueError, TypeError):
                     pass
-            
-            file_instance.save()
 
-            # Create first revision
-            new_revision = FileRevision(
-                file=file_instance,
-                revision_number=1,
-                uploaded_file=uploaded_file,
-                description=change_description,
-                status=status_value,
-                created_by=user
-            )
-            
-            if price_value:
-                try:
-                    new_revision.price = float(price_value)
-                except (ValueError, TypeError):
-                    pass
-            
-            new_revision.save()
+            # Atomic so a failure creating the revision rolls back the File too,
+            # instead of leaving an orphan File row with no revisions.
+            with transaction.atomic():
+                file_instance.save()
+
+                # Create first revision. Reference the file already stored on file_instance
+                # instead of saving `uploaded_file` a second time: a disk-backed
+                # TemporaryUploadedFile (>2.5MB) is consumed/moved by the first save, so
+                # re-saving the raw upload here 500s with FileNotFoundError on the temp path.
+                new_revision = FileRevision(
+                    file=file_instance,
+                    revision_number=1,
+                    uploaded_file=file_instance.uploaded_file.name,
+                    description=change_description,
+                    status=status_value,
+                    created_by=user
+                )
+
+                if price_value:
+                    try:
+                        new_revision.price = float(price_value)
+                    except (ValueError, TypeError):
+                        pass
+
+                new_revision.save()
 
             # ✅ FIXED: Use FileSerializer instead of custom response
             serializer = FileSerializer(file_instance, context={'request': request})
@@ -478,15 +621,116 @@ class FolderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(product_id=product_id)
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        """Idempotent create: if a folder with the same container + parent + name already
+        exists, return it instead of making a duplicate. This makes drag-dropping a folder
+        (or re-dropping it) reliably merge into the existing structure regardless of what
+        the client thinks already exists."""
+        data = request.data
+        name = (data.get('name') or '').strip()
+        parent_id = data.get('parent') or None
+        content_type, container = resolve_target_container(data)
+        if container and name:
+            existing = Folder.objects.filter(
+                content_type=content_type, object_id=container.id,
+                parent_id=parent_id, name=name,
+            ).first()
+            if existing:
+                return Response(FolderSerializer(existing, context={'request': request}).data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
-        """Reject deletion of a non-empty folder (has subfolders or files)"""
+        """Delete a folder. Empty folders delete directly; non-empty ones require
+        ?recursive=true (the UI asks the user to confirm), which deletes every
+        descendant subfolder and file too."""
         instance = self.get_object()
-        if instance.children.exists() or instance.files.exists():
+        recursive = request.query_params.get('recursive', '').lower() in ('1', 'true', 'yes')
+
+        if (instance.children.exists() or instance.files.exists()) and not recursive:
             return Response(
                 {"error": "Folder is not empty. Move or delete its contents before deleting this folder."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if recursive:
+            # Collect this folder and all descendants (parent uses PROTECT, so we must
+            # delete children before parents; File.folder is SET_NULL, so files must be
+            # deleted explicitly or they'd just detach to the container root).
+            all_folders = list(Folder.objects.filter(product=instance.product).values('id', 'parent_id'))
+            children_map = defaultdict(list)
+            for f in all_folders:
+                children_map[f['parent_id']].append(f['id'])
+            ordered = []  # parents before children (DFS preorder)
+            stack = [instance.id]
+            while stack:
+                fid = stack.pop()
+                ordered.append(fid)
+                stack.extend(children_map.get(fid, []))
+            with transaction.atomic():
+                File.objects.filter(folder_id__in=ordered).delete()  # cascades revisions
+                for fid in reversed(ordered):  # children first, then parents
+                    Folder.objects.filter(id=fid).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         return super().destroy(request, *args, **kwargs)
+
+    def _subtree_ids(self, folder):
+        """All folder ids in this folder's subtree (including itself), parents first."""
+        all_folders = list(Folder.objects.filter(product=folder.product).values('id', 'parent_id'))
+        children_map = defaultdict(list)
+        for x in all_folders:
+            children_map[x['parent_id']].append(x['id'])
+        ordered, stack = [], [folder.id]
+        while stack:
+            fid = stack.pop()
+            ordered.append(fid)
+            stack.extend(children_map.get(fid, []))
+        return ordered
+
+    @action(detail=True, methods=['post'])
+    def move(self, request, pk=None):
+        """Move a folder subtree (its subfolders and files) to another stage/iteration,
+        as a top-level folder there."""
+        folder = self.get_object()
+        content_type, container = resolve_target_container(request.data)
+        if not container:
+            return Response({"error": "Target stage/iteration not found."}, status=status.HTTP_400_BAD_REQUEST)
+        ids = self._subtree_ids(folder)
+        with transaction.atomic():
+            Folder.objects.filter(id__in=ids).update(content_type=content_type, object_id=container.id, product=container.product)
+            File.objects.filter(folder_id__in=ids).update(content_type=content_type, object_id=container.id)
+            folder.refresh_from_db()
+            folder.parent = None  # re-root in the target container
+            folder.save()
+        return Response(FolderSerializer(folder, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'])
+    def copy(self, request, pk=None):
+        """Copy a folder subtree (its subfolders and files) into another stage/iteration."""
+        folder = self.get_object()
+        content_type, container = resolve_target_container(request.data)
+        if not container:
+            return Response({"error": "Target stage/iteration not found."}, status=status.HTTP_400_BAD_REQUEST)
+        ids = self._subtree_ids(folder)  # parents-before-children order
+        with transaction.atomic():
+            id_map = {}  # old folder id -> new Folder
+            for old_id in ids:
+                src = Folder.objects.get(id=old_id)
+                new_parent = id_map.get(src.parent_id)
+                new_folder = Folder.objects.create(
+                    name=src.name,
+                    parent=new_parent,
+                    product=container.product,
+                    content_type=content_type,
+                    object_id=container.id,
+                )
+                id_map[old_id] = new_folder
+            for old_id, new_folder in id_map.items():
+                for f in File.objects.filter(folder_id=old_id, parent_file__isnull=True):
+                    new_file = duplicate_file(f, content_type, container, new_folder, request.user)
+                    for child in File.objects.filter(parent_file=f):
+                        duplicate_file(child, content_type, container, new_folder, request.user, parent=new_file)
+        return Response(FolderSerializer(id_map[folder.id], context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):

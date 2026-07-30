@@ -83,6 +83,13 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mpp_files')
 
+# Keep uploads up to 50MB in memory so they're written to storage in a single pass
+# instead of via a disk temp file that gets copied across filesystems — that copy
+# intermittently fails with OSError(Errno 5) on the Windows/WSL2 bind mount used for
+# mpp_files, which was aborting multi-file (repo) uploads.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50 MB
+
 # -- CORS Configuration --
 CORS_ALLOW_ALL_ORIGINS = True
 
