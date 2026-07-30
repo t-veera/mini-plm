@@ -4,6 +4,30 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 import os
 
+# --- File categorization (single source of truth for BOM binning) -----------------
+# Extension -> category. The category is user-overridable; extension is only the default
+# guess used at upload time. Keep this map in sync with the data migration that backfills
+# existing rows (the migration inlines an identical copy to stay self-contained/historical).
+ELECTRONICS_EXTS = {'kicad_sch', 'kicad_pcb', 'sch', 'brd', 'gbr', 'gerber', 'net'}
+MECHANICAL_EXTS = {'step', 'stp', 'stl', 'dxf', 'f3d', 'iges', 'igs',
+                   'sldprt', 'sldasm', 'ipt', 'iam', '3mf', 'obj'}
+
+
+def category_for_extension(ext):
+    """Classify a file into electronics / mechanical / misc from its extension.
+
+    Everything not explicitly electronics or mechanical (including xls/xlsx/csv) is misc.
+    """
+    if not ext:
+        return 'misc'
+    ext = ext.lower().lstrip('.')
+    if ext in ELECTRONICS_EXTS:
+        return 'electronics'
+    if ext in MECHANICAL_EXTS:
+        return 'mechanical'
+    return 'misc'
+
+
 def upload_to_revision(instance, filename):
     """Generate upload path for file revisions following product hierarchy"""
     try:
@@ -349,6 +373,12 @@ class File(models.Model):
         ('final', 'Final'),
     ]
 
+    CATEGORY_CHOICES = [
+        ('electronics', 'Electronics'),
+        ('mechanical', 'Mechanical'),
+        ('misc', 'Misc'),
+    ]
+
     # Basic file information
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -379,6 +409,10 @@ class File(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_work')
     quantity = models.IntegerField(default=1, help_text="Quantity for this file")
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Price for this file")
+    # BOM binning: electronics / mechanical / misc. Defaults to a guess from the file
+    # extension on upload (see FileViewSet.create); user-overridable via PATCH.
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='misc',
+                                help_text="BOM category (electronics/mechanical/misc)")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

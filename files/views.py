@@ -18,7 +18,7 @@ from collections import defaultdict
 from django.db import transaction
 from django.db.models import Count, Q
 
-from .models import File, FileRevision, Product, Stage, Iteration, Folder
+from .models import File, FileRevision, Product, Stage, Iteration, Folder, category_for_extension
 from .serializers import (
     FileSerializer, FileRevisionSerializer, ProductSerializer,
     StageSerializer, IterationSerializer, FolderSerializer, FolderTreeSerializer
@@ -269,6 +269,7 @@ def duplicate_file(src, content_type, container, folder, user, parent=None):
         status=src.status,
         quantity=src.quantity,
         price=src.price,
+        category=src.category,
         metadata=src.metadata,
     )
     for rev in src.revisions.all().order_by('revision_number'):
@@ -441,6 +442,13 @@ class FileViewSet(viewsets.ModelViewSet):
         status_value = request.data.get('status', 'in_work')
         price_value = request.data.get('price')
         quantity_value = request.data.get('quantity', 1)
+        # Category: honor an explicit value from the request; otherwise guess from the
+        # file extension. The backend owns categorization so the frontend never re-derives it.
+        category_value = request.data.get('category')
+        valid_categories = {c[0] for c in File.CATEGORY_CHOICES}
+        if category_value not in valid_categories:
+            ext = os.path.splitext(original_name)[1].lower().lstrip('.')
+            category_value = category_for_extension(ext)
 
         user = request.user if request.user.is_authenticated else User.objects.first()
 
@@ -552,7 +560,8 @@ class FileViewSet(viewsets.ModelViewSet):
                 parent_file=parent_file_obj,
                 folder=folder_obj,
                 status=status_value,
-                quantity=int(quantity_value) if quantity_value else 1
+                quantity=int(quantity_value) if quantity_value else 1,
+                category=category_value
             )
             
             if price_value:

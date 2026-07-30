@@ -196,6 +196,7 @@ class ChildFileSerializer(serializers.ModelSerializer):
             'status',
             'quantity',
             'price',
+            'category',
             'metadata',
             'created_at',
             'updated_at',
@@ -204,7 +205,7 @@ class ChildFileSerializer(serializers.ModelSerializer):
             'revisions',
         ]
         read_only_fields = [
-            'id', 'file_path', 'file_size', 'current_revision', 
+            'id', 'file_path', 'file_size', 'current_revision',
             'created_at', 'updated_at', 'owner', 'container_type', 'container_id'
         ]
 
@@ -261,6 +262,7 @@ class FileSerializer(serializers.ModelSerializer):
             'status',
             'quantity',
             'price',
+            'category',
             'metadata',
             'created_at',
             'updated_at',

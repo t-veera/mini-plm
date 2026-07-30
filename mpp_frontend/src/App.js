@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Toast, ToastContainer, Spinner, Form } from 'react-bootstrap';
-import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaDownload, FaFolderPlus } from 'react-icons/fa';
+import { FaToriiGate, FaDrumSteelpan, FaDownload } from 'react-icons/fa';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SetupWizard from './components/SetupWizard';
@@ -14,6 +14,7 @@ import styles from './constants/styles';
 import useIconTheme from './hooks/useIconTheme';
 
 import ResizableColumn from './components/ResizableColumn/ResizableColumn';
+import Toolbar from './components/Toolbar/Toolbar';
 import ErrorBoundary from './components/ErrorBoundary';
 import FileList from './components/FileList/FileList';
 import BOMViewer from './components/BOMViewer/BOMViewer';
@@ -149,27 +150,6 @@ function loadLastSelection() {
   } catch {
     return null;
   }
-}
-
-function ToolbarIcon({ icon, label, onClick, color, active = false }) {
-  const base = color || styles.colors.text.muted;
-  return (
-    <div
-      title={label}
-      onClick={onClick}
-      style={{
-        cursor: 'pointer', width: '30px', height: '30px', borderRadius: styles.borderRadius.md,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: active ? styles.colors.text.light : base,
-        background: active ? `${styles.colors.primary}33` : 'transparent',
-        transition: 'background 0.12s ease, color 0.12s ease',
-      }}
-      onMouseOver={e => { e.currentTarget.style.background = styles.colors.darkAlt; e.currentTarget.style.color = styles.colors.text.light; }}
-      onMouseOut={e => { e.currentTarget.style.background = active ? `${styles.colors.primary}33` : 'transparent'; e.currentTarget.style.color = active ? styles.colors.text.light : base; }}
-    >
-      <span style={{ pointerEvents: 'none', display: 'inline-flex' }}>{icon}</span>
-    </div>
-  );
 }
 
 function RailButton({ icon, color, number, selected, onClick, onContextMenu, title }) {
@@ -1217,32 +1197,29 @@ function MainApp() {
     filesByContainer: prod.filesByContainer || {}
   };
 
+  // The one toolbar shared by every dashboard — see components/Toolbar/Toolbar.js.
+  const toolbar = (
+    <Toolbar
+      products={products}
+      selectedProductIndex={selectedProductIndex}
+      onSelectProduct={handleSelectProduct}
+      onCreateProduct={handleCreateProduct}
+      onAddIteration={handleAddIteration}
+      onAddStage={handleAddStage}
+      onUploadFile={handlePlusClick}
+      onUploadFolder={handleUploadFolderClick}
+      viewMode={viewMode}
+      setViewMode={setViewMode}
+      hiddenFileInput={hiddenFileInput}
+      folderInput={folderInput}
+      onFileChange={handleFileChange}
+      onFolderInputChange={handleFolderInputChange}
+    />
+  );
+
   const fileBrowser = (
     <>
-      <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: `1px solid ${styles.colors.border}`, gap: '8px' }}>
-        <div className="d-flex align-items-center" style={{ gap: '2px', minWidth: 0 }}>
-          <Form.Select
-            size="sm"
-            value={selectedProductIndex}
-            onChange={handleSelectProduct}
-            className="shadow-none product-select"
-            style={{ width: 'auto', maxWidth: '170px', color: styles.colors.text.light, fontSize: styles.fonts.size.sm, fontWeight: 600, letterSpacing: '0.3px', paddingLeft: '4px', borderRadius: styles.borderRadius.md, cursor: 'pointer', textOverflow: 'ellipsis' }}
-          >
-            {products.map((p, idx) => <option key={idx} value={idx} style={{ background: styles.colors.dark, fontWeight: 400 }}>{p.name.toUpperCase()}</option>)}
-          </Form.Select>
-          <ToolbarIcon label="New product" onClick={handleCreateProduct} icon={<FaPlus size={13} />} />
-        </div>
-        <div className="d-flex align-items-center" style={{ gap: '1px' }}>
-          <ToolbarIcon label="Add iteration" onClick={handleAddIteration} color={styles.colors.iteration} icon={<FaDrumSteelpan size={16} />} />
-          <ToolbarIcon label="Add stage" onClick={handleAddStage} color={styles.colors.stage} icon={<FaToriiGate size={16} />} />
-          <ToolbarIcon label="Upload file" onClick={handlePlusClick} icon={<FaUpload size={15} />} />
-          <ToolbarIcon label="Upload folder" onClick={handleUploadFolderClick} icon={<FaFolderPlus size={15} />} />
-          <div style={{ width: '1px', height: '18px', background: styles.colors.border, margin: '0 5px' }} />
-          <ToolbarIcon label="Files" onClick={() => setViewMode('normal')} active={viewMode === 'normal'} icon={<FaEye size={16} />} />
-          <ToolbarIcon label="BOM" onClick={() => setViewMode('bom')} active={viewMode === 'bom'} icon={<FaTable size={15} />} />
-          <ToolbarIcon label="KPIs" onClick={() => setViewMode('kpi')} active={viewMode === 'kpi'} icon={<FaChartLine size={15} />} />
-        </div>
-      </div>
+      {toolbar}
 
       {viewMode === 'normal' && (
         <FileList
@@ -1293,22 +1270,7 @@ function MainApp() {
           activeTheme={activeTheme}
         />
       )}
-      {viewMode === 'bom' && <BOMViewer prod={normalizedProd} updateFile={updateFile} />}
       {viewMode === 'kpi' && <KPIDashboard prod={normalizedProd} />}
-
-      <input type="file" multiple ref={hiddenFileInput} onChange={handleFileChange} style={{ display: 'none' }} />
-      {/* Folder picker: webkitdirectory/directory set imperatively so the browser lets
-          the user choose a whole folder and delivers every file with webkitRelativePath. */}
-      <input
-        type="file"
-        multiple
-        ref={el => {
-          folderInput.current = el;
-          if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); }
-        }}
-        onChange={handleFolderInputChange}
-        style={{ display: 'none' }}
-      />
     </>
   );
 
@@ -1359,7 +1321,16 @@ function MainApp() {
                   {renderPreview(selectedFileObj, handleRevisionChange, handleChildRevisionChange)}
                 </ErrorBoundary>
               } />
-            : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
+            : viewMode === 'bom'
+              // BOM owns its own split so the toolbar sits in the left panel (same place
+              // as the Files view) while the tables get the full remaining width.
+              ? <BOMViewer
+                  prod={normalizedProd}
+                  updateFile={updateFile}
+                  toolbar={toolbar}
+                  onSelectContainer={handleContainerClick}
+                />
+              : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
         </Col>
       </Row>
 
