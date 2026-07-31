@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import typography from '../../styles/typography';
+import tokens from '../../constants/styles';
 
 // Preview caps: a sheet with more than this many rows/cols is truncated before
 // rendering. sheet_to_html emits an unvirtualized table with white-space:nowrap,
@@ -97,8 +98,8 @@ function ExcelViewer({ fileUrl, authenticatedFetch }) {
           {sheetNames.map((name, i) => (
             <button key={i} type="button" onClick={() => renderSheet(workbookRef, i)} style={{
               ...styles.tab,
-              background: activeSheet === i ? '#4a9eff' : '#2a2a3e',
-              color: activeSheet === i ? '#fff' : '#aaa',
+              background: activeSheet === i ? tokens.colors.primaryActive : 'transparent',
+              color: activeSheet === i ? tokens.colors.text.light : tokens.colors.text.muted,
             }}>{name}</button>
           ))}
         </div>
@@ -110,36 +111,37 @@ function ExcelViewer({ fileUrl, authenticatedFetch }) {
       )}
       <div className="excel-wrap" style={styles.tableWrap} dangerouslySetInnerHTML={{ __html: html }} />
       <style>{`
-        .excel-wrap table { border-collapse: collapse; font-size: 13px; font-family: ${typography.primary}; color: #e0e0e0; width: 100%; }
-        .excel-wrap td, .excel-wrap th { border: 1px solid #444; padding: 5px 10px; white-space: nowrap; }
-        .excel-wrap tr:nth-child(even) td { background: #13151c; }
+        .excel-wrap table { border-collapse: collapse; font-size: 13px; font-family: ${typography.primary}; color: var(--mp-text); width: 100%; }
+        .excel-wrap td, .excel-wrap th { border: 1px solid var(--mp-border); padding: 5px 10px; white-space: nowrap; }
+        .excel-wrap tr:nth-child(even) td { background: var(--mp-hover); }
       `}</style>
     </div>
   );
 }
 
+// Themed via the shared tokens so the sheet preview follows Light/Dark.
 const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
     borderRadius: '8px',
-    border: '1px solid #333',
+    border: `1px solid ${tokens.colors.border}`,
     overflow: 'hidden',
-    backgroundColor: '#0f1117',
+    backgroundColor: tokens.colors.dark,
   },
   tabBar: {
     display: 'flex',
     gap: '4px',
     padding: '6px 8px',
-    background: '#1a1d21',
-    borderBottom: '1px solid #444',
+    background: tokens.colors.darkAlt,
+    borderBottom: `1px solid ${tokens.colors.border}`,
     flexShrink: 0,
   },
   tab: {
     padding: '3px 12px',
     fontSize: '12px',
-    border: '1px solid #444',
+    border: `1px solid ${tokens.colors.border}`,
     borderRadius: '3px',
     cursor: 'pointer',
     fontFamily: typography.primary,
@@ -153,9 +155,9 @@ const styles = {
     flexShrink: 0,
     padding: '5px 10px',
     fontSize: '11px',
-    color: '#e0c068',
-    background: '#2a2410',
-    borderBottom: '1px solid #444',
+    color: tokens.colors.warning,
+    background: tokens.colors.darkAlt,
+    borderBottom: `1px solid ${tokens.colors.border}`,
   },
 };
 

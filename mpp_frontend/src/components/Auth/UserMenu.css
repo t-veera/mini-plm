@@ -1,9 +1,13 @@
-﻿.user-menu-container {
+/* Colours come from the theme variables on <html> (see src/styles/themes.js), so this
+   menu follows Light/Dark without any JS. */
+
+.user-menu-container {
   position: fixed;
   bottom: 20px;
   left: 5px;
   z-index: 99999;
 }
+
 .user-menu-trigger {
   width: 40px;
   height: 40px;
@@ -18,61 +22,76 @@
   padding: 0;
 }
 .user-menu-trigger:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--mp-hover);
 }
+
+/* Inverted block: light chip on a dark theme, dark chip on a light theme. */
 .user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: white;
+  background: var(--mp-text);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   font-size: 14px;
-  color: #1e293b;
+  color: var(--mp-dark);
 }
+
 .user-menu-dropdown {
   position: fixed !important;
   bottom: 70px !important;
   left: 5px !important;
-  background: #1e293b !important;
-  border: 1px solid #334155 !important;
+  background: var(--mp-dark-alt) !important;
+  border: 1px solid var(--mp-border) !important;
   border-radius: 8px !important;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8) !important;
+  box-shadow: 0 12px 48px var(--mp-shadow) !important;
   min-width: 240px !important;
   z-index: 999999 !important;
   display: block !important;
 }
+
 .user-menu-header {
   padding: 16px;
 }
 .user-info-name {
-  color: #f1f5f9;
+  color: var(--mp-text);
   font-weight: 600;
   font-size: 14px;
   margin-bottom: 8px;
 }
 .user-info-email {
-  color: #94a3b8;
+  color: var(--mp-text-muted);
   font-size: 12px;
   margin-bottom: 8px;
 }
 .user-info-badge {
   display: inline-block;
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: var(--mp-primary-soft);
+  color: var(--mp-text-muted);
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
 }
+
 .user-menu-divider {
   height: 1px;
-  background: #334155;
+  background: var(--mp-border);
   margin: 0;
 }
+
+.user-menu-section-label {
+  padding: 10px 16px 4px 16px;
+  color: var(--mp-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
 .user-menu-item {
   width: 100%;
   display: flex;
@@ -81,7 +100,7 @@
   padding: 12px 16px;
   background: transparent;
   border: none;
-  color: #cbd5e1;
+  color: var(--mp-text-muted);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -89,8 +108,9 @@
   text-align: left;
 }
 .user-menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--mp-hover);
 }
+
 .user-menu-themes {
   padding: 4px 8px 8px 8px;
   display: flex;
@@ -110,14 +130,15 @@
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
+  color: var(--mp-iteration);
 }
 .user-menu-theme-option:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: #334155;
+  background: var(--mp-hover);
+  border-color: var(--mp-border);
 }
 .user-menu-theme-option.active {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--mp-iteration-faint);
+  border-color: var(--mp-iteration-edge);
 }
 .theme-option-info {
   display: flex;
@@ -125,14 +146,15 @@
   gap: 2px;
 }
 .theme-option-label {
-  color: #f1f5f9;
+  color: var(--mp-text);
   font-size: 13px;
   font-weight: 500;
 }
 .theme-option-desc {
-  color: #64748b;
+  color: var(--mp-text-muted);
   font-size: 11px;
 }
+
 .user-menu-logout {
   width: 100%;
   display: flex;
@@ -141,7 +163,7 @@
   padding: 12px 16px;
   background: transparent;
   border: none;
-  color: #f87171;
+  color: var(--mp-danger);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -149,5 +171,5 @@
   text-align: left;
 }
 .user-menu-logout:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: var(--mp-hover);
 }

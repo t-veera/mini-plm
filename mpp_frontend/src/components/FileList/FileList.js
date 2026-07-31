@@ -214,10 +214,10 @@ function FileList({
           const childIcon = <AppFileIcon filename={childFile.name} />;
           const hasChildRevisions = childFile.revisions?.length > 0;
           return (
-            <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: 'rgba(108,117,125,0.6)' } : {}}>
+            <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: styles.colors.primaryActive } : {}}>
               <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad + 20}px`, position: 'relative' }} onContextMenu={e => onFileRightClick(e, childFile)}>
                 <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
-                  <span style={{ position: 'absolute', left: `${namePad - 4}px`, color: '#6c757d', fontSize: '0.7rem' }}>└</span>
+                  <span style={{ position: 'absolute', left: `${namePad - 4}px`, color: styles.colors.text.muted, fontSize: '0.7rem' }}>└</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '12px' }}>{childIcon}</span>
                   <span title={childFile.name} style={{ minWidth: 0, flex: '1 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{childFile.name}</span>
                   {(() => {
@@ -277,7 +277,7 @@ function FileList({
           onClick={() => { setCurrentFolderId(folder.id); toggle(folder.id); }}
           onContextMenu={e => onFolderRightClick(e, folder)}
           style={{
-            backgroundColor: dragOverFolderId === folder.id ? `${styles.colors.iteration}26` : (isSelected ? `${styles.colors.primary}26` : undefined),
+            backgroundColor: dragOverFolderId === folder.id ? styles.colors.iterationSoft : (isSelected ? styles.colors.primarySoft : undefined),
             outline: dragOverFolderId === folder.id ? `1px dashed ${styles.colors.iteration}` : 'none',
           }}
         >
@@ -314,7 +314,7 @@ function FileList({
   return (
     <>
       {dropUpload.active && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '8px', borderRadius: styles.borderRadius.md, backgroundColor: `${styles.colors.iteration}1f`, border: `1px solid ${styles.colors.iteration}55`, color: styles.colors.text.light, fontSize: styles.fonts.size.sm }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '8px', borderRadius: styles.borderRadius.md, backgroundColor: styles.colors.iterationFaint, border: `1px solid ${styles.colors.iterationEdge}`, color: styles.colors.text.light, fontSize: styles.fonts.size.sm }}>
           <Spinner animation="border" size="sm" style={{ width: '15px', height: '15px', color: styles.colors.iteration }} />
           <span>Uploading files… {dropUpload.done}/{dropUpload.total}</span>
         </div>
@@ -382,10 +382,10 @@ function FileList({
                     onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                   >{label}</div>
                 ))}
-                <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+                <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
                   onClick={() => onFolderDelete(folder)}
-                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
-                  onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+                  onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
+                  onMouseOut={e => e.currentTarget.style.opacity = '1'}
                 >Delete Folder</div>
               </>
             );
@@ -423,7 +423,7 @@ function FileList({
                   onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >{label}</div>
               ))}
-              <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+              <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
                 onClick={onRemoveOption}
                 onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
                 onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}

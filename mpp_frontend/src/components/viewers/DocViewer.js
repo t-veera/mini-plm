@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import mammoth from 'mammoth';
 import authenticatedFetch from '../../utils/authenticatedFetch';
+import styles from '../../constants/styles';
 
 // Preview for Word documents. .docx (and .docm) are converted to HTML in the browser
 // via mammoth. The legacy binary .doc format isn't supported by mammoth, so we show a
@@ -26,7 +27,8 @@ export default function DocViewer({ fileUrl, name }) {
   }, [fileUrl, isLegacyDoc]);
 
   const shell = (children) => (
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto', background: '#ffffff' }}>
+    // Deliberately paper-white in both themes: this renders a Word document page.
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, overflow: 'auto', background: '#ffffff' }}>
       {children}
     </div>
   );

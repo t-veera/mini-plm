@@ -4,13 +4,161 @@ import * as XLSX from 'xlsx';
 import styles from '../../constants/styles';
 import authenticatedFetch from '../../utils/authenticatedFetch';
 import DashboardShell from '../DashboardShell/DashboardShell';
+import ContainerSelect, { accentFor, containerDisplayName, containerLabelOf }
+  from '../ContainerSelect/ContainerSelect';
 
 // Files that carry their own qty/price (one BOM line each). Mirrors the list in
 // FileList.js, which decides where the qty/price context-menu options are offered.
 const showQtyPriceExtensions = ['dxf', 'step', 'stp', 'stl', 'kicad_sch', 'gbr', 'gerber', 'kicad_pcb'];
 
-// Spreadsheets contribute one BOM line per parsed row.
+// Spreadsheets contribute one BOM line per parsed row - but only if the sheet is
+// actually a bill of materials. A test protocol or a spec sheet is also an .xls, and
+// without this check every one of its rows would show up as a "component".
 const spreadsheetExtensions = ['xls', 'xlsx', 'csv'];
+
+/**
+ * Parsed sheets, keyed by file id + revision, held at module scope on purpose.
+ *
+ * Parse results deliberately do NOT live in App's product state: that state is replaced
+ * wholesale whenever the container's file list is refetched from the API (which knows
+ * nothing about these client-side fields), which silently threw away every parse. A
+ * module-level cache also survives StrictMode's mount/unmount/remount in development.
+ *
+ * Entry shape: { rows, bomSheet, note }.
+ */
+const sheetCache = new Map();
+
+/** Cache key - includes the revision so a new upload re-parses. */
+const cacheKey = (file) => `${file.id}:${file.current_revision || 1}`;
+
+// How far down a sheet to look for the header row. Real BOM exports put a title block,
+// document number, project metadata and blank rows above the actual table.
+const MAX_HEADER_SCAN_ROWS = 40;
+
+/** Collapse a header cell to a comparable form: "Unit\n(INR)" -> "unit". */
+function normalizeHeader(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/\s+/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')     // drop units/currency in brackets
+    .replace(/[^a-z0-9 /]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/** Which BOM column, if any, a header cell represents.
+ *
+ *  Order matters: qty and total are checked before price so "Total" never binds as a
+ *  unit price, and ref before component so "Part Number / Model" is a reference rather
+ *  than the component name.
+ */
+function headerRole(raw) {
+  const h = normalizeHeader(raw);
+  if (!h) return null;
+  if (/\bcategory\b|\bgroup\b|\bsection\b/.test(h)) return 'category';
+  if (/\bqty\b|\bquantity\b|\bqnty\b|\bpcs\b/.test(h)) return 'qty';
+  if (/\btotal\b|\bextended\b|\bamount\b/.test(h)) return 'total';
+  if (/\bunit\b|\bprice\b|\bcost\b|\brate\b|\bmrp\b/.test(h)) return 'price';
+  if (/part number|part no|\bmpn\b|designator|\brefdes\b|\bref\b|\breference\b|\bmodel\b|\bsku\b/.test(h)) return 'ref';
+  if (/description|component|\bitem\b|\bpart\b|\bname\b|material/.test(h)) return 'component';
+  return null;
+}
+
+/**
+ * Map a BOM sheet's own Category value onto our three bins.
+ *
+ * Real BOMs categorise by function (MCU, Display, Power, Wiring, Mechanical,
+ * Consumables...), which is finer-grained than electronics/mechanical/misc. Reading it
+ * per row is what puts screws and sheet metal under Mechanical while the boards and
+ * display stay under Electronics - binning the whole sheet as one category cannot.
+ *
+ * Returns null when the value is unrecognised, so the caller can fall back to the
+ * file-level category.
+ */
+function mapSheetCategory(text) {
+  if (!text) return null;
+  const t = String(text).toLowerCase();
+  // Mechanical first: "Mechanical" covers fasteners/adhesives/structural parts, and
+  // those words shouldn't be out-voted by an electronics term elsewhere in the cell.
+  if (/mechanic|enclosure|fasten|hardware|structur|chassis|case|housing|adhesive|screw|bracket|standoff|gasket|sheet|filament|print/.test(t)) return 'mechanical';
+  if (/consumable|\bmisc|packaging|document|label|tool/.test(t)) return 'misc';
+  if (/mcu|microcontroller|display|power|storage|input|wiring|wire|cable|connector|electronic|pcb|semiconduct|passive|resistor|capacitor|sensor|battery|charg|module/.test(t)) return 'electronics';
+  return null;
+}
+
+/** Number from a spreadsheet cell, tolerating currency symbols and thousands commas. */
+function cellNumber(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  const cleaned = String(raw).replace(/[^0-9.-]/g, '');
+  if (!cleaned || cleaned === '-' || cleaned === '.') return null;
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+const cellText = (raw) => (raw === null || raw === undefined ? '' : String(raw).trim());
+
+/** Find the BOM table in a workbook and pull its line rows out.
+ *
+ *  Scans every sheet for a header row that names both a component-ish column and a qty
+ *  or price column, then reads the rows beneath it. This is what makes a real export
+ *  work: `sheet_to_json` alone assumes row 1 is the header, so a sheet with a title
+ *  block above the table yields rows keyed off the title and no usable values.
+ *
+ *  Returns { rows, sheetName, headerRow } or null when no BOM table is present - which
+ *  is also how a test protocol or spec sheet gets rejected.
+ */
+function extractBomRows(workbook) {
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) continue;
+
+    // Array-of-arrays keeps raw positions, so a header anywhere in the sheet works.
+    const grid = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: null });
+    if (!grid || grid.length === 0) continue;
+
+    const limit = Math.min(grid.length, MAX_HEADER_SCAN_ROWS);
+    for (let r = 0; r < limit; r++) {
+      const roles = (grid[r] || []).map(headerRole);
+      const columnFor = (role) => roles.indexOf(role);
+      const hasComponent = columnFor('component') !== -1;
+      const hasValue = columnFor('qty') !== -1 || columnFor('price') !== -1;
+      if (!hasComponent || !hasValue) continue;
+
+      const nameCol = columnFor('component');
+      const refCol = columnFor('ref');
+      const qtyCol = columnFor('qty');
+      const priceCol = columnFor('price');
+      const categoryCol = columnFor('category');
+
+      const rows = [];
+      for (let i = r + 1; i < grid.length; i++) {
+        const row = grid[i] || [];
+        const name = cellText(row[nameCol]);
+        const quantity = qtyCol === -1 ? null : cellNumber(row[qtyCol]);
+        const price = priceCol === -1 ? null : cellNumber(row[priceCol]);
+
+        // A real line needs a name and at least one number. This drops section
+        // separators, blank spacers and the trailing grand-total row.
+        if (!name || (quantity === null && price === null)) continue;
+
+        rows.push({
+          id: rows.length,
+          name,
+          label: refCol === -1 ? '' : cellText(row[refCol]),
+          quantity,
+          price,
+          // The sheet's own category text, mapped to a bin at line-build time.
+          categoryText: categoryCol === -1 ? '' : cellText(row[categoryCol]),
+        });
+      }
+
+      if (rows.length > 0) return { rows, sheetName, headerRow: r + 1 };
+    }
+  }
+
+  return null;
+}
 
 // Category is owned by the backend (File.category). The frontend only reads it -
 // never re-derives it from the extension, so the two can't drift apart.
@@ -20,14 +168,6 @@ const CATEGORIES = [
   { key: 'misc', label: 'Misc' },
 ];
 
-/** Accent colour follows the selected container: iteration green (the "disc" icon) or
- *  stage yellow (the torii-gate icon), so the dashboard always matches the rail icon. */
-function accentFor(containerType) {
-  return containerType === 'stage' ? styles.colors.stage : styles.colors.iteration;
-}
-
-const capitalizeFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
-
 function fileExtension(file) {
   const fromField = file.file_extension;
   if (fromField) return String(fromField).toLowerCase().replace(/^\./, '');
@@ -36,11 +176,7 @@ function fileExtension(file) {
 }
 
 /** Numeric price, or null when no price has been set (blank is not zero). */
-function toPrice(raw) {
-  if (raw === null || raw === undefined || raw === '') return null;
-  const n = parseFloat(raw);
-  return Number.isFinite(n) ? n : null;
-}
+const toPrice = cellNumber;
 
 /** Price for the revision currently in view, falling back to the file's own price.
  *  A revision only carries `price` (never quantity/category), so the file stays the
@@ -55,8 +191,8 @@ function resolvePrice(file) {
 }
 
 function toQuantity(raw) {
-  const n = parseFloat(raw);
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  const n = cellNumber(raw);
+  return n !== null && n > 0 ? n : 1;
 }
 
 function formatMoney(n) {
@@ -73,20 +209,6 @@ function serverUrlFor(file) {
   return normalizeUrl(revision && revision.uploaded_file)
     || normalizeUrl(file.uploaded_file)
     || (file.file_path ? `/media/${file.file_path}` : null);
-}
-
-function containerLabelOf(container) {
-  if (!container) return '';
-  return container.stage_id || container.iteration_id || container.name || '';
-}
-
-/** "I2 Prototype two" - id, a space, then the name (if it adds anything), capitalised. */
-function containerDisplayName(container) {
-  if (!container) return '';
-  const label = containerLabelOf(container);
-  const name = (container.name || '').trim();
-  if (!name || name === label) return label;
-  return `${label} ${capitalizeFirst(name)}`;
 }
 
 /** Turn the container's files into flat BOM line items.
@@ -122,10 +244,18 @@ function buildLineItems(files) {
       return;
     }
 
-    if (spreadsheetExtensions.includes(ext) && Array.isArray(file.contents)) {
-      file.contents.forEach((row, idx) => {
+    if (spreadsheetExtensions.includes(ext)) {
+      // Rows come from the parse cache, never from App state - see sheetCache above.
+      const parsed = sheetCache.get(cacheKey(file));
+      if (!parsed || !parsed.bomSheet) return;
+
+      parsed.rows.forEach((row, idx) => {
         const qty = toQuantity(row.quantity);
         const unitPrice = toPrice(row.price);
+        // The sheet's own Category column bins each row, so fasteners and sheet metal
+        // land under Mechanical even though the rest of the sheet is Electronics. Only
+        // rows with no (or an unrecognised) category fall back to the file's bin.
+        const rowCategory = mapSheetCategory(row.categoryText);
         lines.push({
           key: `f-${file.id}-r-${row.id != null ? row.id : idx}`,
           fileId: file.id,
@@ -135,8 +265,11 @@ function buildLineItems(files) {
           qty,
           unitPrice,
           lineTotal: unitPrice === null ? 0 : qty * unitPrice,
-          // v1: the whole sheet shares the file's bin. Row-level split comes later.
-          category,
+          category: rowCategory || category,
+          // Where the bin came from - the Source cell shows a fixed label for a
+          // sheet-driven category and the editable dropdown otherwise.
+          categoryFromSheet: rowCategory !== null,
+          categoryText: row.categoryText || '',
         });
       });
     }
@@ -169,12 +302,6 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
     [containerKey, prod.filesByContainer]
   );
 
-  // Every stage/iteration, so the BOM can be pointed at one without leaving the view.
-  const allContainers = useMemo(() => [
-    ...(prod.stages || []).map(s => ({ ...s, containerType: 'stage' })),
-    ...(prod.iterations || []).map(i => ({ ...i, containerType: 'iteration' })),
-  ].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [prod.stages, prod.iterations]);
-
   const spreadsheetFiles = useMemo(
     () => containerFiles.filter(f => spreadsheetExtensions.includes(fileExtension(f))),
     [containerFiles]
@@ -183,13 +310,35 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
   // Parse spreadsheets into `contents` once each. Files uploaded this session carry a
   // dataUrl (no network needed); files loaded from the backend are fetched instead -
   // without this the BOM would silently show no spreadsheet rows after a reload.
-  const parseAttempted = useRef(new Set());
-  useEffect(() => {
-    let cancelled = false;
+  // Cache writes happen outside React, so this counter is what tells the view to
+  // recompute once a sheet finishes parsing.
+  const [parseTick, setParseTick] = useState(0);
 
+  /** Write a file's category through to the backend, reverting locally if it fails.
+   *  Defined above the parse effect because that effect uses it to bin BOM sheets. */
+  const applyCategory = useCallback(async (fileId, nextCategory, previousCategory = 'misc') => {
+    updateFile(fileId, { category: nextCategory });
+    try {
+      const response = await authenticatedFetch(`/api/files/${fileId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category: nextCategory }),
+      });
+      if (!response.ok) throw new Error(response.statusText);
+    } catch (error) {
+      console.error('Failed to update file category', error);
+      updateFile(fileId, { category: previousCategory });
+    }
+  }, [updateFile]);
+
+  const parseInFlight = useRef(new Set());
+  useEffect(() => {
+    // No `cancelled` flag: StrictMode mounts, unmounts and remounts in development, so
+    // cancelling on cleanup would discard the first run's result while the in-flight
+    // guard makes the second run skip - and the sheet would never parse at all.
     spreadsheetFiles.forEach(async (file) => {
-      if (file.contents || parseAttempted.current.has(file.id)) return;
-      parseAttempted.current.add(file.id);
+      const key = cacheKey(file);
+      if (sheetCache.has(key) || parseInFlight.current.has(key)) return;
+      parseInFlight.current.add(key);
 
       try {
         let bytes = null;
@@ -205,38 +354,44 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
 
         if (!bytes) {
           const url = serverUrlFor(file);
-          if (!url) return;
+          if (!url) throw new Error('no downloadable URL for this file');
           const response = await authenticatedFetch(url);
-          if (!response.ok) return;
+          if (!response.ok) throw new Error(`download failed (${response.status})`);
           bytes = new Uint8Array(await response.arrayBuffer());
         }
 
         // XLSX.read sniffs the format, so xls/xlsx/csv all go through one path.
         const workbook = XLSX.read(bytes, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        if (!worksheet) return;
+        const found = extractBomRows(workbook);
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        if (!jsonData || jsonData.length === 0) return;
+        sheetCache.set(key, {
+          rows: found ? found.rows : [],
+          bomSheet: found !== null,
+          note: found
+            ? null
+            : 'no BOM table found (needs a header row with a component column and a Qty or price column)',
+        });
 
-        const contents = jsonData.map((row, idx) => ({
-          id: idx,
-          name: row.Component || row.Name || row.Item || Object.values(row)[0] || '',
-          label: row.Label || row.Ref || row.Reference || row.Description || '',
-          quantity: row.Quantity || row.Qty || row.Amount || 1,
-          price: row.Price || row.Cost || row.Value || '',
-        }));
-
-        if (!cancelled) updateFile(file.id, { contents });
+        // A BOM is an electronics bill of materials here, so its rows belong in that
+        // bin. Only fill in the default ('misc' from the extension guess) - never
+        // override a category the user set deliberately. Written back to the backend so
+        // it persists and stays the single source of truth.
+        if (found && (file.category || 'misc') === 'misc') {
+          applyCategory(file.id, 'electronics');
+        }
       } catch (error) {
         console.error('Error parsing spreadsheet file', file.name, error);
+        sheetCache.set(key, { rows: [], bomSheet: false, note: `could not be read - ${error.message}` });
+      } finally {
+        parseInFlight.current.delete(key);
+        // Cache writes are invisible to React - nudge a re-render so the new rows show.
+        setParseTick(t => t + 1);
       }
     });
+  }, [spreadsheetFiles, updateFile, applyCategory]);
 
-    return () => { cancelled = true; };
-  }, [spreadsheetFiles, updateFile]);
-
-  const allLines = useMemo(() => buildLineItems(containerFiles), [containerFiles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- parseTick is the cache's change signal
+  const allLines = useMemo(() => buildLineItems(containerFiles), [containerFiles, parseTick]);
 
   const linesByCategory = useMemo(() => {
     const grouped = { electronics: [], mechanical: [], misc: [] };
@@ -267,24 +422,28 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
 
   const containerLabel = containerLabelOf(prod.selectedContainer);
 
-  /** Reassign a file's bin. Optimistic locally, reverted if the PATCH fails. */
-  const handleCategoryChange = useCallback(async (fileId, nextCategory) => {
+  /* eslint-disable react-hooks/exhaustive-deps -- parseTick is the cache's change signal */
+  const parsedSheetCount = useMemo(
+    () => spreadsheetFiles.filter(f => sheetCache.has(cacheKey(f))).length,
+    [spreadsheetFiles, parseTick]
+  );
+
+  // Spreadsheets in this container that produced no lines, with the reason.
+  const skippedSheets = useMemo(
+    () => spreadsheetFiles
+      .map(file => ({ file, note: (sheetCache.get(cacheKey(file)) || {}).note }))
+      .filter(entry => entry.note),
+    [spreadsheetFiles, parseTick]
+  );
+  /* eslint-enable react-hooks/exhaustive-deps */
+
+  /** Reassign a file's bin from the Source-cell dropdown. */
+  const handleCategoryChange = useCallback((fileId, nextCategory) => {
     const current = containerFiles.find(f => f.id === fileId);
     const previous = current ? (current.category || 'misc') : 'misc';
     if (previous === nextCategory) return;
-
-    updateFile(fileId, { category: nextCategory });
-    try {
-      const response = await authenticatedFetch(`/api/files/${fileId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ category: nextCategory }),
-      });
-      if (!response.ok) throw new Error(response.statusText);
-    } catch (error) {
-      console.error('Failed to update file category', error);
-      updateFile(fileId, { category: previous });
-    }
-  }, [containerFiles, updateFile]);
+    applyCategory(fileId, nextCategory, previous);
+  }, [containerFiles, applyCategory]);
 
   /** Export every computed line (all categories - the visual filter is ignored). */
   function handleExportCsv() {
@@ -326,12 +485,6 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
     const next = { ...checkedCategories, [key]: !checkedCategories[key] };
     setCheckedCategories(next);
     setShowAll(!CATEGORIES.some(c => next[c.key]));
-  }
-
-  function handleContainerSelect(e) {
-    const value = e.target.value;
-    const target = allContainers.find(c => `${c.containerType}_${c.id}` === value);
-    if (target && onSelectContainer) onSelectContainer(target, target.containerType);
   }
 
   // Which tables to render: one merged table, or one per checked category.
@@ -402,28 +555,47 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
                     <span style={{ color: styles.colors.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={line.source}>
                       {line.source}
                     </span>
-                    <select
-                      className="form-select form-select-sm"
-                      title="Change this file's BOM category"
-                      value={line.category}
-                      onChange={e => handleCategoryChange(line.fileId, e.target.value)}
-                      style={{
-                        width: 'auto',
-                        flexShrink: 0,
-                        padding: '1px 18px 1px 6px',
-                        fontSize: styles.fonts.size.xs,
-                        color: styles.colors.text.muted,
-                        border: cellBorder,
-                        borderRadius: styles.borderRadius.sm,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {CATEGORIES.map(c => (
-                        <option key={c.key} value={c.key} style={{ backgroundColor: styles.colors.dark, color: styles.colors.text.light }}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                    {line.categoryFromSheet ? (
+                      // The sheet decided this row's bin - showing an editable file-level
+                      // dropdown here would claim an override that doesn't exist.
+                      <span
+                        title={`Category "${line.categoryText}" from the sheet`}
+                        style={{
+                          flexShrink: 0,
+                          padding: '1px 8px',
+                          fontSize: styles.fonts.size.xs,
+                          color: styles.colors.text.muted,
+                          border: cellBorder,
+                          borderRadius: styles.borderRadius.sm,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {line.categoryText || CATEGORIES.find(c => c.key === line.category).label}
+                      </span>
+                    ) : (
+                      <select
+                        className="form-select form-select-sm"
+                        title="Change this file's BOM category"
+                        value={line.category}
+                        onChange={e => handleCategoryChange(line.fileId, e.target.value)}
+                        style={{
+                          width: 'auto',
+                          flexShrink: 0,
+                          padding: '1px 18px 1px 6px',
+                          fontSize: styles.fonts.size.xs,
+                          color: styles.colors.text.muted,
+                          border: cellBorder,
+                          borderRadius: styles.borderRadius.sm,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {CATEGORIES.map(c => (
+                          <option key={c.key} value={c.key} style={{ backgroundColor: styles.colors.dark, color: styles.colors.text.light }}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </td>
                 <td style={numericCell}>{line.qty}</td>
@@ -470,30 +642,7 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
     <>
       {toolbar}
 
-      <div style={{
-        color: styles.colors.text.muted, fontSize: styles.fonts.size.xs,
-        textTransform: 'uppercase', letterSpacing: '0.6px', margin: '10px 0 6px 2px',
-      }}>
-        Iteration / Stage
-      </div>
-      <select
-        className="form-select form-select-sm"
-        value={containerKey || ''}
-        onChange={handleContainerSelect}
-        style={{
-          width: '100%', fontSize: styles.fonts.size.sm,
-          color: styles.colors.text.light, border: cellBorder,
-          borderRadius: styles.borderRadius.md, cursor: 'pointer',
-        }}
-      >
-        {!prod.selectedContainer && <option value="">Select a stage or iteration...</option>}
-        {allContainers.map(c => (
-          <option key={`${c.containerType}_${c.id}`} value={`${c.containerType}_${c.id}`}
-            style={{ backgroundColor: styles.colors.dark, color: styles.colors.text.light }}>
-            {containerDisplayName(c)}
-          </option>
-        ))}
-      </select>
+      <ContainerSelect prod={prod} onSelectContainer={onSelectContainer} />
 
       <div style={{ height: '1px', background: styles.colors.border, margin: '14px 2px' }} />
 
@@ -628,15 +777,31 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
               Select a Stage or Iteration to view the BOM.
             </p>
           ) : allLines.length === 0 ? (
-            <p style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.sm }}>
-              No priceable files in this container. Upload hardware files (
-              {showQtyPriceExtensions.join(', ')}) or a spreadsheet to build a BOM.
-            </p>
+            <div style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.sm }}>
+              <p style={{ marginBottom: '6px' }}>
+                No BOM lines for this container yet. Upload hardware files (
+                {showQtyPriceExtensions.join(', ')}) or a BOM spreadsheet.
+              </p>
+              {/* Says which step came up empty, so an empty BOM is never a mystery. */}
+              <p style={{ fontSize: styles.fonts.size.xs, opacity: 0.8, marginBottom: 0 }}>
+                {containerFiles.length} file{containerFiles.length === 1 ? '' : 's'} loaded
+                {' · '}{spreadsheetFiles.length} spreadsheet{spreadsheetFiles.length === 1 ? '' : 's'}
+                {' · '}{parsedSheetCount} parsed
+              </p>
+            </div>
           ) : tables.length === 0 ? (
             <p style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.sm }}>
               Select a category on the left, or switch on "Show all (combined)".
             </p>
           ) : tables.map(renderTable)}
+
+          {skippedSheets.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: styles.fonts.size.xs, color: styles.colors.text.muted }}>
+              {skippedSheets.map(({ file, note }) => (
+                <div key={file.id}>Skipped <strong>{file.name}</strong>: {note}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', flexShrink: 0 }}>

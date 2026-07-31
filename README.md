@@ -163,9 +163,17 @@ Drop a single file, a selection of files, or an entire folder — like a cloned 
 
 Products are organised by iterations (I1, I2, I3...) and stage gates (S1, S2, S3). Files live under the iteration they were created in, so when you're looking at a `.kicad_pcb` uploaded in I4, you know exactly where it sits in the development timeline and what decisions were active at that point.
 
-**BOM and cost tracking**
+**Dynamic Iterative BOM**
 
-Attach cost data to files and track it at the BOM level. DXF files link to child files (for example, a laser-cut part linked to its material specification). Spreadsheets render inline alongside the associated hardware files.
+A cost view scoped to the iteration you're standing in, so you can see what a given iteration actually costs rather than one BOM for the whole product. Hardware files carry their own quantity and price; BOM spreadsheets are read directly — the parser finds the header row wherever it sits, so a real export with a title block, document number and project metadata above the table works untouched. Every line is binned into Electronics, Mechanical or Misc, using the sheet's own Category column when it has one, so fasteners and sheet metal land under Mechanical even when the rest of the sheet is electronics. Filter to one category or view them combined, with per-table subtotals, a running count of items still missing a price, an iteration total that ignores the filter, and CSV export.
+
+**Traceability matrix**
+
+Requirements traced from PRD through architecture, risk, specification, verification and validation — built by reading the markdown you already write. Document type comes from the filename (`PRD.md`, `Architecture.md`, `FMEA.md`, `001_Requirements.md`, `001_Test_Protocol.md`), and items are indexed from IDs written at the head of a line or in the first column of a table. Nothing to configure and no new syntax; a file matching none of the known types is skipped, which is how README and meeting notes stay out of the matrix. Coverage is inherited along the iteration/stage order, so a requirement verified in I3 stays verified at S1. See [AUTHORING.md](files/traceability/AUTHORING.md) for the rules the parser follows.
+
+**Light and dark themes**
+
+Switch from the user menu. The whole UI is driven by one set of design tokens exposed as CSS variables, so the change is instant and consistent across every view, and the choice persists. First-time users get whatever their OS prefers. Light-theme colours are contrast-checked against WCAG AA.
 
 **Cross-domain file organisation**
 
@@ -185,7 +193,7 @@ The demo resets hourly. Nothing you do in there persists.
 
 ## A note on how this was built
 
-The system architecture is designed by me: the IIL methodology, the iteration and stage gate structure, the file organisation model, and the BOM logic all come from 10 years of hands-on hardware product development. The implementation was vibe coded. I used AI tooling heavily to write the actual code. If you're looking at the frontend and wondering why `App.js` is 8000 lines, that's why. The structure is intentional. The code is a work in progress.
+The system architecture is designed by me: the IIL methodology, the iteration and stage gate structure, the file organisation model, and the BOM logic all come from 10 years of hands-on hardware product development. The implementation was vibe coded. I used AI tooling heavily to write the actual code. `App.js` was once 8000 lines; it is now ~1300, with the rest split across 34 components, a shared token system for theming, and a shared shell the dashboards sit in. The structure is intentional. The code is a work in progress.
 
 ---
 
@@ -211,16 +219,24 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 **In progress:**
 
-- [ ] **Copy and move across iterations and stages:** right-click a file or folder and copy or move it into another iteration or stage. File move across containers works today; copy semantics and full folder-subtree move/copy are being finished.
 - [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
+- [ ] **KPI view:** iteration-level metrics tracked across the lifecycle. Time per iteration, cost delta, defects per stage, readiness scores at gate reviews.
 
 **Next:**
 
-- [ ] **BOM view improvements:** richer cost rollup, better component linking, editable fields inline
-- [ ] **KPI view:** iteration-level metrics tracked across the lifecycle. Time per iteration, cost delta, defects per stage, readiness scores at gate reviews.
+- [ ] **Editable BOM columns:** edit quantity and price inline in the BOM table, and show/hide columns. Quantity and price are currently set from the file list's right-click menu.
+- [ ] **Row-level BOM overrides:** re-bin an individual spreadsheet row without changing the whole sheet. Rows currently follow the sheet's Category column, and the file-level category is editable from the BOM table.
+- [ ] **Stage roll-up in the BOM:** a stage gate totalling the iterations that feed into it. The BOM is iteration-scoped today.
+- [ ] **Theme-aware 3D and CAD viewers:** the KiCad and Three.js canvases keep their own palettes and don't follow light/dark yet.
 - [ ] **ARM image builds:** for Oracle Cloud Always Free and Apple Silicon dev machines
 
 **Done:**
+
+- [x] **Dynamic Iterative BOM:** iteration-scoped cost dashboard with Electronics/Mechanical/Misc bins, spreadsheet extraction that locates the header row inside real BOM exports, row-level categories read from the sheet, missing-price tally, per-table subtotals, iteration total, and CSV export.
+- [x] **Traceability matrix:** PRD → architecture → risk → spec → verification → validation, indexed from the markdown you already write, with coverage inherited along the IIL container order.
+- [x] **Light and dark themes:** switchable from the user menu, driven by one CSS-variable token set, persisted, defaulting to the OS preference, with WCAG AA contrast in light mode.
+- [x] **Unified dashboard shell:** one shared toolbar and one resizable left panel across the Files, BOM and Traceability views, at a width that stays put when you switch between them.
+- [x] **Copy and move across iterations and stages:** right-click a file or folder and copy or move it into another iteration or stage, including full folder subtrees.
 
 - [x] **Drag-and-drop upload from your computer:** drop files, multiple files, or an entire folder (e.g. a cloned firmware repo) straight from the OS file manager onto an iteration, stage, or folder. Nested folder structure is recreated automatically, and re-dropping the same folder versions the changed files instead of duplicating them.
 - [x] **Interactive image preview:** zoom (buttons or Ctrl/pinch), rotate, fit-to-view, actual-size, and drag-to-pan — image zoom stays inside the preview instead of zooming the whole page.

@@ -23,6 +23,7 @@ from .serializers import (
     FileSerializer, FileRevisionSerializer, ProductSerializer,
     StageSerializer, IterationSerializer, FolderSerializer, FolderTreeSerializer
 )
+from .traceability.parse import parse_file_safely
 
 logger = logging.getLogger('files')
 
@@ -544,6 +545,8 @@ class FileViewSet(viewsets.ModelViewSet):
             existing_file.file_path = new_revision.file_path
             existing_file.save()
 
+            parse_file_safely(existing_file)  # traceability index; never raises
+
             # ✅ FIXED: Use FileSerializer instead of custom response
             serializer = FileSerializer(existing_file, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -595,6 +598,8 @@ class FileViewSet(viewsets.ModelViewSet):
                         pass
 
                 new_revision.save()
+
+            parse_file_safely(file_instance)  # traceability index; never raises
 
             # ✅ FIXED: Use FileSerializer instead of custom response
             serializer = FileSerializer(file_instance, context={'request': request})

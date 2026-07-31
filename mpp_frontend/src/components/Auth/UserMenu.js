@@ -1,10 +1,12 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import './UserMenu.css';
 
 const UserMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { theme, setTheme, available } = useTheme();
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -45,6 +47,32 @@ const UserMenu = () => {
               {user.email && <div className="user-info-email">{user.email}</div>}
               {user.is_staff && <div className="user-info-badge">Admin</div>}
             </div>
+          </div>
+
+          <div className="user-menu-divider"></div>
+
+          {/* Appearance. Driven by whatever themes styles/themes.js defines. */}
+          <div className="user-menu-section-label">Appearance</div>
+          <div className="user-menu-themes">
+            {available.map(({ key, label, description }) => (
+              <button
+                key={key}
+                type="button"
+                className={`user-menu-theme-option${theme === key ? ' active' : ''}`}
+                onClick={() => setTheme(key)}
+                aria-pressed={theme === key}
+              >
+                <span className="theme-option-info">
+                  <span className="theme-option-label">{label}</span>
+                  <span className="theme-option-desc">{description}</span>
+                </span>
+                {theme === key && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M13.5 4.5L6.5 11.5L3 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            ))}
           </div>
 
           <div className="user-menu-divider"></div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form } from 'react-bootstrap';
-import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaFolderPlus } from 'react-icons/fa';
+import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaFolderPlus, FaProjectDiagram } from 'react-icons/fa';
 import styles from '../../constants/styles';
 
 /** One toolbar button. Exported so other surfaces can add icons with the same look. */
@@ -14,11 +14,11 @@ export function ToolbarIcon({ icon, label, onClick, color, active = false }) {
         cursor: 'pointer', width: '30px', height: '30px', borderRadius: styles.borderRadius.md,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: active ? styles.colors.text.light : base,
-        background: active ? `${styles.colors.primary}33` : 'transparent',
+        background: active ? styles.colors.primaryActive : 'transparent',
         transition: 'background 0.12s ease, color 0.12s ease',
       }}
       onMouseOver={e => { e.currentTarget.style.background = styles.colors.darkAlt; e.currentTarget.style.color = styles.colors.text.light; }}
-      onMouseOut={e => { e.currentTarget.style.background = active ? `${styles.colors.primary}33` : 'transparent'; e.currentTarget.style.color = active ? styles.colors.text.light : base; }}
+      onMouseOut={e => { e.currentTarget.style.background = active ? styles.colors.primaryActive : 'transparent'; e.currentTarget.style.color = active ? styles.colors.text.light : base; }}
     >
       <span style={{ pointerEvents: 'none', display: 'inline-flex' }}>{icon}</span>
     </div>
@@ -92,6 +92,7 @@ function Toolbar({
           <div style={{ width: '1px', height: '18px', background: styles.colors.border, margin: '0 5px' }} />
           <ToolbarIcon label="Files" onClick={() => setViewMode('normal')} active={viewMode === 'normal'} icon={<FaEye size={16} />} />
           <ToolbarIcon label="BOM" onClick={() => setViewMode('bom')} active={viewMode === 'bom'} icon={<FaTable size={15} />} />
+          <ToolbarIcon label="Traceability Matrix" onClick={() => setViewMode('trace')} active={viewMode === 'trace'} icon={<FaProjectDiagram size={15} />} />
           <ToolbarIcon label="KPIs" onClick={() => setViewMode('kpi')} active={viewMode === 'kpi'} icon={<FaChartLine size={15} />} />
         </div>
       </div>

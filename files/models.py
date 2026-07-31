@@ -672,3 +672,124 @@ class FileRevision(models.Model):
         if self.file:
             self.file.current_revision = self.revision_number
             self.file.save(update_fields=['current_revision', 'updated_at'])
+
+
+# --- Traceability index -----------------------------------------------------------
+# TraceNode/TraceEdge are a DISPOSABLE index over the markdown files themselves. The
+# files are the source of truth; every row here is rebuilt by files.traceability.parse
+# from the file it came from. Dropping both tables loses nothing that a reparse can't
+# reproduce. Status (GREEN/YELLOW/RED) is deliberately NOT stored: it depends on the
+# iteration being viewed, so it is computed at read time.
+
+class TraceNode(models.Model):
+    """One requirement/risk/spec/test ID declared inside one markdown file."""
+    NODE_TYPES = [
+        ('PRD', 'Product Requirement'),
+        ('ARCH', 'Architecture'),
+        ('RISK', 'Risk / FMEA'),
+        ('SRS', 'Software/System Requirement Spec'),
+        ('VERIF', 'Verification'),
+        ('VAL', 'Validation'),
+    ]
+
+    TEST_STATUSES = [
+        ('PASS', 'Pass'),
+        ('FAIL', 'Fail'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='trace_nodes')
+    # The container the source file was uploaded to. A doc can live in an Iteration OR a
+    # Stage, so exactly one of these two is set and `source_container_key` carries the
+    # combined identity. Read-time inheritance walks the continuous IIL order across
+    # both (see traceability/containers.py), which is ordered by container created_at --
+    # the same total order the container rail and the BOM scope selector already use.
+    source_iteration = models.ForeignKey(Iteration, on_delete=models.CASCADE,
+                                         null=True, blank=True, related_name='trace_nodes')
+    source_stage = models.ForeignKey(Stage, on_delete=models.CASCADE,
+                                     null=True, blank=True, related_name='trace_nodes')
+    # 'iteration:3' / 'stage:1'. Always set. Uniqueness keys off this rather than the two
+    # nullable FKs, because SQL treats NULLs as distinct and would stop enforcing it.
+    source_container_key = models.CharField(max_length=32, db_index=True, default='')
+    source_file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='trace_nodes')
+
+    node_type = models.CharField(max_length=8, choices=NODE_TYPES)
+    tag_id = models.CharField(max_length=64, help_text="ID as written in the doc, e.g. R001 / REQ-01")
+    title = models.CharField(max_length=500, blank=True)
+    source_line = models.PositiveIntegerField(default=0)
+    snippet = models.TextField(blank=True)
+    # Only ever set for VERIF/VAL nodes; null everywhere else.
+    test_status = models.CharField(max_length=4, choices=TEST_STATUSES, null=True, blank=True)
+    subsystem = models.CharField(max_length=120, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'source_container_key', 'node_type', 'tag_id'],
+                name='uniq_trace_node_per_container',
+            ),
+        ]
+        ordering = ['node_type', 'tag_id']
+
+    def __str__(self):
+        return f"{self.node_type} {self.tag_id}"
+
+    @property
+    def source_container(self):
+        """The Iteration or Stage this node's file was uploaded to."""
+        return self.source_iteration or self.source_stage
+
+
+class TraceEdge(models.Model):
+    """A declared parent->child link, stored as canonical tag ids (not FKs).
+
+    Tags are kept as plain strings because an edge is frequently written before the
+    node it points at exists (or points into a doc from another iteration). Rebuilt in
+    full every time the referencing file is parsed.
+    """
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='trace_edges')
+    parent_tag_id = models.CharField(max_length=64)
+    child_tag_id = models.CharField(max_length=64)
+    source_file = models.ForeignKey(File, on_delete=models.CASCADE, related_name='trace_edges')
+
+    class Meta:
+        ordering = ['parent_tag_id', 'child_tag_id']
+        indexes = [
+            models.Index(fields=['product', 'parent_tag_id']),
+            models.Index(fields=['product', 'child_tag_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_tag_id} -> {self.child_tag_id}"
+
+
+class TraceMatrixPreference(models.Model):
+    """Per-user, per-product layout of the traceability matrix.
+
+    Server-side on purpose: the column preset is real configuration, so it has to
+    survive a relogin and follow the user to another device. Unlike TraceNode/TraceEdge
+    this is NOT disposable -- it is the only copy of what the user chose.
+    """
+    STATUS_FILTERS = [
+        ('all', 'All'),
+        ('errors', 'Errors only'),
+        ('unmitigated', 'Unmitigated risks'),
+    ]
+
+    DEFAULT_COLUMNS = ['PRD', 'ARCH', 'RISK', 'SRS', 'VERIF', 'VAL']
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trace_preferences')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='trace_preferences')
+    # Ordered list of node types; order is the on-screen column order. 2-6 entries.
+    columns = models.JSONField(default=list)
+    status_filter = models.CharField(max_length=16, choices=STATUS_FILTERS, default='all')
+    # List of subsystem names to keep; empty list means "no subsystem filter".
+    subsystem_filter = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [['user', 'product']]
+
+    def __str__(self):
+        return f"{self.user} / {self.product} trace layout"

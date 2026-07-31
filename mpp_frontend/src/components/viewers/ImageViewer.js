@@ -102,7 +102,7 @@ export default function ImageViewer({ fileUrl, name }) {
       };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', background: styles.colors.dark, borderBottom: `1px solid ${styles.colors.border}`, flexShrink: 0 }}>
         <ToolBtn title="Zoom out (Ctrl + scroll)" onClick={() => applyZoom(1 / ZOOM_STEP)}><FaSearchMinus size={12} /></ToolBtn>
         <span style={{ minWidth: '46px', textAlign: 'center', color: styles.colors.text.muted, fontSize: styles.fonts.size.xs, cursor: 'pointer' }}
@@ -126,7 +126,7 @@ export default function ImageViewer({ fileUrl, name }) {
         onDoubleClick={() => (fitMode ? applyZoom(ZOOM_STEP * ZOOM_STEP) : fit())}
         style={{
           flex: '1 1 auto', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', background: '#0d0f14', position: 'relative',
+          overflow: 'hidden', background: styles.colors.canvas, position: 'relative',
           touchAction: 'none', overscrollBehavior: 'contain',
           cursor: dragging ? 'grabbing' : (fitMode && zoom === 1 ? 'default' : 'grab'),
         }}

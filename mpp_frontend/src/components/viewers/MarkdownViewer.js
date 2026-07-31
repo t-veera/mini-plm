@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import typography from '../../styles/typography';
+import tokens from '../../constants/styles';
 
 const MONO = "Consolas, 'Courier New', 'DejaVu Sans Mono', monospace";
 
@@ -35,15 +36,16 @@ function MarkdownViewer({ fileUrl, authenticatedFetch }) {
           line-height: 1.5 !important;
         }
         .md-viewer table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        .md-viewer th { border: 1px solid #444; padding: 7px 12px; background: #1e2030; text-align: left; font-weight: 600; color: #e0e0e0; }
-        .md-viewer td { border: 1px solid #333; padding: 6px 12px; color: #d4d4d4; }
-        .md-viewer tr:nth-child(even) td { background: #13151c; }
-        .md-viewer a { color: #4a9eff; text-decoration: none; }
-        .md-viewer hr { border: none; border-top: 1px solid #333; margin: 1.5rem 0; }
-        .md-viewer blockquote { border-left: 3px solid #4a9eff; margin: 1rem 0; padding: 0.5rem 1rem; background: #1a1a2e; border-radius: 0 4px 4px 0; color: #aaa; }
+        .md-viewer th { border: 1px solid var(--mp-border); padding: 7px 12px; background: var(--mp-dark-alt); text-align: left; font-weight: 600; color: var(--mp-text); }
+        .md-viewer td { border: 1px solid var(--mp-border); padding: 6px 12px; color: var(--mp-text); }
+        .md-viewer tr:nth-child(even) td { background: var(--mp-hover); }
+        .md-viewer a { color: var(--mp-iteration); text-decoration: none; }
+        .md-viewer hr { border: none; border-top: 1px solid var(--mp-border); margin: 1.5rem 0; }
+        .md-viewer blockquote { border-left: 3px solid var(--mp-iteration); margin: 1rem 0; padding: 0.5rem 1rem; background: var(--mp-dark-alt); border-radius: 0 4px 4px 0; color: var(--mp-text-muted); }
         .md-viewer ul, .md-viewer ol { padding-left: 1.5rem; margin: 0.5rem 0 0.8rem; }
-        .md-viewer li { margin: 0.2rem 0; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
-        .md-viewer p { margin: 0 0 0.8rem; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
+        .md-viewer li { margin: 0.2rem 0; font-size: 13px; color: var(--mp-text); line-height: 1.6; }
+        .md-viewer p { margin: 0 0 0.8rem; font-size: 13px; color: var(--mp-text); line-height: 1.6; }
+        .md-viewer strong { color: var(--mp-text); }
       `}} />
       <div className="md-viewer">
         {content ? (
@@ -62,31 +64,32 @@ function MarkdownViewer({ fileUrl, authenticatedFetch }) {
             }}
           >{content}</ReactMarkdown>
         ) : (
-          <p style={{color:'#888'}}>Loading...</p>
+          <p style={{color: tokens.colors.text.muted}}>Loading...</p>
         )}
       </div>
     </div>
   );
 }
 
+// Themed via the shared tokens so rendered markdown is readable in both palettes.
 const styles = {
   container: {
     minHeight: '600px',
     borderRadius: '8px',
-    border: '1px solid #333',
+    border: `1px solid ${tokens.colors.border}`,
     overflow: 'auto',
     padding: '1.5rem 2rem',
-    backgroundColor: '#0f1117',
+    backgroundColor: tokens.colors.dark,
     fontFamily: typography.primary,
     fontSize: '13px',
-    color: '#d4d4d4',
+    color: tokens.colors.text.light,
   },
-  h1: { fontSize: '1.6rem', fontWeight: 600, color: '#ffffff', margin: '1.5rem 0 0.5rem', lineHeight: 1.3, borderBottom: '1px solid #333', paddingBottom: '0.4rem' },
-  h2: { fontSize: '1.25rem', fontWeight: 600, color: '#e8e8e8', margin: '1.4rem 0 0.4rem', lineHeight: 1.3, borderBottom: '1px solid #2a2a3e', paddingBottom: '0.3rem' },
-  h3: { fontSize: '1.05rem', fontWeight: 600, color: '#d0d0d0', margin: '1.2rem 0 0.3rem', lineHeight: 1.4 },
-  h4: { fontSize: '0.95rem', fontWeight: 600, color: '#c0c0c0', margin: '1rem 0 0.3rem' },
-  pre: { background: '#1a1a2e', padding: '1rem', borderRadius: '6px', overflow: 'auto', margin: '0.8rem 0', fontFamily: MONO },
-  inlineCode: { fontFamily: MONO, fontSize: '12px', background: '#1e2030', padding: '1px 5px', borderRadius: '3px', color: '#e0e0e0' },
+  h1: { fontSize: '1.6rem', fontWeight: 600, color: tokens.colors.text.light, margin: '1.5rem 0 0.5rem', lineHeight: 1.3, borderBottom: `1px solid ${tokens.colors.border}`, paddingBottom: '0.4rem' },
+  h2: { fontSize: '1.25rem', fontWeight: 600, color: tokens.colors.text.light, margin: '1.4rem 0 0.4rem', lineHeight: 1.3, borderBottom: `1px solid ${tokens.colors.border}`, paddingBottom: '0.3rem' },
+  h3: { fontSize: '1.05rem', fontWeight: 600, color: tokens.colors.text.light, margin: '1.2rem 0 0.3rem', lineHeight: 1.4 },
+  h4: { fontSize: '0.95rem', fontWeight: 600, color: tokens.colors.text.muted, margin: '1rem 0 0.3rem' },
+  pre: { background: tokens.colors.darkAlt, padding: '1rem', borderRadius: '6px', overflow: 'auto', margin: '0.8rem 0', fontFamily: MONO, border: `1px solid ${tokens.colors.border}` },
+  inlineCode: { fontFamily: MONO, fontSize: '12px', background: tokens.colors.darkAlt, padding: '1px 5px', borderRadius: '3px', color: tokens.colors.text.light, border: `1px solid ${tokens.colors.border}` },
 };
 
 export default MarkdownViewer;

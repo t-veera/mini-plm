@@ -5,6 +5,7 @@ import { materialDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import MarkdownViewer from './MarkdownViewer';
 import ExcelViewer from './ExcelViewer';
 import authenticatedFetch from '../../utils/authenticatedFetch';
+import styles from '../../constants/styles';
 
 export function CodePreview({ fileUrl, extension }) {
   const [codeContent, setCodeContent] = useState('');
@@ -34,13 +35,13 @@ export function CodePreview({ fileUrl, extension }) {
   const language = langByExt[extension] || 'text';
 
   if (error) return (
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, padding: '1rem' }}>
       <p className="text-danger">Error loading code: {error}</p>
     </div>
   );
 
   return (
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, overflow: 'auto' }}>
       {codeContent
         ? <SyntaxHighlighter language={language} style={materialDark} showLineNumbers>{codeContent}</SyntaxHighlighter>
         : <p className="text-muted">Loading code...</p>}
@@ -65,19 +66,19 @@ export function CsvPreview({ fileUrl }) {
   }, [fileUrl]);
 
   if (error) return (
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, padding: '1rem' }}>
       <p className="text-danger">Error loading CSV: {error}</p>
     </div>
   );
 
   return (
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'auto' }} className="excel-scroll-container">
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, overflow: 'auto' }} className="excel-scroll-container">
       {rows.length === 0
         ? <p className="text-muted p-2">Loading CSV data...</p>
         : (
           <Table hover borderless className="table-dark table-sm" style={{ tableLayout: 'auto', minWidth: 'max-content' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: '#1a1d21' }}>
-              <tr>{rows[0].map((cell, j) => <th key={j} style={{ whiteSpace: 'nowrap', padding: '8px 12px', borderBottom: '2px solid #555', fontSize: '0.85rem' }}>{cell}</th>)}</tr>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: styles.colors.darkAlt }}>
+              <tr>{rows[0].map((cell, j) => <th key={j} style={{ whiteSpace: 'nowrap', padding: '8px 12px', borderBottom: `2px solid ${styles.colors.border}`, fontSize: '0.85rem' }}>{cell}</th>)}</tr>
             </thead>
             <tbody>
               {rows.slice(1).map((row, i) => (

@@ -1,28 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../../constants/styles';
-
-const MIN_WIDTH = 230;
-const CONTAINER_RAIL_WIDTH = 52; // the fixed stage/iteration rail to the left of us
+import useLeftPaneWidth, { CONTAINER_RAIL_WIDTH } from '../../hooks/useLeftPaneWidth';
 
 /**
  * Shared dashboard layout: a resizable left panel (toolbar + that dashboard's controls)
  * beside a main area. Used by every dashboard so the toolbar and left panel sit in the
  * same place and resize the same way across views.
  *
- * Unlike ResizableColumn (used by the Files/preview split, which caps the right side at
- * 60%), the main area here takes all remaining width — dashboards need it for wide tables.
+ * The width comes from useLeftPaneWidth, which every pane shares - resize it here and
+ * the Files view matches. Unlike ResizableColumn the main area takes all remaining
+ * width, because dashboards need it for wide tables.
  */
-function DashboardShell({ left, children, defaultWidth = 340 }) {
-  const [width, setWidth] = useState(() =>
-    Math.max(MIN_WIDTH, Math.min(defaultWidth, window.innerWidth * 0.28)));
+function DashboardShell({ left, children }) {
+  const [width, setWidth] = useLeftPaneWidth();
   const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     if (!isResizing) return undefined;
     function handleMouseMove(e) {
-      const max = Math.max(MIN_WIDTH, window.innerWidth - 420);
-      const next = e.clientX - CONTAINER_RAIL_WIDTH;
-      if (next >= MIN_WIDTH && next <= max) setWidth(next);
+      setWidth(e.clientX - CONTAINER_RAIL_WIDTH);
     }
     function handleMouseUp() { setIsResizing(false); }
     document.addEventListener('mousemove', handleMouseMove);
@@ -31,7 +27,7 @@ function DashboardShell({ left, children, defaultWidth = 340 }) {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, [isResizing, setWidth]);
 
   return (
     <div className="d-flex" style={{ height: '100%', overflow: 'hidden' }}>

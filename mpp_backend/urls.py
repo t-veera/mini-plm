@@ -38,6 +38,7 @@ router.register(r'folders', FolderViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/traceability/', include('files.trace_urls')),
     path('api/initial-setup/', initial_setup, name='initial-setup'),
     path('api/csrf/', csrf_token, name='csrf'),
     path('api/auth/login/', login_view, name='login'),

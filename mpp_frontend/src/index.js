@@ -5,6 +5,11 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './polyfills';
+import { bootstrapTheme } from './styles/applyTheme';
+
+// Paint the stored theme onto <html> before React renders, so the first frame is
+// already correct instead of flashing the default palette.
+bootstrapTheme();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

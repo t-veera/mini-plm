@@ -11,6 +11,8 @@ import UserMenu from './components/Auth/UserMenu';
 import authenticatedFetch from './utils/authenticatedFetch';
 import { hybridStorage } from './hybridStorage';
 import styles from './constants/styles';
+import globalStyles from './styles/globalStyles';
+import { ThemeProvider } from './context/ThemeContext';
 import useIconTheme from './hooks/useIconTheme';
 
 import ResizableColumn from './components/ResizableColumn/ResizableColumn';
@@ -18,6 +20,7 @@ import Toolbar from './components/Toolbar/Toolbar';
 import ErrorBoundary from './components/ErrorBoundary';
 import FileList from './components/FileList/FileList';
 import BOMViewer from './components/BOMViewer/BOMViewer';
+import TraceabilityMatrix from './components/TraceabilityMatrix/TraceabilityMatrix';
 import KPIDashboard from './components/KPIDashboard/KPIDashboard';
 import { ConfirmModal, InputModal, MoveModal, QuantityModal, PriceModal, ChangeDescriptionModal } from './components/Modals/Modals';
 import Model3DPreview from './components/viewers/Model3DPreview';
@@ -68,7 +71,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
           : <option value={1}>v 1.0</option>}
       </Form.Select>
       {selectedRevision.description && (
-        <span className="ms-3 text-light" style={{ fontSize: '0.9rem', borderRadius: '8px', backgroundColor: `${styles.colors.primary}26`, padding: '5px 10px' }}>
+        <span className="ms-3 text-light" style={{ fontSize: '0.9rem', borderRadius: '8px', backgroundColor: styles.colors.primarySoft, padding: '5px 10px' }}>
           {selectedRevision.description}
         </span>
       )}
@@ -99,7 +102,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
     return wrap(<ImageViewer key={fileUrl} fileUrl={fileUrl} name={fileObj.name} />);
 
   if (nameLower.endsWith('.pdf'))
-    return wrap(<div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', overflow: 'hidden' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '100%', border: 'none' }} title={fileObj.name} /></div>);
+    return wrap(<div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, overflow: 'hidden' }}><iframe src={fileUrl} style={{ display: 'block', width: '100%', height: '100%', border: 'none' }} title={fileObj.name} /></div>);
 
   if (['.kicad_sch', '.sch'].some(e => nameLower.endsWith(e)))
     return wrap(<KicadSchematicViewer key={fileUrl} fileUrl={fileUrl} />);
@@ -132,7 +135,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
   const fileSize = fileObj.file_size || fileObj.size || 0;
   const uploadDate = fileObj.created_at || fileObj.upload_date;
   return wrap(
-    <div style={{ height: '100%', borderRadius: '8px', border: '1px solid #888', padding: '1rem' }}>
+    <div style={{ height: '100%', borderRadius: '8px', border: `1px solid ${styles.colors.border}`, padding: '1rem' }}>
       <p className="text-muted">No preview available for {fileObj.name}</p>
       <p>Size: {(fileSize / 1024).toFixed(2)} KB</p>
       <p>Upload date: {uploadDate ? new Date(uploadDate).toLocaleDateString() : 'Unknown'}</p>
@@ -152,7 +155,9 @@ function loadLastSelection() {
   }
 }
 
-function RailButton({ icon, color, number, selected, onClick, onContextMenu, title }) {
+// `softColor` is passed in rather than derived: colours are CSS variables now, so a
+// translucent variant can't be made by appending an alpha suffix to the base colour.
+function RailButton({ icon, color, softColor, number, selected, onClick, onContextMenu, title }) {
   return (
     <div
       title={title}
@@ -162,11 +167,11 @@ function RailButton({ icon, color, number, selected, onClick, onContextMenu, tit
         position: 'relative', cursor: 'pointer', width: '36px', height: '36px',
         borderRadius: styles.borderRadius.md, marginBottom: '4px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: selected ? `${color}26` : 'transparent',
+        background: selected ? softColor : 'transparent',
         transition: 'background 0.12s ease',
       }}
-      onMouseOver={e => { e.currentTarget.style.background = selected ? `${color}26` : styles.colors.darkAlt; }}
-      onMouseOut={e => { e.currentTarget.style.background = selected ? `${color}26` : 'transparent'; }}
+      onMouseOver={e => { e.currentTarget.style.background = selected ? softColor : styles.colors.darkAlt; }}
+      onMouseOut={e => { e.currentTarget.style.background = selected ? softColor : 'transparent'; }}
     >
       <span style={{ color, display: 'inline-flex', pointerEvents: 'none' }}>{icon}</span>
       <span style={{ position: 'absolute', bottom: '1px', right: '3px', color: styles.colors.text.muted, fontSize: '9px', fontWeight: 700, lineHeight: 1, pointerEvents: 'none' }}>{number}</span>
@@ -331,27 +336,10 @@ function MainApp() {
   }, [contextMenu.visible, containerMenu.visible]);
 
   useEffect(() => {
+    // Injected once. It reads CSS variables throughout, so a theme change re-paints
+    // it without this ever being rebuilt - see styles/globalStyles.js.
     const styleTag = document.createElement('style');
-    styleTag.innerHTML = `
-      * { max-width: 100% !important; box-sizing: border-box !important; font-family: ${styles.fonts.family} !important; }
-      .excel-scroll-container, .excel-scroll-container * { max-width: none !important; overflow-x: auto !important; }
-      body, html { overflow-x: hidden !important; width: 100% !important; max-width: 100vw !important; background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
-      .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
-      .table { font-size: ${styles.fonts.size.sm} !important; cursor: pointer !important; background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
-      .table th, .table td { background-color: ${styles.colors.dark} !important; border-color: ${styles.colors.border} !important; }
-      .file-table > :not(caption) > * > * { padding: 0.55rem 0.5rem !important; border-bottom: 1px solid ${styles.colors.border} !important; }
-      .file-table > tbody > tr:last-child > * { border-bottom: none !important; }
-      .form-control, .form-select { background-color: ${styles.colors.darkAlt} !important; color: ${styles.colors.text.light} !important; border: 1px solid ${styles.colors.border} !important; }
-      .product-select { background-color: transparent !important; border: none !important; box-shadow: none !important; }
-      .product-select:hover { background-color: ${styles.colors.darkAlt} !important; }
-      .rev-select { color: ${styles.colors.text.muted} !important; background-color: transparent !important; border: 1px solid ${styles.colors.border} !important; }
-      .rev-select:hover { color: ${styles.colors.text.light} !important; background-color: ${styles.colors.darkAlt} !important; }
-      .selected-file-row td { background-color: ${styles.colors.primary}26 !important; }
-      .context-menu-item:hover { background-color: ${styles.colors.darkAlt} !important; }
-      .table-dark { background-color: ${styles.colors.dark} !important; color: ${styles.colors.text.light} !important; }
-      .bg-dark { background-color: ${styles.colors.dark} !important; }
-      select { appearance: none !important; -webkit-appearance: none !important; -moz-appearance: none !important; background-image: none !important; }
-    `;
+    styleTag.innerHTML = globalStyles;
     document.head.appendChild(styleTag);
     return () => document.head.removeChild(styleTag);
   }, []);
@@ -1302,6 +1290,7 @@ function MainApp() {
                       title={`${isStage ? container.stage_id : container.iteration_id} — ${container.name || (isStage ? `Stage ${container.stage_number}` : `Iteration ${container.iteration_number}`)}`}
                       selected={isSelected}
                       color={isStage ? styles.colors.stage : styles.colors.iteration}
+                      softColor={isStage ? styles.colors.stageSoft : styles.colors.iterationSoft}
                       number={isStage ? container.stage_number : container.iteration_number}
                       icon={isStage ? <FaToriiGate size={18} /> : <FaDrumSteelpan size={18} />}
                       onClick={() => handleContainerClick(container, container.containerType)}
@@ -1330,7 +1319,14 @@ function MainApp() {
                   toolbar={toolbar}
                   onSelectContainer={handleContainerClick}
                 />
-              : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
+              : viewMode === 'trace'
+                // Same split as BOM: toolbar in the left panel, matrix gets the rest.
+                ? <TraceabilityMatrix
+                    prod={normalizedProd}
+                    toolbar={toolbar}
+                    onSelectContainer={handleContainerClick}
+                  />
+                : <div className="p-2" style={{ height: '100%', overflow: 'auto' }}>{fileBrowser}</div>}
         </Col>
       </Row>
 
@@ -1344,10 +1340,10 @@ function MainApp() {
             onMouseOver={e => e.currentTarget.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >Rename</div>
-          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light, backgroundColor: '#dc3545' }}
+          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
             onClick={() => handleDeleteContainer(containerMenu.container, containerMenu.type)}
-            onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
-            onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+            onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseOut={e => e.currentTarget.style.opacity = '1'}
           >Delete</div>
         </div>
       )}
@@ -1403,8 +1399,8 @@ function AppContent() {
 
   if (loading || checkingSetup) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
-        <Spinner animation="border" style={{ color: '#3b82f6' }} />
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: styles.colors.dark }}>
+        <Spinner animation="border" style={{ color: styles.colors.iteration }} />
       </div>
     );
   }
@@ -1414,7 +1410,7 @@ function AppContent() {
 }
 
 export default function App() {
-  return <AuthProvider><AppContent /></AuthProvider>;
+  return <ThemeProvider><AuthProvider><AppContent /></AuthProvider></ThemeProvider>;
 }
 
 
