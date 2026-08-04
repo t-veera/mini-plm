@@ -3,8 +3,39 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import typography from '../../styles/typography';
 import tokens from '../../constants/styles';
+import MermaidDiagram from './MermaidDiagram';
 
 const MONO = "Consolas, 'Courier New', 'DejaVu Sans Mono', monospace";
+
+/**
+ * react-markdown v10 drops the `inline` prop, so a fence is identified by its language
+ * class. Coerced rather than type-checked because hast hands className over as either a
+ * string or an array of classes depending on the source.
+ */
+const isMermaidClass = (className) => String(className ?? '').includes('language-mermaid');
+
+/** True when this <pre> wraps a mermaid fence - the diagram renders without code-block chrome. */
+function wrapsMermaid(children) {
+  const child = React.Children.toArray(children)[0];
+  return React.isValidElement(child) && isMermaidClass(child.props.className);
+}
+
+/**
+ * Distinguish a fenced block from an inline span without the `inline` prop v9 removed.
+ *
+ * Two signals, because neither is sufficient alone: a fence usually carries a
+ * `language-*` class, but one written without a language carries no class at all and
+ * would otherwise read as inline. Such a fence still spans several lines, since its
+ * ``` markers sit on their own, whereas an inline span sits within one line.
+ *
+ * Known gap: a *single-line indented* code block (four spaces, one line) has neither
+ * signal and is treated as inline. Fenced blocks are unaffected at any length.
+ */
+function isBlockCode(node, className) {
+  if (String(className ?? '').includes('language-')) return true;
+  const position = node && node.position;
+  return !!position && position.start.line !== position.end.line;
+}
 
 function MarkdownViewer({ fileUrl, authenticatedFetch }) {
   const [content, setContent] = useState('');
@@ -56,10 +87,14 @@ function MarkdownViewer({ fileUrl, authenticatedFetch }) {
               h2: ({node, ...props}) => <h2 style={styles.h2} {...props} />,
               h3: ({node, ...props}) => <h3 style={styles.h3} {...props} />,
               h4: ({node, ...props}) => <h4 style={styles.h4} {...props} />,
-              pre: ({node, ...props}) => <pre style={styles.pre} {...props} />,
-              code: ({node, inline, ...props}) => inline
-                ? <code style={styles.inlineCode} {...props} />
-                : <code {...props} />,
+              pre: ({node, ...props}) => wrapsMermaid(props.children)
+                ? props.children
+                : <pre style={styles.pre} {...props} />,
+              code: ({node, ...props}) => isMermaidClass(props.className)
+                ? <MermaidDiagram code={String(props.children)} />
+                : isBlockCode(node, props.className)
+                  ? <code {...props} />
+                  : <code style={styles.inlineCode} {...props} />,
               table: ({node, ...props}) => <div style={{overflowX:'auto',marginBottom:'1.2rem'}}><table {...props} /></div>,
             }}
           >{content}</ReactMarkdown>
