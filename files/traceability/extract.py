@@ -18,11 +18,16 @@ from collections import namedtuple
 # because V1/V2 version markers are everywhere in product docs.
 # Longest-first so RSK-04 matches RSK and not a bare R.
 ID_PREFIXES = [
-    'VERIF', 'RISK', 'TEST', 'ARCH', 'PRD', 'REQ', 'RSK', 'HAZ', 'SRS', 'ARC',
-    'VER', 'VAL', 'TST', 'TC', 'SR', 'OQ', 'R', 'T', 'G',
+    'BLOCK', 'IFACE', 'VERIF', 'RISK', 'TEST', 'ARCH', 'PRD', 'REQ', 'RSK', 'HAZ',
+    'SRS', 'ARC', 'VER', 'VAL', 'TST', 'TC', 'SR', 'OQ', 'R', 'T', 'G',
 ]
 
-DEFAULT_ID_PATTERN = r'\b(?:' + '|'.join(ID_PREFIXES) + r')-?\d{1,4}\b'
+# The middle segment is what lets a subsystem-scoped scheme (PRD-SYS-09, BLOCK-ELE-01,
+# RISK-MEC-02) index alongside a flat one (RSK-04, G1); without it a three-part ID is
+# invisible and its whole document silently yields nothing. Kept to 2-5 letters and
+# still anchored on digits, so the hardware tokens the prefix list exists to exclude —
+# GPIO15, ESP32-S3, TP4056, UC8179 — remain unmatched.
+DEFAULT_ID_PATTERN = r'\b(?:' + '|'.join(ID_PREFIXES) + r')(?:-[A-Z]{2,5})?-?\d{1,4}\b'
 
 # A tag whose prefix names its own kind wins over the file it sits in. This is what lets
 # a risk register (RSK-01..) live inside a PRD and still index as RISK — docs in the wild

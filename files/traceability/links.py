@@ -17,7 +17,7 @@ from .extract import canonical, find_column
 LINK_KEYWORDS = (
     r'satisf(?:y|ies|ied)|trace[sd]?\s+to|trace\s+to|deriv(?:e|es|ed)\s+from|'
     r'mitigat(?:e|es|ed)|address(?:es|ed)?|verif(?:y|ies|ied)|validat(?:e|es|ed)|'
-    r'implement(?:s|ed)?|cover(?:s|ed)?|test(?:s|ed)?|refine(?:s|d)?|'
+    r'implement(?:s|ed)?|deliver(?:s|ed|ing)?|cover(?:s|ed)?|test(?:s|ed)?|refine(?:s|d)?|'
     r'fulfill?(?:s|ed)?|parent(?:\s+of)?|upstream'
 )
 
