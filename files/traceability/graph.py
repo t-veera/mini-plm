@@ -20,7 +20,7 @@ def build_graph(product, scope_container, containers=None):
     `scope_container` is a Container record from containers.list_containers(); pass the
     already-built `containers` list to avoid re-querying when the caller has one.
     """
-    from ..models import TraceEdge, TraceNode
+    from ..models import ManualTraceEdge, TraceEdge, TraceNode
 
     if containers is None:
         containers = list_containers(product)
@@ -65,11 +65,17 @@ def build_graph(product, scope_container, containers=None):
         }
         for key, node in by_key.items()
     }
-    edge_pairs = _dedupe(
-        (edge.parent_tag_id, edge.child_tag_id) for edge in edge_rows
-        if edge.parent_tag_id in status_input and edge.child_tag_id in status_input
-        and edge.parent_tag_id != edge.child_tag_id
-    )
+    # Parsed and manual edges are one graph. A manual edge is not filtered by source
+    # file -- it has none -- but it is still only drawn when both of its ends are
+    # visible at this scope, exactly like a parsed one.
+    parsed_pairs = _dedupe(_visible(edge_rows, status_input))
+    manual_pairs = _dedupe(_visible(
+        ManualTraceEdge.objects.filter(product=product), status_input))
+    parsed_set = set(parsed_pairs)
+    # Union, parsed first: a pair drawn both ways is one edge, and it renders as the
+    # parsed one because that is the stronger claim -- the document itself says so.
+    edge_pairs = parsed_pairs + [pair for pair in manual_pairs if pair not in parsed_set]
+
     statuses = compute_statuses(status_input, edge_pairs)
 
     by_container = {container.key: container for container in containers}
@@ -90,7 +96,10 @@ def build_graph(product, scope_container, containers=None):
         'resolved': _resolved_payload(effective, resolved, by_container, scope_ordinal),
         'subsystems': sorted({node.subsystem for node in resolved if node.subsystem}),
         'nodes': nodes,
-        'edges': [{'parent': parent, 'child': child} for parent, child in edge_pairs],
+        # `manual` drives the connector's line style in the matrix (solid parsed, dashed
+        # manual). It is not a status: node colours are untouched by how an edge was made.
+        'edges': [{'parent': parent, 'child': child, 'manual': (parent, child) not in parsed_set}
+                  for parent, child in edge_pairs],
         'counts': counts,
     }
 
@@ -152,6 +161,13 @@ def _resolved_payload(effective, resolved, by_container, scope_ordinal):
 
 def _doc_rank(node_type):
     return DOC_ORDER.index(node_type) if node_type in DOC_ORDER else len(DOC_ORDER)
+
+
+def _visible(edges, status_input):
+    """(parent, child) for edges whose both ends are in view. Self-loops dropped."""
+    return ((edge.parent_tag_id, edge.child_tag_id) for edge in edges
+            if edge.parent_tag_id in status_input and edge.child_tag_id in status_input
+            and edge.parent_tag_id != edge.child_tag_id)
 
 
 def _dedupe(pairs):

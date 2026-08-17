@@ -31,7 +31,7 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
     ? `${prod.containerType}:${prod.selectedContainer.id}`
     : null;
 
-  const { graph, loading, error, preference, updatePreference } =
+  const { graph, loading, error, preference, updatePreference, setLink } =
     useTraceMatrix(prod.id, containerKey);
 
   const columns = (preference && preference.columns) || DEFAULT_COLUMNS;
@@ -124,6 +124,7 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
             node={nodesByKey.get(selectedNode.key) || selectedNode}
             nodesByKey={nodesByKey}
             adjacency={adjacency}
+            onSetLink={setLink}
             onClose={() => setSelectedNode(null)}
           />
         )}
@@ -142,7 +143,7 @@ function CanvasBody({ prod, loading, error, graph, matrixColumns, adjacency, hov
   if (error) return message(`Could not load the traceability graph: ${error}`);
   if (!graph) return null;
   if (graph.counts.total === 0) {
-    return message('No traceability documents indexed yet. Upload markdown named for a doc type (PRD, sys_arch, fmea, srs, verification, validation) into a stage or iteration.');
+    return message('No traceability documents indexed yet. Upload a document whose filename carries its type (prd, arch, risk, srs, verification, test, validation) into a stage or iteration — markdown, or a test protocol as .xlsx.');
   }
   if (matrixColumns.every(column => column.nodes.length === 0)) {
     return message('No nodes match the current filters.');

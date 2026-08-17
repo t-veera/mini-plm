@@ -42,17 +42,28 @@ export function labelForType(nodeType) {
   return found ? found.label : nodeType;
 }
 
-/** parents/children lookup keyed by node key. Built once per graph payload. */
+/** Identity of one edge, for looking up how it was made. */
+export function edgeId(parent, child) {
+  return `${parent}->${child}`;
+}
+
+/** parents/children lookup keyed by node key. Built once per graph payload.
+ *
+ *  `manual` holds the edgeId of every hand-drawn link. Kept beside the adjacency rather
+ *  than inside it so the two lookups stay plain key arrays: how an edge was made changes
+ *  only its line style and whether it can be unlinked, never the traversal. */
 export function buildAdjacency(edges) {
   const parents = new Map();
   const children = new Map();
-  edges.forEach(({ parent, child }) => {
+  const manual = new Set();
+  edges.forEach(({ parent, child, manual: isManual }) => {
     if (!children.has(parent)) children.set(parent, []);
     if (!parents.has(child)) parents.set(child, []);
     children.get(parent).push(child);
     parents.get(child).push(parent);
+    if (isManual) manual.add(edgeId(parent, child));
   });
-  return { parents, children };
+  return { parents, children, manual };
 }
 
 /** True when any downstream path from `key` reaches a VERIF/VAL node.

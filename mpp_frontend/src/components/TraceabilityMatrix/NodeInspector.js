@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from '../../constants/styles';
 import authenticatedFetch from '../../utils/authenticatedFetch';
 import { MarkdownPreview } from '../viewers/FilePreviewers';
-import { STATUS_COLORS, STATUS_TITLES, labelForType } from './traceGraph';
+import { STATUS_COLORS, STATUS_TITLES, edgeId, labelForType } from './traceGraph';
+
+const MAX_SUGGESTIONS = 8;
 
 function normalizeUrl(url) {
   return url ? url.replace(/^https?:\/\/[^/]+/, window.location.origin) : null;
@@ -45,14 +47,26 @@ const sectionLabel = {
  * The excerpt is rendered with MarkdownPreview — the very component the file preview
  * pane uses for .md — so a doc looks the same here as it does in the Files view.
  */
-function NodeInspector({ node, nodesByKey, adjacency, onClose }) {
+function NodeInspector({ node, nodesByKey, adjacency, onSetLink, onClose }) {
   const sourceFile = useSourceFile(node ? node.source_file_id : null);
+  const [linkError, setLinkError] = useState(null);
+  const nodeKey = node ? node.key : null;
+
+  // Clear a stale refusal message when the drawer moves to another node.
+  useEffect(() => { setLinkError(null); }, [nodeKey]);
+
   if (!node) return null;
 
   const color = STATUS_COLORS[node.status] || styles.colors.primary;
   const parents = (adjacency.parents.get(node.key) || []).map(k => nodesByKey.get(k)).filter(Boolean);
   const children = (adjacency.children.get(node.key) || []).map(k => nodesByKey.get(k)).filter(Boolean);
   const fileUrl = serverUrlFor(sourceFile);
+
+  const apply = (parentKey, childKey, linked) => {
+    setLinkError(null);
+    Promise.resolve(onSetLink(parentKey, childKey, linked))
+      .then(message => setLinkError(message || null));
+  };
 
   return (
     <div style={{
@@ -104,10 +118,34 @@ function NodeInspector({ node, nodesByKey, adjacency, onClose }) {
         <Detail name="Source" value={`${node.source_file_name}:${node.source_line}`} />
 
         <div style={sectionLabel}>Upstream ({parents.length})</div>
-        <Lineage nodes={parents} empty="Nothing upstream." />
+        <Lineage
+          nodes={parents}
+          empty="Nothing upstream."
+          manual={adjacency.manual}
+          edgeFor={other => [other.key, node.key]}
+          onUnlink={apply}
+        />
 
         <div style={sectionLabel}>Downstream ({children.length})</div>
-        <Lineage nodes={children} empty="Nothing downstream." />
+        <Lineage
+          nodes={children}
+          empty="Nothing downstream."
+          manual={adjacency.manual}
+          edgeFor={other => [node.key, other.key]}
+          onUnlink={apply}
+        />
+
+        <LinkPicker node={node} nodesByKey={nodesByKey} adjacency={adjacency} onLink={apply} />
+
+        {linkError && (
+          <div style={{
+            marginTop: '10px', padding: '8px 10px',
+            border: `1px solid ${styles.colors.stage}`, borderRadius: styles.borderRadius.md,
+            color: styles.colors.text.light, fontSize: styles.fonts.size.xs,
+          }}>
+            {linkError}
+          </div>
+        )}
 
         <div style={sectionLabel}>Excerpt</div>
         <div style={{
@@ -137,7 +175,14 @@ function Detail({ name, value }) {
   );
 }
 
-function Lineage({ nodes, empty }) {
+/**
+ * One side of a node's lineage, each row with an unlink control.
+ *
+ * The control is offered on every link, parsed or manual, because a user who wants a
+ * link gone looks for it in the same place either way. Only a manual one is actually
+ * removed; asking to remove a parsed one comes back with the reason it cannot be.
+ */
+function Lineage({ nodes, empty, manual, edgeFor, onUnlink }) {
   if (nodes.length === 0) {
     return <div style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.xs }}>{empty}</div>;
   }
@@ -145,6 +190,8 @@ function Lineage({ nodes, empty }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {nodes.map(node => {
         const color = STATUS_COLORS[node.status] || styles.colors.primary;
+        const [parentKey, childKey] = edgeFor(node);
+        const isManual = manual.has(edgeId(parentKey, childKey));
         return (
           <div key={node.key} style={{
             display: 'flex', alignItems: 'center', gap: '8px',
@@ -152,13 +199,132 @@ function Lineage({ nodes, empty }) {
             fontSize: styles.fonts.size.sm, color: styles.colors.text.light,
           }}>
             <span style={{ fontWeight: styles.fonts.weight.bold }}>{node.tag_id}</span>
-            <span style={{ color: styles.colors.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, minWidth: 0, color: styles.colors.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {node.title}
             </span>
+            {isManual && (
+              <span
+                title="Linked by hand"
+                style={{
+                  fontSize: '0.65rem', color: styles.colors.text.muted,
+                  border: `1px dashed ${styles.colors.border}`, borderRadius: '8px',
+                  padding: '0 6px', whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                manual
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onUnlink(parentKey, childKey, false)}
+              title={isManual ? 'Remove this link' : 'This link comes from the document'}
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0,
+                color: styles.colors.text.muted, fontSize: styles.fonts.size.sm,
+                lineHeight: 1, padding: '0 2px',
+              }}
+            >
+              ×
+            </button>
           </div>
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Search any other node and link it to this one, upstream or downstream.
+ *
+ * Direction is asked for, not inferred: an arrow chosen by document order would quietly
+ * reverse a link whenever two nodes share a type, and a reversed edge is exactly the
+ * mistake this control exists to fix. One click links; there is no confirm step.
+ */
+function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
+  const [query, setQuery] = useState('');
+
+  const linked = useMemo(() => new Set([
+    ...(adjacency.parents.get(node.key) || []),
+    ...(adjacency.children.get(node.key) || []),
+    node.key,
+  ]), [adjacency, node.key]);
+
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    const found = [];
+    for (const candidate of nodesByKey.values()) {
+      if (linked.has(candidate.key)) continue;
+      const haystack = `${candidate.tag_id} ${candidate.title || ''}`.toLowerCase();
+      if (haystack.includes(needle)) found.push(candidate);
+      if (found.length >= MAX_SUGGESTIONS) break;
+    }
+    return found;
+  }, [query, nodesByKey, linked]);
+
+  const link = (other, asParent) => {
+    setQuery('');
+    onLink(asParent ? other.key : node.key, asParent ? node.key : other.key, true);
+  };
+
+  return (
+    <>
+      <div style={sectionLabel}>Link to…</div>
+      <input
+        type="text"
+        value={query}
+        onChange={event => setQuery(event.target.value)}
+        placeholder="Search by ID or title"
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          background: 'transparent', color: styles.colors.text.light,
+          border: `1px solid ${styles.colors.border}`, borderRadius: styles.borderRadius.md,
+          padding: '5px 8px', fontSize: styles.fonts.size.sm,
+        }}
+      />
+      {query.trim() && matches.length === 0 && (
+        <div style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.xs, marginTop: '6px' }}>
+          Nothing else matches — already-linked nodes are not listed.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+        {matches.map(other => {
+          const color = STATUS_COLORS[other.status] || styles.colors.primary;
+          return (
+            <div key={other.key} style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              borderLeft: `3px solid ${color}`, paddingLeft: '8px',
+              fontSize: styles.fonts.size.sm, color: styles.colors.text.light,
+            }}>
+              <span style={{ fontWeight: styles.fonts.weight.bold }}>{other.tag_id}</span>
+              <span style={{ flex: 1, minWidth: 0, color: styles.colors.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {other.title}
+              </span>
+              <DirectionButton label="↑" title={`${other.tag_id} is upstream of ${node.tag_id}`} onClick={() => link(other, true)} />
+              <DirectionButton label="↓" title={`${other.tag_id} is downstream of ${node.tag_id}`} onClick={() => link(other, false)} />
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function DirectionButton({ label, title, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      style={{
+        background: 'transparent', border: `1px solid ${styles.colors.border}`,
+        color: styles.colors.text.light, borderRadius: styles.borderRadius.md,
+        cursor: 'pointer', flexShrink: 0, padding: '0 7px',
+        fontSize: styles.fonts.size.sm, lineHeight: '20px',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

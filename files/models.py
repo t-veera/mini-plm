@@ -762,6 +762,47 @@ class TraceEdge(models.Model):
         return f"{self.parent_tag_id} -> {self.child_tag_id}"
 
 
+class ManualTraceEdge(models.Model):
+    """A link a person drew by hand between two trace IDs.
+
+    A SECOND source of truth for edges, never a replacement: the graph is the union of
+    these and the TraceEdge rows the parser writes. Parsed cross-references will always
+    miss some real connections -- that is the documents' nature, not a bug -- and this is
+    how they get fixed without editing the source document.
+
+    Keyed by canonical tag string exactly as TraceEdge is, and deliberately NOT by
+    TraceNode foreign key: reparsing a file deletes and rewrites its TraceNode rows, so
+    FKs here would be cascade-deleted every time someone re-uploaded a document. Tags
+    survive that; primary keys do not.
+
+    Nothing removes these automatically. If a later doc edit makes the same connection
+    parseable, both rows exist -- redundant, harmless, and cheaper than reconciling them.
+    """
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='manual_trace_edges')
+    parent_tag_id = models.CharField(max_length=64)
+    child_tag_id = models.CharField(max_length=64)
+    # Kept if the account is deleted: who drew it is history, the link itself is data.
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='manual_trace_edges')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['parent_tag_id', 'child_tag_id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'parent_tag_id', 'child_tag_id'],
+                name='uniq_manual_trace_edge',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['product', 'parent_tag_id']),
+            models.Index(fields=['product', 'child_tag_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_tag_id} -> {self.child_tag_id} (manual)"
+
+
 class TraceMatrixPreference(models.Model):
     """Per-user, per-product layout of the traceability matrix.
 

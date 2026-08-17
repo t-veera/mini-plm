@@ -11,20 +11,70 @@ it should track to have a name.
 
 ## 1. Name the file so its type is obvious
 
-The document type comes from the **filename**, matched case-insensitively:
+The document type comes from a **keyword anywhere in the filename**, matched
+case-insensitively. Position does not matter, so any numbering scheme you like may sit
+in front of it — `5_INKFRAME-ARCH-I2-001.md` is an ARCH document even though ARCH is the
+second document logically and the fifth by prefix.
 
 | Type | Filename contains | Examples |
 |------|-------------------|----------|
-| PRD | `prd`, `product requirement` | `PRD.md`, `Product_Requirements.md` |
-| ARCH | `architecture`, `sys_arch` | `Architecture.md`, `sys_arch.md` |
-| RISK | `fmea`, `risk`, `hazard` | `FMEA.md`, `Risk_Register.md` |
-| SRS | `srs`, `spec`, `requirement` | `001_Requirements.md`, `SRS.md` |
-| VERIF | `verif`, `test_protocol`, `test_plan`, `test_case`, `acceptance` | `001_Test_Protocol.md` |
+| PRD | `prd`, `product requirement` | `PRD.md`, `1_INKFRAME-PRD-001.md` |
+| ARCH | `arch`, `sys_arch`, `system architecture` | `Architecture.md`, `5_INKFRAME-ARCH-I2-001.md` |
+| RISK | `fmea`, `risk`, `hazard` | `FMEA.md`, `3_INKFRAME-RISK-I2-001.md` |
+| SRS | `srs`, `spec`, `requirement` | `001_Requirements.md`, `2_INKFRAME-SRS-I2-001.md` |
+| VERIF | `verification`, `verif`, `ver`, `test`, `tst`, `acceptance` | `7_INKFRAME-TST-I2-001.xlsx`, `001_Test_Protocol.md` |
 | VAL | `validation`, `val` | `Validation_Report.md` |
 
-More specific wins: `verification_spec.md` is VERIF, not SRS. A filename matching none of
-these is skipped entirely and indexes nothing — that is how you keep `README.md` and
-meeting notes out of the matrix.
+**Several files may feed one column.** Two verification documents both index into
+Verification; neither overwrites the other.
+
+`ver` and `val` only count as whole words, and `test` only at the start of one, so
+`PRD_Version2.md`, `Design_Overview.md` and `Latest_Notes.md` are not verification
+documents.
+
+More specific wins: `verification_spec.md` is VERIF, not SRS, because `spec` and
+`requirement` are generic — every document type uses those words — and only mean SRS when
+nothing more specific is in the name.
+
+### Files that never index
+
+| Filename contains | Why |
+|---|---|
+| `scope` | A narrative planning document. Uploads and previews normally; carries no IDs to track. |
+| `bench` | Raw bench data, keyed by test point rather than by ID. |
+| `gate_review` | A meeting record. |
+
+These upload, store, preview and download exactly like any other file — they are simply
+never sent to the parser. A filename matching none of the keywords is also skipped, but
+it is **logged as a warning**: if you expected a document in the matrix and it is not
+there, the log says why.
+
+If a filename matches two different types (`Risk_and_Test_Plan.md`), nothing is guessed —
+the file is skipped and the clash is logged. Rename it so one type is unambiguous.
+
+---
+
+## 1a. Spreadsheets
+
+A test protocol may be an `.xlsx` instead of markdown. The sheet named **Test Protocol**
+(or the first sheet with an `ID` column) is read; the workbook's other sheets — overview,
+run summary, findings — are ignored.
+
+The header row does not have to be row 1: a title block above it is normal and is skipped.
+Columns are found by name, the same way a markdown table's are:
+
+| Column | Recognised by | Becomes |
+|---|---|---|
+| `ID` | `id`, `tag`, `ref` | the node's ID |
+| `Test Name` | `name`, `title`, `test`, `description`, … | its title |
+| `Run 1 Status`, `Run 2 Status` | `status`, `verdict`, `outcome` | PASS / FAIL |
+
+With more than one run column the **rightmost one that has been filled in** is the
+verdict, so a later FAIL is not masked by an earlier PASS. A `Pass Criteria` column is
+prose, not a result, and is never read as one.
+
+An ID must be at the **start** of its cell. A section banner in the ID column
+(`INPUT — audit T08 before running this section`) mentions T08; it does not declare it.
 
 **Careful:** a bare `Requirements.md` is an **SRS**, not a PRD. Only an explicit `prd` or
 "product requirement" makes a PRD. This is deliberate — a project usually has one PRD and
@@ -48,11 +98,40 @@ The boot path (see T01) is timed separately.  <- mentions T01, declares nothing
 
 ### Recognised prefixes
 
-`PRD` `R` `REQ` · `ARCH` `ARC` · `RISK` `RSK` `HAZ` · `SRS` `SR` · `TC` `T` `TEST` `TST`
-`VER` `VERIF` · `VAL` · `G` `OQ`
+`PRD` `R` `REQ` `FR` `NFR` `AC` · `ARCH` `ARC` `BLOCK` `IFACE` · `RISK` `RSK` `HAZ` ·
+`SRS` `SR` · `TC` `T` `TEST` `TST` `VER` `VERIF` · `VAL` · `G` `OQ`
 
-Followed by 1–4 digits, with an optional hyphen: `R001`, `REQ-01`, `SRS-301`, `T01`,
-`RSK-014`. `R001`, `R-001` and `r1` are treated as the same item.
+Three shapes are recognised:
+
+| Shape | Example | |
+|---|---|---|
+| `TYPE-NNN` | `RSK-101`, `REQ-01` | flat |
+| `TYPE-ITER-NNN` | `FR-I2-014`, `BLOCK-I2-002` | with an iteration marker |
+| `TYPE-SUB-NN` | `PRD-SYS-09` | with a subsystem marker |
+
+plus the glued form `T01` / `R001` for legacy schemes. `R001`, `R-001` and `r1` are
+treated as the same item.
+
+`FR`, `NFR` and `AC` need the hyphen and at least two digits — `FR-014`, not `FR4` —
+because `FR4` is a PCB laminate and `AC` is a supply rail, and both appear in these
+documents in their ordinary engineering sense. The same guard is why part numbers
+(`TP4056`, `AO3401`, `GDEQ0583T31`), pin names (`GPIO45`) and test points (`TP24`) sitting
+in the middle of a requirement never index as IDs.
+
+### When a link is missing
+
+Parsed cross-references will not catch every real connection — a requirement whose parent
+is only implied, an inherited capability nobody wrote a `Traces To` for. Select the node
+in the matrix and use **Link to…** in the side drawer to draw the link by hand. Hand-drawn
+links render as a **dashed** connector; parsed ones stay solid.
+
+A hand-drawn link can be removed from the same drawer. A parsed one cannot — it is what
+the document says, and it would return on the next parse, so break it in the document
+instead. Manual links are never removed automatically: if a later edit makes the same
+connection parseable, both exist, which is harmless.
+
+Note that an intermediate item (a spec, an architecture block) needs a link on **both**
+sides to stop counting as an orphan — one upstream link alone still leaves it red.
 
 **A prefix that names a kind overrides the document it sits in.** `RSK-014` inside
 `PRD.md` is indexed as a RISK, not a PRD item — so a risk register can live inside a

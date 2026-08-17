@@ -4,32 +4,39 @@ The only module here that talks to the database. Parsing is idempotent -- every 
 deletes exactly the rows this file owns and rewrites them, so reparsing a file can
 never duplicate or strand anything.
 """
+import io
 import logging
+import os
 
 from django.db import transaction
 
 from . import links
 from .containers import ITERATION, STAGE, container_key
-from .doctypes import detect_node_type
+from .doctypes import AMBIGUOUS, EXCLUDED, MATCHED, classify
 from .extract import canonical, compile_id_pattern, declared_node, iter_lines, node_type_for_tag
+from .sheets import iter_sheet_lines
 
 logger = logging.getLogger('files')
 
 TEST_TYPES = ('VERIF', 'VAL')
 
+MARKDOWN_SUFFIXES = ('.md',)
+SHEET_SUFFIXES = ('.xlsx', '.xlsm')
+
 
 def parse_file(file, id_pattern=None):
     """Reindex `file`. Returns (node_count, edge_count), or None if it was skipped.
 
-    Skipped when the file is not markdown, is not attached to any container, has no
-    readable content, or has a filename no doc type recognises. In every skip case the
-    file's existing rows are still cleared, so renaming a doc out of the scheme removes
-    its stale index instead of leaving it behind.
+    Skipped when the file is neither markdown nor a spreadsheet, is not attached to any
+    container, has no readable content, or has a filename no doc type recognises. In
+    every skip case the file's existing rows are still cleared, so renaming a doc out of
+    the scheme removes its stale index instead of leaving it behind.
 
     Container-agnostic: a doc uploaded into a Stage indexes exactly like one uploaded
     into an Iteration, and inheritance places both by the continuous IIL order.
     """
-    if not _is_markdown(file):
+    suffix = _suffix(file)
+    if suffix not in MARKDOWN_SUFFIXES + SHEET_SUFFIXES:
         return None
 
     container = file.content_object
@@ -37,19 +44,51 @@ def parse_file(file, id_pattern=None):
     if container is None or product is None or file.container_type not in (ITERATION, STAGE):
         return None
 
-    node_type = detect_node_type(file.name)
+    node_type = _resolve_node_type(file)
     if node_type is None:
         _clear(file)
         return None
 
-    text = _read_text(file)
-    if text is None:
+    source = _read_bytes(file)
+    if source is None:
         _clear(file)
         return None
 
-    nodes, edges = extract_document(text, node_type, id_pattern=id_pattern)
+    if suffix in SHEET_SUFFIXES:
+        lines = iter_sheet_lines(io.BytesIO(source))
+    else:
+        lines = iter_lines(source.decode('utf-8', 'replace'))
+
+    nodes, edges = extract_lines(lines, id_pattern=id_pattern)
     _write(file, product, container, node_type, nodes, edges)
     return len(nodes), len(edges)
+
+
+def _resolve_node_type(file):
+    """The doc type to index `file` as, or None when it must not be indexed.
+
+    Every None is logged at the level its cause deserves: an excluded document is
+    routine and says nothing, an unrecognised one warns (a doc the user expected in the
+    matrix silently vanishing is the failure mode this whole function exists to avoid),
+    and an ambiguous one warns loudest because it needs a human to settle it.
+    """
+    result = classify(file.name)
+    if result.outcome == MATCHED:
+        return result.node_type
+    if result.outcome == EXCLUDED:
+        logger.info("traceability: %s is a %s document; not indexed by design",
+                    file.name, result.matched)
+        return None
+    if result.outcome == AMBIGUOUS:
+        logger.warning(
+            "traceability: %s matches more than one document type (%s) -- not indexed. "
+            "Rename it so one type is unambiguous.",
+            file.name, ', '.join(result.candidates))
+        return None
+    logger.warning("traceability: %s matches no document type; not indexed. Name it for "
+                   "its type (prd / arch / risk / srs / verification / validation) to "
+                   "include it in the matrix.", file.name)
+    return None
 
 
 def parse_file_safely(file):
@@ -67,13 +106,21 @@ def parse_file_safely(file):
         return None
 
 
-def extract_document(text, node_type, id_pattern=None):
-    """Pure pass over the text: (nodes, edges).
+def extract_document(text, node_type=None, id_pattern=None):
+    """Pure pass over markdown text: (nodes, edges)."""
+    return extract_lines(iter_lines(text), id_pattern=id_pattern)
+
+
+def extract_lines(lines, id_pattern=None):
+    """Pure pass over Line records: (nodes, edges).
 
     `nodes` are DeclaredNode records deduplicated by canonical tag (first wins).
     `edges` are (parent_canonical, child_canonical) pairs. References attach to the
     node most recently declared at or before that line, which is how a "traces to"
     line under a requirement reads to a human.
+
+    Takes Lines rather than text so a spreadsheet row and a markdown table row travel
+    the identical path -- see sheets.py.
     """
     id_re = compile_id_pattern(id_pattern)
     nodes = []
@@ -81,7 +128,7 @@ def extract_document(text, node_type, id_pattern=None):
     seen_tags = set()
     current_key = None
 
-    for line in iter_lines(text):
+    for line in lines:
         node = declared_node(line, id_re)
         if node is not None:
             key = canonical(node.tag_id)
@@ -99,12 +146,16 @@ def extract_document(text, node_type, id_pattern=None):
     return nodes, _dedupe(edges)
 
 
-def _is_markdown(file):
-    return bool(file) and (file.name or '').lower().endswith('.md')
+def _suffix(file):
+    return os.path.splitext((getattr(file, 'name', '') or '').lower())[1]
 
 
-def _read_text(file):
-    """Current bytes of the file, decoded leniently. None if unreadable."""
+def _read_bytes(file):
+    """Current bytes of the file. None if unreadable.
+
+    Bytes rather than text: a spreadsheet has to reach openpyxl undecoded, and markdown
+    is decoded at the point of use.
+    """
     source = None
     revision = file.latest_revision
     if revision is not None and revision.uploaded_file:
@@ -116,7 +167,7 @@ def _read_text(file):
     try:
         source.open('rb')
         try:
-            return source.read().decode('utf-8', 'replace')
+            return source.read()
         finally:
             source.close()
     except Exception:

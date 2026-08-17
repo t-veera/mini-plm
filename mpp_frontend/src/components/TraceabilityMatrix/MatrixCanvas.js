@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import styles from '../../constants/styles';
-import { STATUS_COLORS, STATUS_TITLES } from './traceGraph';
+import { STATUS_COLORS, STATUS_TITLES, edgeId } from './traceGraph';
 
 const COLUMN_WIDTH = 248;
 
@@ -12,6 +12,10 @@ const COLUMN_WIDTH = 248;
  * layout graph, which is why no graph library is needed. Each line takes the colour of
  * its downstream end, so a red node paints every link feeding into it and a broken
  * chain reads red the whole way across.
+ *
+ * Solid line = the document says so. Dashed = someone drew it by hand. That is a line
+ * STYLE difference on purpose: colour already means status, and reusing it here would
+ * need a new legend entry and would fight the dark theme.
  */
 function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, onSelect }) {
   const contentRef = useRef(null);
@@ -53,9 +57,10 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
       const x2 = to.left;
       const bend = Math.max(24, Math.abs(x2 - x1) / 2);
       next.push({
-        id: `${parentKey}->${childKey}`,
+        id: edgeId(parentKey, childKey),
         d: `M ${x1} ${from.middle} C ${x1 + bend} ${from.middle}, ${x2 - bend} ${to.middle}, ${x2} ${to.middle}`,
         childKey,
+        manual: adjacency.manual.has(edgeId(parentKey, childKey)),
       });
     });
     setLines(next);
@@ -84,8 +89,11 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
               fill="none"
               stroke={STATUS_COLORS[statusByKey.get(line.childKey)] || styles.colors.primary}
               strokeWidth={2}
+              strokeDasharray={line.manual ? '6 4' : undefined}
               opacity={0.9}
-            />
+            >
+              <title>{line.manual ? 'Manual link' : 'Link written in the document'}</title>
+            </path>
           ))}
         </svg>
 
@@ -153,6 +161,7 @@ function MatrixColumn({ column, hoveredKey, related, selectedKey, onHover, onSel
 
 function NodeCard({ node, dimmed, selected, onHover, onSelect, registerCard }) {
   const color = STATUS_COLORS[node.status] || styles.colors.primary;
+  const frame = selected ? color : styles.colors.border;
   return (
     <div
       ref={element => registerCard(node.key, element)}
@@ -163,8 +172,12 @@ function NodeCard({ node, dimmed, selected, onHover, onSelect, registerCard }) {
       style={{
         position: 'relative', zIndex: 3,
         backgroundColor: styles.colors.darkAlt,
-        border: `1px solid ${selected ? color : styles.colors.border}`,
-        borderLeft: `4px solid ${color}`,
+        // Four-value longhand rather than `border` + `borderLeft`: React warns when a
+        // shorthand and a longhand for the same property both change on a rerender, and
+        // this card rerenders whenever the graph reloads.
+        borderStyle: 'solid',
+        borderWidth: '1px 1px 1px 4px',
+        borderColor: `${frame} ${frame} ${frame} ${color}`,
         borderRadius: styles.borderRadius.md,
         padding: '8px 10px',
         cursor: 'pointer',

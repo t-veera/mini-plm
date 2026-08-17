@@ -15,6 +15,10 @@ function useTraceMatrix(productId, containerKey) {
   const [graph, setGraph] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Bumped after a manual link changes. Statuses are computed server-side from the whole
+  // edge set, so a link can turn a node from orphan to valid several hops away -- there
+  // is nothing sensible to patch locally, and refetching is one small request.
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [preference, setPreference] = useState(null);
   const [preferenceLoaded, setPreferenceLoaded] = useState(false);
@@ -35,7 +39,7 @@ function useTraceMatrix(productId, containerKey) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [productId, containerKey]);
+  }, [productId, containerKey, reloadToken]);
 
   // Preferences are per product, not per container - switching container keeps them.
   useEffect(() => {
@@ -77,7 +81,27 @@ function useTraceMatrix(productId, containerKey) {
     });
   }, [productId]);
 
-  return { graph, loading, error, preference, preferenceLoaded, updatePreference };
+  /** Draw or remove a manual link. Applied immediately -- there is no draft state and no
+   *  save step, the same as every other edit in the app. Resolves to an error message
+   *  when the server refuses (unlinking a parsed edge), else null. */
+  const setLink = useCallback(async (parent, child, linked) => {
+    try {
+      const response = await authenticatedFetch(`/api/traceability/${productId}/link/`, {
+        method: linked ? 'POST' : 'DELETE',
+        body: JSON.stringify({ parent, child }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        return (detail && detail.error) || `${response.status} ${response.statusText}`;
+      }
+      setReloadToken(token => token + 1);
+      return null;
+    } catch (err) {
+      return err.message || 'Could not reach the server.';
+    }
+  }, [productId]);
+
+  return { graph, loading, error, preference, preferenceLoaded, updatePreference, setLink };
 }
 
 export default useTraceMatrix;

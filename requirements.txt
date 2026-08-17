@@ -4,3 +4,4 @@ django-cors-headers==4.0.0
 dj-database-url
 psycopg2-binary
 gunicorn
+openpyxl

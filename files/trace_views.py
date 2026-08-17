@@ -9,8 +9,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Iteration, Product, TraceMatrixPreference
+from .models import Iteration, ManualTraceEdge, Product, TraceEdge, TraceMatrixPreference
 from .traceability.containers import find_container, list_containers
+from .traceability.extract import canonical
 from .traceability.graph import DOC_ORDER, build_graph
 
 MIN_COLUMNS = 2
@@ -72,6 +73,65 @@ def _by_iteration(product, containers, field, value):
     if iteration is None:
         return None, "Iteration not found for this product."
     return find_container(containers, f"iteration:{iteration.id}"), None
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def manual_edge(request, product_id):
+    """Create or remove one hand-drawn link between two trace IDs.
+
+    POST {parent, child} links; DELETE {parent, child} unlinks. Both take the canonical
+    node keys the graph payload already carries, so the caller never has to know how an
+    ID is folded.
+
+    Only manual edges can be deleted here. A parsed edge is a statement the document
+    makes; removing it in the UI would just have it reappear on the next parse, so the
+    request is refused with an explanation rather than silently doing nothing.
+    """
+    product = Product.objects.filter(id=product_id).first()
+    if product is None:
+        return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    parent = canonical(request.data.get('parent'))
+    child = canonical(request.data.get('child'))
+    if not parent or not child:
+        return Response({"error": "parent and child are both required."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if parent == child:
+        return Response({"error": "A node cannot link to itself."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'POST':
+        edge, created = ManualTraceEdge.objects.get_or_create(
+            product=product, parent_tag_id=parent, child_tag_id=child,
+            defaults={'created_by': request.user},
+        )
+        return Response(_manual_edge_payload(edge),
+                        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    deleted, _ = ManualTraceEdge.objects.filter(
+        product=product, parent_tag_id=parent, child_tag_id=child).delete()
+    if deleted:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    if TraceEdge.objects.filter(product=product, parent_tag_id=parent,
+                                child_tag_id=child).exists():
+        return Response(
+            {"error": "This link is written in the source document, so it cannot be "
+                      "removed here — it would come back the next time the document is "
+                      "parsed. Edit the document to break it."},
+            status=status.HTTP_409_CONFLICT)
+    return Response({"error": "No such link."}, status=status.HTTP_404_NOT_FOUND)
+
+
+def _manual_edge_payload(edge):
+    return {
+        'parent': edge.parent_tag_id,
+        'child': edge.child_tag_id,
+        'manual': True,
+        'created_by': edge.created_by.username if edge.created_by else None,
+        'created_at': edge.created_at,
+    }
 
 
 @api_view(['GET', 'PUT'])
