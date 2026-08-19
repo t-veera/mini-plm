@@ -365,18 +365,6 @@ function MainApp() {
 
   function hideContextMenu() { setContextMenu({ visible: false, x: 0, y: 0, type: null, fileObj: null, folderObj: null }); }
 
-  function getCurrentContainerIdFromFile(fileObj) {
-    const p = products[selectedProductIndex];
-    if (fileObj.container_type === 'stage') {
-      const stage = p.stages?.find(s => s.stage_id === fileObj.container_id);
-      return stage ? stage.id : fileObj.container_id;
-    } else if (fileObj.container_type === 'iteration') {
-      const iter = p.iterations?.find(i => i.iteration_id === fileObj.container_id);
-      return iter ? iter.id : fileObj.container_id;
-    }
-    return fileObj.container_id;
-  }
-
   function updateFile(fileId, updates) {
     const updatedProducts = [...products];
     const updatedProduct = { ...updatedProducts[selectedProductIndex] };
@@ -923,6 +911,9 @@ function MainApp() {
       formData.append('uploaded_file', file);
       formData.append('original_name', currentFileForModal.name);
       formData.append('is_child_file', currentFileForModal.is_child_file ? 'true' : 'false');
+      // Scope the revision lookup to the file's own folder — without this the backend
+      // looks for a match at container root, finds none, and creates a duplicate.
+      if (currentFileForModal.folder) formData.append('folder', currentFileForModal.folder);
       if (prod.containerType === 'stage') formData.append('stage_id', prod.selectedContainer.id);
       else formData.append('iteration_id', prod.selectedContainer.id);
       formData.append('change_description', 'File revision from context menu');
@@ -1113,7 +1104,7 @@ function MainApp() {
     try {
       const ids = [fileToRemove.id, ...(!fileToRemove.is_child_file && fileToRemove.child_files ? fileToRemove.child_files.map(c => c.id) : [])];
       await Promise.all(ids.map(id => authenticatedFetch(`/api/files/${id}/`, { method: 'DELETE' })));
-      const containerKey = `${fileToRemove.container_type}_${getCurrentContainerIdFromFile(fileToRemove)}`;
+      const containerKey = `${fileToRemove.container_type}_${fileToRemove.container_db_id}`;
       setProducts(prev => {
         const updated = [...prev];
         const updatedProd = { ...updated[selectedProductIndex], filesByContainer: { ...updated[selectedProductIndex].filesByContainer } };
