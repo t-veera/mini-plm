@@ -513,10 +513,12 @@ class FileViewSet(viewsets.ModelViewSet):
 
             last_revision = FileRevision.objects.filter(file=existing_file).order_by('-revision_number').first()
 
-            # Skip the upload entirely if the content is byte-identical to the current
-            # revision (e.g. re-dropping a folder) — only genuinely changed files should
-            # get a new version.
-            if last_revision and getattr(last_revision, 'uploaded_file', None):
+            # A deliberate upload always produces a new revision, even when the bytes are
+            # unchanged — "Upload Revision" and re-uploading a same-named file are explicit
+            # requests to version. Only bulk folder re-drops opt in to skipping identical
+            # files, so syncing a repo doesn't version hundreds of untouched ones.
+            skip_identical = str(request.data.get('skip_identical', '')).lower() == 'true'
+            if skip_identical and last_revision and getattr(last_revision, 'uploaded_file', None):
                 if _same_content(uploaded_file, last_revision.uploaded_file):
                     serializer = FileSerializer(existing_file, context={'request': request})
                     return Response(serializer.data, status=status.HTTP_200_OK)

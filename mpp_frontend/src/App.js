@@ -747,7 +747,7 @@ function MainApp() {
   // POST one top-level file into the given folder (null = root); returns { ...savedFile, dataUrl }.
   // Retries transient failures (e.g. a WSL2 bind-mount write hiccup); the backend create
   // is atomic, so a failed attempt leaves no partial row to collide with.
-  async function uploadOneFile(file, targetFolderId, attempts = 3) {
+  async function uploadOneFile(file, targetFolderId, skipIdentical = false, attempts = 3) {
     const buildForm = () => {
       const formData = new FormData();
       formData.append('uploaded_file', file);
@@ -756,6 +756,9 @@ function MainApp() {
       if (prod.containerType === 'stage') formData.append('stage_id', prod.selectedContainer.id);
       else formData.append('iteration_id', prod.selectedContainer.id);
       if (targetFolderId) formData.append('folder', targetFolderId);
+      // Only bulk folder re-drops skip byte-identical files; a file the user picked
+      // deliberately always versions.
+      if (skipIdentical) formData.append('skip_identical', 'true');
       formData.append('change_description', 'Initial file upload');
       formData.append('status', 'in_work');
       formData.append('quantity', '1');
@@ -862,7 +865,7 @@ function MainApp() {
           const parts = relativePath.split('/');
           const fullDir = parts.slice(0, -1).join('/'); // '' for a top-level file
           const folderId = await ensureFolder(fullDir);
-          last = await uploadOneFile(file, folderId);
+          last = await uploadOneFile(file, folderId, true);
           ok += 1;
         } catch (err) {
           failed += 1;
