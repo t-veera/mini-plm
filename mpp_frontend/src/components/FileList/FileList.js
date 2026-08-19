@@ -113,7 +113,15 @@ function FileList({
     });
   })();
   const filesInFolder = (folderId) => containerFiles.filter(f => !f.is_child_file && (f.folder ?? null) === folderId);
-  const childrenOf = (fileId) => containerFiles.filter(f => f.parent_file === fileId);
+  // The list endpoint returns children nested on their parent and omits them from the
+  // flat list; a just-uploaded child is the other way round. Merge both sources so a
+  // child renders under its parent either way instead of vanishing on reload.
+  const childrenOf = (fileObj) => {
+    const byId = new Map();
+    for (const c of fileObj.child_files || []) byId.set(c.id, c);
+    for (const c of containerFiles) if (c.parent_file === fileObj.id) byId.set(c.id, c);
+    return Array.from(byId.values());
+  };
 
   const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   const expand = (id) => setExpanded(prev => ({ ...prev, [id]: true }));
@@ -150,7 +158,7 @@ function FileList({
   const renderFileRow = (fileObj, depth) => {
     const icon = <AppFileIcon filename={fileObj.name} />;
     const hasRevisions = fileObj.revisions?.length > 0;
-    const childFiles = childrenOf(fileObj.id);
+    const childFiles = childrenOf(fileObj);
     const namePad = depth * INDENT + INDENT + 4; // +INDENT lines file icons up under folder icons (past the chevron)
 
     return (

@@ -505,7 +505,13 @@ class FileViewSet(viewsets.ModelViewSet):
             # and re-uploading into the same folder versions the existing one.
             file_lookup['folder'] = folder_obj
 
-        existing_file = File.objects.filter(**file_lookup).first()
+        # The '+' button posts is_child_file with the clicked file as the parent. When the
+        # upload carries that parent's own name, the user is versioning that file, not
+        # attaching a sub-file — two rows sharing one name is never the intent.
+        if is_child_file and parent_file_obj and original_name == parent_file_obj.name:
+            existing_file = parent_file_obj
+        else:
+            existing_file = File.objects.filter(**file_lookup).first()
 
         if existing_file:
             # Creating a revision of existing file
