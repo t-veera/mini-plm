@@ -7,11 +7,13 @@ const COLUMN_WIDTH = 248;
 /**
  * The N-column matrix: one column per selected doc type, scrolling horizontally.
  *
- * Connectors are drawn only for the hovered card's direct parents and children. Doing
- * it on demand keeps this to a couple of measured rectangles instead of a persistent
- * layout graph, which is why no graph library is needed. Each line takes the colour of
- * its downstream end, so a red node paints every link feeding into it and a broken
- * chain reads red the whole way across.
+ * Connectors are drawn only for the active card's direct parents and children -- the one
+ * under the pointer, or the selected one once a card is clicked, so a link can be
+ * followed by scrolling without the lines disappearing the moment the pointer leaves.
+ * Doing it on demand keeps this to a couple of measured rectangles instead of a
+ * persistent layout graph, which is why no graph library is needed. Each line takes the
+ * colour of its downstream end, so a red node paints every link feeding into it and a
+ * broken chain reads red the whole way across.
  *
  * Solid line = the document says so. Dashed = someone drew it by hand. That is a line
  * STYLE difference on purpose: colour already means status, and reusing it here would
@@ -27,8 +29,14 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
     else cardRefs.current.delete(key);
   }, []);
 
+  // Hover is a preview; a click pins it. Connectors that only lived for as long as the
+  // pointer sat on the card could not be followed: the moment you moved to the scrollbar
+  // to find the other end, they vanished. A selected card keeps its connectors drawn
+  // until another is picked, so a link running off-screen can be scrolled to.
+  const activeKey = hoveredKey || selectedKey;
+
   useLayoutEffect(() => {
-    if (!hoveredKey || !contentRef.current) { setLines([]); return; }
+    if (!activeKey || !contentRef.current) { setLines([]); return; }
 
     const origin = contentRef.current.getBoundingClientRect();
     const rectOf = (key) => {
@@ -43,8 +51,8 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
     };
 
     const pairs = [
-      ...(adjacency.parents.get(hoveredKey) || []).map(parent => [parent, hoveredKey]),
-      ...(adjacency.children.get(hoveredKey) || []).map(child => [hoveredKey, child]),
+      ...(adjacency.parents.get(activeKey) || []).map(parent => [parent, activeKey]),
+      ...(adjacency.children.get(activeKey) || []).map(child => [activeKey, child]),
     ];
 
     // Two documents that each name the other produce A->B and B->A, which are two
@@ -92,13 +100,13 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
       next.push({ id: undirected, d, childKey, manual });
     });
     setLines(next);
-  }, [hoveredKey, adjacency, columns]);
+  }, [activeKey, adjacency, columns]);
 
   const related = new Set();
-  if (hoveredKey) {
-    related.add(hoveredKey);
-    (adjacency.parents.get(hoveredKey) || []).forEach(k => related.add(k));
-    (adjacency.children.get(hoveredKey) || []).forEach(k => related.add(k));
+  if (activeKey) {
+    related.add(activeKey);
+    (adjacency.parents.get(activeKey) || []).forEach(k => related.add(k));
+    (adjacency.children.get(activeKey) || []).forEach(k => related.add(k));
   }
 
   const statusByKey = new Map();
@@ -129,7 +137,7 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
           <MatrixColumn
             key={column.key}
             column={column}
-            hoveredKey={hoveredKey}
+            activeKey={activeKey}
             related={related}
             selectedKey={selectedKey}
             onHover={onHover}
@@ -142,7 +150,7 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
   );
 }
 
-function MatrixColumn({ column, hoveredKey, related, selectedKey, onHover, onSelect, registerCard }) {
+function MatrixColumn({ column, activeKey, related, selectedKey, onHover, onSelect, registerCard }) {
   return (
     <div style={{ width: `${COLUMN_WIDTH}px`, flexShrink: 0 }}>
       <div style={{
@@ -175,7 +183,7 @@ function MatrixColumn({ column, hoveredKey, related, selectedKey, onHover, onSel
             <NodeCard
               key={node.key}
               node={node}
-              dimmed={!!hoveredKey && !related.has(node.key)}
+              dimmed={!!activeKey && !related.has(node.key)}
               selected={selectedKey === node.key}
               onHover={onHover}
               onSelect={onSelect}
