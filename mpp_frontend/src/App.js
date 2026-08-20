@@ -1305,9 +1305,12 @@ function MainApp() {
       <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
         <Col xs="auto" style={{ width: '52px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
           <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0.5rem' }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: styles.borderRadius.md, background: styles.colors.darkAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>
+            <div style={{ width: '30px', height: '30px', borderRadius: styles.borderRadius.md, background: styles.colors.darkAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
               <img src={logo} alt="Mini-PLM" style={{ width: '22px', height: '22px', objectFit: 'contain', display: 'block' }} />
             </div>
+            {/* The logo is a torii, and so is every stage button below it. The rule says
+                the mark is not one of them. */}
+            <div style={{ width: '28px', height: '1px', background: styles.colors.border, marginBottom: '10px', flexShrink: 0 }} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
               {(() => {
                 const allContainers = [

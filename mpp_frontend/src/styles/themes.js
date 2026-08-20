@@ -33,9 +33,11 @@ export const THEMES = {
     success: '#059669',
     danger: '#DC2626',
 
-    // Container identity: iteration ("disc") green, stage (torii) amber
-    iteration: '#4F9B6E',
-    stage: '#FFB853',
+    // Container identity: iteration ("disc") green, stage (torii) amber. Both are pastel
+    // so they cannot be mistaken for two things they sit beside: the xlsx file icon's
+    // #1D6F42 green, and the torii logo above the rail, which shares the stage glyph.
+    iteration: '#9BDCC0',
+    stage: '#F2D8A7',
 
     // Text
     text: '#F3F4F6',
@@ -46,10 +48,10 @@ export const THEMES = {
     // hex string (`${primary}26`) cannot work once colours are CSS variables.
     primarySoft: 'rgba(107, 114, 128, 0.15)',
     primaryActive: 'rgba(107, 114, 128, 0.20)',
-    iterationSoft: 'rgba(79, 155, 110, 0.15)',
-    iterationFaint: 'rgba(79, 155, 110, 0.12)',
-    iterationEdge: 'rgba(79, 155, 110, 0.33)',
-    stageSoft: 'rgba(255, 184, 83, 0.15)',
+    iterationSoft: 'rgba(155, 220, 192, 0.15)',
+    iterationFaint: 'rgba(155, 220, 192, 0.12)',
+    iterationEdge: 'rgba(155, 220, 192, 0.33)',
+    stageSoft: 'rgba(242, 216, 167, 0.15)',
 
     hover: 'rgba(255, 255, 255, 0.06)',
     shadow: 'rgba(0, 0, 0, 0.55)',
@@ -72,11 +74,11 @@ export const THEMES = {
     success: '#047857',
     danger: '#DC2626',
 
-    // Darkened until both clear WCAG AA (4.5:1) on the light background - the brighter
-    // dark-theme green/amber measure 3.14 and 1.60 here, too low for the BOM totals and
-    // container badges that use them as text.
-    iteration: '#208047',
-    stage: '#99600F',
+    // Same hues as the dark theme's pastels, darkened until both clear WCAG AA (4.5:1) on
+    // the light background - the pastels themselves measure 1.46 and 1.29 here, nowhere
+    // near legible for the BOM totals and container badges that use them as text.
+    iteration: '#2E7D5B',
+    stage: '#8A6A28',
 
     text: '#14181F',
     textMuted: '#66707E',
@@ -84,10 +86,10 @@ export const THEMES = {
 
     primarySoft: 'rgba(100, 116, 139, 0.14)',
     primaryActive: 'rgba(100, 116, 139, 0.20)',
-    iterationSoft: 'rgba(32, 128, 71, 0.14)',
-    iterationFaint: 'rgba(32, 128, 71, 0.10)',
-    iterationEdge: 'rgba(32, 128, 71, 0.35)',
-    stageSoft: 'rgba(153, 96, 15, 0.16)',
+    iterationSoft: 'rgba(46, 125, 91, 0.14)',
+    iterationFaint: 'rgba(46, 125, 91, 0.10)',
+    iterationEdge: 'rgba(46, 125, 91, 0.35)',
+    stageSoft: 'rgba(138, 106, 40, 0.16)',
 
     hover: 'rgba(15, 23, 42, 0.05)',
     shadow: 'rgba(15, 23, 42, 0.18)',
