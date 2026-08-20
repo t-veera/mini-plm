@@ -48,6 +48,7 @@ hardware development actually works.
 
 | | Feature | What you get |
 |:--:|---|---|
+| 🔒 | **Your files stay yours** | Every upload is written to a real folder on your own server, in the structure you built. Uninstalling Mini-PLM does not touch a single one of them. |
 | ⛩ | **IIL project structure** | Iterations (I1, I2, I3) and stage gates (S1, S2, S3), numbered continuously. Every file sits in the iteration it was created in. |
 | 👁 | **Universal file preview** | STL, STEP, DXF, KiCad boards and schematics, PDF, spreadsheets, markdown, code, images. In the browser, no downloads. |
 | 🔄 | **Automatic revisions** | Upload the same filename again and it becomes v2. No more `_v2_FINAL_final.step`. |
