@@ -47,21 +47,49 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
       ...(adjacency.children.get(hoveredKey) || []).map(child => [hoveredKey, child]),
     ];
 
-    const next = [];
+    // Two documents that each name the other produce A->B and B->A, which are two
+    // separate edges but one relationship. Nothing here draws arrowheads, so both would
+    // land as identical curves between the same two cards. Collapse them and let a
+    // document-derived direction decide the style, so a hand-drawn reciprocal of a real
+    // link does not make the pair look hand-drawn.
+    const byPair = new Map();
     pairs.forEach(([parentKey, childKey]) => {
+      const undirected = parentKey < childKey ? `${parentKey}\u0000${childKey}` : `${childKey}\u0000${parentKey}`;
+      const manual = adjacency.manual.has(edgeId(parentKey, childKey));
+      const existing = byPair.get(undirected);
+      if (!existing) byPair.set(undirected, { parentKey, childKey, manual });
+      else if (existing.manual && !manual) byPair.set(undirected, { parentKey, childKey, manual });
+    });
+
+    const next = [];
+    byPair.forEach(({ parentKey, childKey, manual }, undirected) => {
       const from = rectOf(parentKey);
       const to = rectOf(childKey);
       if (!from || !to) return;
-      // Left-to-right only: a link that points backwards would cross its own column.
-      const x1 = from.right;
-      const x2 = to.left;
-      const bend = Math.max(24, Math.abs(x2 - x1) / 2);
-      next.push({
-        id: edgeId(parentKey, childKey),
-        d: `M ${x1} ${from.middle} C ${x1 + bend} ${from.middle}, ${x2 - bend} ${to.middle}, ${x2} ${to.middle}`,
-        childKey,
-        manual: adjacency.manual.has(edgeId(parentKey, childKey)),
-      });
+
+      // Leave each card on the side that faces the other one. Always exiting right and
+      // entering left assumes the parent sits in an earlier column; when it does not,
+      // that curve doubles back across the canvas as a loop that reads as noise.
+      let d;
+      if (to.left >= from.right) {
+        const x1 = from.right;
+        const x2 = to.left;
+        const bend = Math.max(24, (x2 - x1) / 2);
+        d = `M ${x1} ${from.middle} C ${x1 + bend} ${from.middle}, ${x2 - bend} ${to.middle}, ${x2} ${to.middle}`;
+      } else if (to.right <= from.left) {
+        const x1 = from.left;
+        const x2 = to.right;
+        const bend = Math.max(24, (x1 - x2) / 2);
+        d = `M ${x1} ${from.middle} C ${x1 - bend} ${from.middle}, ${x2 + bend} ${to.middle}, ${x2} ${to.middle}`;
+      } else {
+        // Same column: bulge out to the right rather than cutting through the cards
+        // stacked between the two ends.
+        const x = Math.max(from.right, to.right);
+        const bulge = 30;
+        d = `M ${x} ${from.middle} C ${x + bulge} ${from.middle}, ${x + bulge} ${to.middle}, ${x} ${to.middle}`;
+      }
+
+      next.push({ id: undirected, d, childKey, manual });
     });
     setLines(next);
   }, [hoveredKey, adjacency, columns]);
