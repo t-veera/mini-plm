@@ -1109,11 +1109,25 @@ function MainApp() {
     hideContextMenu();
     const newName = await showInputModal('Rename File', 'Enter new file name', fileObj.name);
     if (!newName || newName === fileObj.name) return;
+    // One filename per stage/iteration, whatever folder it lives in. Warn before the
+    // round-trip rather than surfacing a bare server error, and name the route the user
+    // actually wants: uploading over the existing file versions it.
+    const containerKey = `${fileObj.container_type}_${fileObj.container_db_id}`;
+    const clash = (prod.filesByContainer?.[containerKey] || [])
+      .find(f => f.id !== fileObj.id && !f.is_child_file && f.name === newName);
+    if (clash) {
+      await showConfirm(
+        `"${newName}" already exists in this stage/iteration, so this rename can't go through — ` +
+        `names have to be unique here. To add this file's contents as a new version of ` +
+        `"${newName}", upload it over that file instead.`
+      );
+      return;
+    }
     try {
       const response = await authenticatedFetch(`/api/files/${fileObj.id}/`, { method: 'PATCH', body: JSON.stringify({ name: newName }) });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || (Array.isArray(err.name) ? err.name[0] : 'Rename failed'));
+        throw new Error(err.error || err.non_field_errors?.[0] || (Array.isArray(err.name) ? err.name[0] : 'Rename failed'));
       }
       // Persisted on the File record; reflect it in the list/preview immediately.
       updateFile(fileObj.id, { name: newName });

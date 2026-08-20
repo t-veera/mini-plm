@@ -358,6 +358,26 @@ class FileSerializer(serializers.ModelSerializer):
                 if folder.content_type_id != self.instance.content_type_id or folder.object_id != self.instance.object_id:
                     raise serializers.ValidationError("Folder must be in the same stage/iteration as the file.")
 
+            # A filename identifies one file within a stage/iteration, whatever folder it
+            # sits in -- uploading that name versions the file already holding it. A rename
+            # is the one path that could still mint a second row under an existing name,
+            # which would leave later uploads with two candidates. Refuse it, and point at
+            # the upload that does what the user is actually after.
+            new_name = data.get('name')
+            if new_name and new_name != self.instance.name and not self.instance.parent_file_id:
+                clash = File.objects.filter(
+                    name=new_name,
+                    content_type_id=self.instance.content_type_id,
+                    object_id=self.instance.object_id,
+                    parent_file__isnull=True,
+                ).exclude(pk=self.instance.pk).exists()
+                if clash:
+                    raise serializers.ValidationError(
+                        '"%s" already exists in this stage/iteration. Upload your file over '
+                        'that one to add it as a new version, instead of renaming this into '
+                        'a duplicate.' % new_name
+                    )
+
         return data
 
     def create(self, validated_data):
