@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../logo.png';
 import './LoginPage.css';
 
 const LoginPage = () => {
@@ -32,7 +33,7 @@ const LoginPage = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">mP</div>
+          <img src={logo} alt="Mini-PLM" className="login-logo" />
           <h1 className="login-title">Welcome Back</h1>
           <p className="login-subtitle">Login to Mini PLM</p>
         </div>
