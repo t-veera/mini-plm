@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Toast, ToastContainer, Spinner, Form } from 'react-bootstrap';
 import { FaToriiGate, FaDrumSteelpan, FaDownload } from 'react-icons/fa';
