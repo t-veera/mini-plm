@@ -1,12 +1,13 @@
 """Assemble the graph for a product as of one container in the continuous IIL order.
 
-Reads the index, applies container inheritance, then hands the result to status.py.
-Shared by the read endpoint and the parse_traceability command so both see exactly the
-same graph.
+Reads the index for that container alone, then hands the result to status.py. Shared by
+the read endpoint and the parse_traceability command so both see exactly the same graph.
+
+Containers do not inherit from one another: what a container shows is what was uploaded
+into it. See build_graph for why.
 """
 from .containers import display_name, list_containers, ordinal_by_key
 from .extract import canonical
-from .inherit import resolve_effective_containers
 from .status import compute_statuses
 
 # Upstream -> downstream. Used for stable ordering and for tie-breaking when two doc
@@ -33,16 +34,13 @@ def build_graph(product, scope_container, containers=None):
         if node.source_container_key in ordinals
     ]
 
-    effective = resolve_effective_containers(
-        ((node.node_type, node.source_container_key, ordinals[node.source_container_key])
-         for node in candidates),
-        scope_ordinal,
-    )
-
-    resolved = [
-        node for node in candidates
-        if effective.get(node.node_type, (None, None))[0] == node.source_container_key
-    ]
+    # Each container stands on its own. An iteration's scope routinely diverges from the
+    # one before it -- requirements dropped, a different direction taken -- so borrowing an
+    # earlier container's documents presents superseded content as if it were current,
+    # which is worse than showing nothing. A doc type with nothing indexed in this
+    # container gets an empty column until its file is uploaded here.
+    resolved = [node for node in candidates if node.source_container_key == scope_container.key]
+    effective = {node.node_type: (scope_container.key, scope_ordinal) for node in resolved}
     resolved.sort(key=lambda node: (_doc_rank(node.node_type), node.tag_id))
 
     # Only the resolved files' edges apply: an older doc that lost to a newer one must

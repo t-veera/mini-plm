@@ -6,9 +6,12 @@ Module map:
     sheets.py    the same, for a test-protocol spreadsheet: rows in, Line records out
     links.py     reference semantics: "satisfies R001", "traces to" columns
     parse.py     write side: one file -> TraceNode/TraceEdge rows
-    inherit.py   which iteration supplies each doc type at a given scope
     status.py    GREEN/YELLOW/RED from nodes + edges
-    graph.py     read side: resolved nodes + edges + statuses for one iteration
+    graph.py     read side: nodes + edges + statuses for one container
+
+A container shows only what was uploaded into it. There is deliberately no inheritance
+between containers: an iteration's scope diverges from the one before it, so showing an
+earlier container's documents would present superseded content as current.
 
 parse.py and graph.py are the only modules that touch the database. The rest is pure
 Python with no Django imports, so the parsing and graph rules behave identically on
