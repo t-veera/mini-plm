@@ -773,7 +773,10 @@ function MainApp() {
         const dataUrl = await readFileAsDataUrl(file);
         const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
         addUploadedFileToState(savedFile, dataUrl, containerKey);
-        return { ...savedFile, dataUrl };
+        // 200 means the backend skipped a byte-identical upload; 201 means it stored one.
+        // Callers need the difference or they report "uploaded" for a file that did not
+        // change and produced no new revision.
+        return { file: { ...savedFile, dataUrl }, skipped: response.status === 200 };
       } catch (err) {
         lastErr = err;
         if (i < attempts - 1) await new Promise(r => setTimeout(r, 300 * (i + 1)));
@@ -791,7 +794,7 @@ function MainApp() {
     setIsLoading(true);
     try {
       let last = null;
-      for (const file of files) last = await uploadOneFile(file, targetFolderId);
+      for (const file of files) ({ file: last } = await uploadOneFile(file, targetFolderId));
       if (last) setSelectedFileObj(last);
       if (targetFolderId) refreshFolders(); // refresh file counts on the target folder
       if (files.length === 1 && last) {
@@ -836,6 +839,7 @@ function MainApp() {
     setIsLoading(true);
     setDropUpload({ active: true, done: 0, total: entries.length });
     let ok = 0;
+    let skipped = 0; // byte-identical, so the backend stored nothing
     let failed = 0;
     let last = null;
     try {
@@ -865,13 +869,15 @@ function MainApp() {
           const parts = relativePath.split('/');
           const fullDir = parts.slice(0, -1).join('/'); // '' for a top-level file
           const folderId = await ensureFolder(fullDir);
-          last = await uploadOneFile(file, folderId, true);
-          ok += 1;
+          const res = await uploadOneFile(file, folderId, true);
+          last = res.file;
+          if (res.skipped) skipped += 1;
+          else ok += 1;
         } catch (err) {
           failed += 1;
           console.error(`Upload failed for ${relativePath}:`, err);
         }
-        setDropUpload({ active: true, done: ok + failed, total: entries.length });
+        setDropUpload({ active: true, done: ok + skipped + failed, total: entries.length });
       }
     } finally {
       if (last) setSelectedFileObj(last);
@@ -880,7 +886,13 @@ function MainApp() {
       await loadContainerFiles(container, containerType, true);
       setIsLoading(false);
       setDropUpload({ active: false, done: 0, total: 0 });
-      setToastMsg(`Uploaded ${ok} file${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`);
+      // Say what actually happened. Counting a skipped identical file as "uploaded" is how
+      // a drop reports success while nothing appears and no version number moves.
+      const parts = [];
+      if (ok) parts.push(`Uploaded ${ok} file${ok === 1 ? '' : 's'}`);
+      if (skipped) parts.push(`${skipped} unchanged, nothing to version`);
+      if (failed) parts.push(`${failed} failed`);
+      setToastMsg(parts.length ? parts.join(' — ') : 'Nothing uploaded');
     }
   }
 
@@ -962,18 +974,28 @@ function MainApp() {
       const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
       const childFileObj = { ...savedChildFile, dataUrl };
       const containerKey = `${prod.containerType}_${prod.selectedContainer.id}`;
+      // '+' carrying the parent's own filename versions that file instead of attaching a
+      // sub-file, so the response is the parent itself. Update it in place: appending it
+      // would list the row twice and make the file its own child, under a duplicate key.
+      const versionedParent = savedChildFile.id === parentFileForChild.id;
       setProducts(prev => {
         const updated = [...prev];
         const updatedProd = { ...updated[selectedProductIndex], filesByContainer: { ...updated[selectedProductIndex].filesByContainer } };
-        const files = [...(updatedProd.filesByContainer[containerKey] || []), childFileObj];
-        const parentIdx = files.findIndex(f => f.id === parentFileForChild.id && !f.is_child_file);
-        if (parentIdx !== -1) files[parentIdx] = { ...files[parentIdx], child_files: [...(files[parentIdx].child_files || []), childFileObj] };
+        const base = updatedProd.filesByContainer[containerKey] || [];
+        const files = versionedParent ? [...base] : [...base, childFileObj];
+        if (versionedParent) {
+          const idx = files.findIndex(f => f.id === parentFileForChild.id);
+          if (idx !== -1) files[idx] = { ...files[idx], ...childFileObj };
+        } else {
+          const parentIdx = files.findIndex(f => f.id === parentFileForChild.id && !f.is_child_file);
+          if (parentIdx !== -1) files[parentIdx] = { ...files[parentIdx], child_files: [...(files[parentIdx].child_files || []), childFileObj] };
+        }
         updatedProd.filesByContainer[containerKey] = files;
         updated[selectedProductIndex] = updatedProd;
         return updated;
       });
       setSelectedFileObj(childFileObj);
-      setToastMsg(`Child file "${file.name}" added`);
+      setToastMsg(versionedParent ? `Rev ${savedChildFile.current_revision} created` : `Child file "${file.name}" added`);
       setTimeout(() => { setCurrentFileForModal(childFileObj); setTempChangeDescription(''); setShowChangeDescriptionModal(true); }, 100);
     } catch (err) { setToastMsg(`Child upload error: ${err.message}`); }
     finally { setIsLoading(false); e.target.value = ''; setParentFileForChild(null); }

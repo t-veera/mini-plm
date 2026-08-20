@@ -431,10 +431,14 @@ function FileList({
                   onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >{label}</div>
               ))}
-              <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
+              {/* Fixed white, not a theme text token: `danger` is the same red in both
+                  themes, while text.dark (textInverse) is near-black in dark mode -- which
+                  made this label unreadable on the red. Hover restores the token on exit so
+                  the row doesn't settle on a slightly different red than it started. */}
+              <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: '#FFFFFF', backgroundColor: styles.colors.danger }}
                 onClick={onRemoveOption}
-                onMouseOver={e => e.currentTarget.style.backgroundColor = '#c82333'}
-                onMouseOut={e => e.currentTarget.style.backgroundColor = '#dc3545'}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#B91C1C'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = styles.colors.danger}
               >Remove</div>
             </>
           )}
