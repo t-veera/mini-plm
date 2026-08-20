@@ -513,6 +513,22 @@ class FileViewSet(viewsets.ModelViewSet):
         else:
             existing_file = File.objects.filter(**file_lookup).first()
 
+        # An upload that wasn't aimed at a folder — dropped on the list background, or the
+        # toolbar button with no folder selected — sends no `folder`, so the lookup above
+        # only sees container root. When the file it should have versioned lives in a
+        # folder, that produced a second copy at root instead of a new revision. Fall back
+        # to the same-named file elsewhere in this container, but only when there is
+        # exactly one: two same-named files in different folders stay separate files.
+        if existing_file is None and folder_obj is None and not is_child_file:
+            candidates = list(File.objects.filter(
+                name=original_name,
+                content_type=content_type,
+                object_id=container_object.id,
+                parent_file__isnull=True,
+            )[:2])
+            if len(candidates) == 1:
+                existing_file = candidates[0]
+
         if existing_file:
             # Creating a revision of existing file
             logger.debug(f"Creating revision for existing file: {existing_file.name}")
