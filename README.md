@@ -36,7 +36,7 @@ hardware development actually works.
 
 ## Contents
 
-**Getting started** · [Installation](#installation) · [Live Demo](#live-demo) · [Self-hosting notes](#self-hosting-notes)
+**Getting started** · [Installation](#installation) · [Opening it for the first time](#opening-it-for-the-first-time) · [Day to day](#day-to-day) · [Uninstalling](#uninstalling) · [Live Demo](#live-demo) · [Self-hosting notes](#self-hosting-notes)
 
 **Understanding it** · [Why this exists](#why-this-exists) · [The Integrated Innovation Lifecycle](#the-integrated-innovation-lifecycle) · [Features](#features)
 
@@ -179,6 +179,72 @@ Each installer asks for a port (default `8080`) and the IP address people will r
 created, and it is readable with or without Mini-PLM running. The database (revision metadata,
 users, BOM figures) lives in a Docker named volume. See [Self-hosting notes](#self-hosting-notes)
 for how to dump it.
+
+---
+
+### Opening it for the first time
+
+**There is no application to launch and no icon to click.** Mini-PLM is a web app that runs in the
+background as Docker containers. You use it through a browser.
+
+1. **Open your browser** at the address the installer printed when it finished. With the defaults
+   that is <http://localhost:8080>. If you gave it a server IP, use `http://YOUR-SERVER-IP:8080`
+   instead, and anyone on the same network can open that same address.
+2. **Create the admin account.** On the very first visit you get a setup wizard instead of a login
+   screen. Fill it in and that becomes your administrator account.
+3. **Log in.** From then on the same address shows the normal login screen.
+
+If the page doesn't load, Docker is usually still starting. Give it thirty seconds and refresh.
+
+### Day to day
+
+Mini-PLM starts itself with your machine. All four containers are set to `restart: unless-stopped`,
+so once Docker is running they come back on their own after a reboot. On Windows and macOS, make
+sure Docker Desktop is set to start at login, since nothing runs while Docker is closed.
+
+To control it by hand, open a terminal in your install directory (see the table above) and use:
+
+```bash
+docker compose -f docker-compose-prod.yml ps       # is it running?
+docker compose -f docker-compose-prod.yml stop     # stop it
+docker compose -f docker-compose-prod.yml start    # start it again
+docker compose -f docker-compose-prod.yml restart  # restart it
+docker compose -f docker-compose-prod.yml logs -f  # watch the logs
+```
+
+You can also see and control the containers from the Docker Desktop dashboard, grouped under
+`mini-plm`.
+
+### Uninstalling
+
+Run these from your install directory. **Your uploaded files are never touched by any of them**,
+because `mpp_files` is a plain folder on your disk rather than something Docker owns.
+
+**1. Stop and remove the containers.** This keeps your database.
+
+```bash
+docker compose -f docker-compose-prod.yml down
+```
+
+**2. Remove the images**, if you want the disk space back.
+
+```bash
+docker rmi ghcr.io/t-veera/mini-plm:main-backend ghcr.io/t-veera/mini-plm:main-frontend
+docker rmi nginx:alpine postgres:13-alpine
+```
+
+**3. Delete the database.** Only do this if you are sure. It permanently removes revision history,
+users, quantities and prices.
+
+```bash
+docker compose -f docker-compose-prod.yml down -v
+```
+
+**4. Delete the install directory** once you have copied `mpp_files` somewhere safe.
+
+> **Copy `mpp_files` out before you delete the folder.** It holds every file you ever uploaded, in
+> the folder structure you built, and it opens in any file manager without Mini-PLM. Step 4 is the
+> only step in this list that can lose your work.
 
 ---
 
