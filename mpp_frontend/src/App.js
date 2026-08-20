@@ -3,6 +3,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Row, Col, Toast, ToastContainer, Spinner, Form } from 'react-bootstrap';
 import { FaToriiGate, FaDrumSteelpan, FaDownload } from 'react-icons/fa';
 
+import logo from './logo.png';
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SetupWizard from './components/SetupWizard';
 import LoginPage from './components/Auth/LoginPage';
@@ -1303,7 +1305,9 @@ function MainApp() {
       <Row className="g-0 m-0" style={{ height: '100%', maxWidth: '100%' }}>
         <Col xs="auto" style={{ width: '52px', background: styles.colors.dark, padding: 0, borderRight: `1px solid ${styles.colors.border}` }}>
           <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '0.5rem' }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: styles.borderRadius.md, background: styles.colors.darkAlt, color: styles.colors.text.light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.5px', marginBottom: '14px' }}>mP</div>
+            <div style={{ width: '30px', height: '30px', borderRadius: styles.borderRadius.md, background: styles.colors.darkAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px' }}>
+              <img src={logo} alt="Mini-PLM" style={{ width: '22px', height: '22px', objectFit: 'contain', display: 'block' }} />
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
               {(() => {
                 const allContainers = [
