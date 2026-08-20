@@ -265,6 +265,38 @@ docker compose -f docker-compose-prod.yml logs -f  # watch the logs
 You can also see and control the containers from the Docker Desktop dashboard, grouped under
 `mini-plm`.
 
+### Changing settings
+
+Everything configurable lives in one file: **`docker-compose-prod.yml`, in the directory you chose
+during install.** Ports, the address the app trusts, the database password, HTTPS cookies. It is
+plain text, so any editor opens it.
+
+Forgotten where you installed? The installer wrote it down:
+
+```bash
+cat ~/.config/mini-plm/location                      # Linux, macOS, Synology
+```
+```powershell
+Get-Content "$env:APPDATA\mini-plm\location.txt"     # Windows
+```
+
+Backend settings sit under `backend:` → `environment:` as a list of `- NAME=value` lines. Keep the
+indentation identical to its neighbours, since YAML is whitespace-sensitive.
+
+After editing, run this from the same directory:
+
+```bash
+docker compose -f docker-compose-prod.yml up -d
+```
+
+Use `up -d`, **not `restart`**. Environment variables are read when a container is created, so a
+restart re-runs the old values and appears to do nothing. `up -d` notices the file changed and
+recreates the container, leaving your data alone.
+
+The most common edit is `CSRF_TRUSTED_ORIGINS`, which has to list the exact address in your
+browser's bar, scheme and port included, or login returns a 403. Full details, including custom
+domains and HTTPS, are on the [Configuration wiki page](https://github.com/t-veera/mini-plm/wiki/Configuration).
+
 ### Uninstalling
 
 Run these from your install directory. **Your uploaded files are never touched by any of them**,
