@@ -4,11 +4,32 @@
 
 set -e
 
-INSTALL_DIR="/volume1/docker/mini-plm"
+LOCATION_FILE="$HOME/.config/mini-plm/location"
 
 echo "=== Mini-PLM Updater ==="
 echo ""
 
+# Read where install.sh put things. Installs from before the location prompt have
+# no marker file, so fall back to the old fixed default.
+if [ -f "$LOCATION_FILE" ]; then
+    INSTALL_DIR="$(cat "$LOCATION_FILE")"
+else
+    INSTALL_DIR="/volume1/docker/mini-plm"
+fi
+
+if [ ! -f "$INSTALL_DIR/docker-compose-prod.yml" ]; then
+    echo "No Mini-PLM install found at $INSTALL_DIR"
+    read -p "    Enter your Mini-PLM directory: " INSTALL_DIR </dev/tty
+    INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
+    if [ ! -f "$INSTALL_DIR/docker-compose-prod.yml" ]; then
+        echo "    Still no docker-compose-prod.yml there. Stopping."
+        exit 1
+    fi
+    mkdir -p "$(dirname "$LOCATION_FILE")"
+    printf '%s\n' "$INSTALL_DIR" > "$LOCATION_FILE"
+fi
+
+echo "Updating the install at $INSTALL_DIR"
 cd "$INSTALL_DIR"
 
 echo "[1/3] Stopping containers..."

@@ -3,11 +3,31 @@
 
 $ErrorActionPreference = "Stop"
 
-$INSTALL_DIR = "$HOME\mini-plm"
+$LOCATION_FILE = "$env:APPDATA\mini-plm\location.txt"
 
 Write-Host "=== Mini-PLM Updater ===" -ForegroundColor Cyan
 Write-Host ""
 
+# Read where install.ps1 put things. Installs from before the location prompt have
+# no marker file, so fall back to the old fixed default.
+if (Test-Path $LOCATION_FILE) {
+    $INSTALL_DIR = (Get-Content $LOCATION_FILE -Raw).Trim()
+} else {
+    $INSTALL_DIR = "$HOME\mini-plm"
+}
+
+if (-not (Test-Path "$INSTALL_DIR\docker-compose-prod.yml")) {
+    Write-Host "No Mini-PLM install found at $INSTALL_DIR" -ForegroundColor Yellow
+    $INSTALL_DIR = (Read-Host "    Enter your Mini-PLM directory").Trim('"').Trim()
+    if (-not (Test-Path "$INSTALL_DIR\docker-compose-prod.yml")) {
+        Write-Host "    Still no docker-compose-prod.yml there. Stopping." -ForegroundColor Red
+        exit 1
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path $LOCATION_FILE) | Out-Null
+    Set-Content -Path $LOCATION_FILE -Value $INSTALL_DIR -Encoding utf8
+}
+
+Write-Host "Updating the install at $INSTALL_DIR"
 Set-Location $INSTALL_DIR
 
 Write-Host "[1/3] Stopping containers..."

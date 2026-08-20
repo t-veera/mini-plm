@@ -3,17 +3,34 @@
 
 $ErrorActionPreference = "Stop"
 
-$INSTALL_DIR = "$HOME\mini-plm"
+$DEFAULT_DIR = "$HOME\mini-plm"
+# Remembered so update.ps1 can find a non-default install without asking again.
+$LOCATION_FILE = "$env:APPDATA\mini-plm\location.txt"
 
 Write-Host "=== Mini-PLM Installer ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Create directory structure
-Write-Host "[1/4] Creating directories..."
-New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\mpp_files" | Out-Null
-New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\nginx\conf" | Out-Null
+# Choose where everything lives. This directory holds your uploaded files, so it
+# does not have to sit on C: -- point it at D:\mini-plm or any other drive with room.
+Write-Host "[1/4] Choosing install location..."
+$INSTALL_DIR = Read-Host "    Where should Mini-PLM keep its files? (default: $DEFAULT_DIR)"
+if (-not $INSTALL_DIR) { $INSTALL_DIR = $DEFAULT_DIR }
+$INSTALL_DIR = $INSTALL_DIR.Trim('"').Trim()
+
+try {
+    New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\mpp_files" -ErrorAction Stop | Out-Null
+    New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\nginx\conf" -ErrorAction Stop | Out-Null
+} catch {
+    Write-Host "    Cannot create $INSTALL_DIR. Check the path and your permissions." -ForegroundColor Red
+    Write-Host "    $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 
 Set-Location $INSTALL_DIR
+$INSTALL_DIR = (Get-Location).Path   # store the absolute path, not whatever was typed
+New-Item -ItemType Directory -Force -Path (Split-Path $LOCATION_FILE) | Out-Null
+Set-Content -Path $LOCATION_FILE -Value $INSTALL_DIR -Encoding utf8
+Write-Host "    Installing to $INSTALL_DIR"
 
 # Download repo
 Write-Host "[2/4] Downloading Mini-PLM..."
@@ -59,6 +76,17 @@ docker compose -f docker-compose-prod.yml up -d
 
 Write-Host ""
 Write-Host "=== Done! ===" -ForegroundColor Green
-Write-Host "Open your browser and go to: http://$SERVER_IP`:$PORT"
-Write-Host "The setup wizard will guide you through creating your admin account."
+Write-Host ""
+Write-Host "There is no app to launch. Mini-PLM runs in the background and you use it"
+Write-Host "in a browser."
+Write-Host ""
+Write-Host "    Open:  http://$SERVER_IP`:$PORT" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "The first visit shows a setup wizard for creating your admin account."
+Write-Host "It restarts with your machine, so you do not need to run this again."
+Write-Host "(Docker Desktop must be set to start at login.)"
+Write-Host ""
+Write-Host "Your files:  $INSTALL_DIR\mpp_files    (this is the directory to back up)"
+Write-Host "To stop:     cd `"$INSTALL_DIR`"; docker compose -f docker-compose-prod.yml stop"
+Write-Host "To start:    cd `"$INSTALL_DIR`"; docker compose -f docker-compose-prod.yml start"
 
