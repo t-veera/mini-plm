@@ -1,23 +1,44 @@
+<div align="center">
+
 # Mini-PLM
 
-**Self-hosted product lifecycle management built on a methodology I developed over 10 years of shipping hardware products. Built for R&D teams, NPD teams, and hardware hobbyists working across firmware, electronics, and mechanical. The ones currently holding everything together with shared drives, spreadsheets, and Slack threads. No subscriptions, no cloud lock-in, and a structure that actually reflects how cross-domain hardware development works. If Mini-PLM disappears tomorrow, your files, your revision history, and your entire iteration structure are still sitting exactly where you put them on your own storage.**
+**Self-hosted product lifecycle management for hardware teams.**
 
-**[Live Demo](https://demo.mini-plm.com)** · **[Documentation](https://github.com/t-veera/mini-plm/wiki)** · **[Substack](https://tveera.substack.com)**
+Built on a methodology developed over 10 years of shipping hardware products, for R&D teams,
+NPD teams and hardware hobbyists working across firmware, electronics and mechanical — the ones
+currently holding it together with shared drives, spreadsheets and Slack threads.
+No subscriptions, no cloud lock-in, and a structure that reflects how cross-domain
+hardware development actually works.
+
+[![Build](https://img.shields.io/github/actions/workflow/status/t-veera/mini-plm/docker-publish.yml?branch=main&label=build&logo=github)](https://github.com/t-veera/mini-plm/actions/workflows/docker-publish.yml)
+[![License](https://img.shields.io/github/license/t-veera/mini-plm?color=blue)](LICENSE)
+[![Container](https://img.shields.io/badge/ghcr.io-mini--plm-2496ED?logo=docker&logoColor=white)](https://github.com/t-veera/mini-plm/pkgs/container/mini-plm)
+[![Stars](https://img.shields.io/github/stars/t-veera/mini-plm?color=f5c518)](https://github.com/t-veera/mini-plm/stargazers)
+
+**[Live Demo](https://demo.mini-plm.com)** · **[Documentation](https://github.com/t-veera/mini-plm/wiki)** · **[Methodology](https://tveera.substack.com)**
+
+</div>
 
 ---
 
-## Table of Contents
+> ### Your data outlives the tool
+>
+> Your files, their revision history, and the exact folder structure you built all live on your
+> own disk, as ordinary folders with the names you gave them. If Mini-PLM disappeared tomorrow —
+> if this project stopped, or you simply decided it wasn't for you — you would open the folder and
+> find everything precisely where you filed it. No export to run first, no proprietary format to
+> unpick, nothing to negotiate with anyone. The tool is disposable on purpose; your work was never
+> inside it.
 
-1. [Installation](#installation)
-2. [Why this exists](#why-this-exists)
-3. [The Integrated Innovation Lifecycle](#the-integrated-innovation-lifecycle)
-4. [Features](#features)
-5. [Live Demo](#live-demo)
-6. [A note on how this was built](#a-note-on-how-this-was-built)
-7. [Tech stack](#tech-stack)
-8. [Roadmap](#roadmap)
-9. [Self-hosting notes](#self-hosting-notes)
-10. [Contributing](#contributing)
+---
+
+## Contents
+
+**Getting started** — [Installation](#installation) · [Live Demo](#live-demo) · [Self-hosting notes](#self-hosting-notes)
+
+**Understanding it** — [Why this exists](#why-this-exists) · [The Integrated Innovation Lifecycle](#the-integrated-innovation-lifecycle) · [Features](#features)
+
+**Under the hood** — [Tech stack](#tech-stack) · [How this was built](#a-note-on-how-this-was-built) · [Roadmap](#roadmap) · [Contributing](#contributing)
 
 ---
 
@@ -25,7 +46,17 @@
 
 ### Prerequisites
 
-[Docker Desktop](https://docs.docker.com/get-docker/) must be installed before running any of the scripts below. That link will take you to the installer for your operating system.
+| | Requirement |
+|---|---|
+| **Docker** | [Docker Desktop](https://docs.docker.com/get-docker/) on macOS and Windows. On a Linux server, Docker Engine with the Compose plugin is enough — Desktop is not required. |
+| **Python 3** | Used by the installer to unpack the release and generate your `SECRET_KEY`. Preinstalled on macOS, most Linux distributions, and Synology DSM. On Windows, install it from [python.org](https://www.python.org/downloads/) and tick **Add python.exe to PATH**. |
+| **curl** | Linux, macOS and Synology only. Preinstalled nearly everywhere. |
+
+> **Windows note:** run `python --version` first. If it opens the Microsoft Store instead of printing a version, the App Execution Alias is shadowing a real install — turn it off under *Settings → Apps → Advanced app settings → App execution aliases*, or the installer cannot generate a secret key.
+
+Everything else — PostgreSQL, Nginx, and the app itself — runs in containers pulled from
+[GHCR](https://github.com/t-veera/mini-plm/pkgs/container/mini-plm). Nothing is installed
+system-wide, and no account or token is needed: the images are public.
 
 ---
 
@@ -47,12 +78,12 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/linux/
 
 **Install:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/mac/install.sh | bash
 ```
 
 **Update:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/macos/update.sh | bash
+curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/mac/update.sh | bash
 ```
 
 ---
@@ -91,7 +122,20 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synolo
 
 ---
 
-Each installer will ask for a port number and your server's IP address, then handle the rest. Once it finishes, open the address in your browser and the setup wizard will walk you through creating your admin account.
+Each installer asks for a port (default `8080`) and the IP address people will reach the server on, generates a fresh `SECRET_KEY`, pulls the images and starts everything. When it finishes, open that address and the setup wizard walks you through creating the admin account.
+
+**Where it lands:**
+
+| Platform | Install directory | Your files |
+|---|---|---|
+| Linux / macOS | `~/mini-plm` | `~/mini-plm/mpp_files` |
+| Windows | `%USERPROFILE%\mini-plm` | `%USERPROFILE%\mini-plm\mpp_files` |
+| Synology NAS | `/volume1/docker/mini-plm` | `/volume1/docker/mini-plm/mpp_files` |
+
+`mpp_files` is the directory to back up. It holds every uploaded file in the folder structure you
+created, and it is readable with or without Mini-PLM running. The database (revision metadata,
+users, BOM figures) lives in a Docker named volume — see [Self-hosting notes](#self-hosting-notes)
+for how to dump it.
 
 ---
 
@@ -100,10 +144,15 @@ Each installer will ask for a port number and your server's IP address, then han
 ```bash
 git clone https://github.com/t-veera/mini-plm.git
 cd mini-plm
-docker compose -f docker-compose-dev.yml up --build
+docker compose up --build
 ```
 
-The dev compose uses bind mounts and runs Django with `runserver`. Changes reload without rebuilding.
+`docker-compose.yml` and `docker-compose.override.yml` are merged automatically — no `-f` flag
+needed. This builds the images locally instead of pulling them, bind-mounts the source, and puts
+Nginx in front so the app is on <http://localhost>.
+
+The React frontend hot-reloads on save. The Django backend runs under gunicorn, so Python changes
+need `docker compose restart backend` to take effect.
 
 ---
 
@@ -119,7 +168,9 @@ I spent 10 years shipping hardware products across embedded systems and automati
 
 **Mini-PLM is for the zero-to-production phase.** R&D teams, NPD groups, and hardware hobbyists working across firmware, electronics, and mechanical in parallel. People who don't have time to manage a formal enterprise system, and where the decisions made in the first few iterations shape everything that follows.
 
-There is one more thing that none of the SaaS alternatives can offer. Because Mini-PLM runs on your own server, your files live on your storage. Your revision history lives on your storage. Your entire iteration structure lives on your storage. If Mini-PLM shuts down tomorrow, if the company behind it pivots, if you just decide to stop using it, nothing is lost. You open the folder and everything is still there. That is not something you can say about any cloud PLM tool.
+There is one more thing no SaaS alternative can offer. Mini-PLM runs on your own server, so your files, their revision history, and the structure you filed them into all live on your storage — as ordinary folders on an ordinary disk, named the way you named them.
+
+That matters most on the day you stop caring about Mini-PLM. If this project shuts down tomorrow, if I lose interest, if you simply decide it isn't for you, none of it touches your work. You open the folder and everything is exactly where you put it, nested exactly as you arranged it, readable by any tool that can open a file. There is no export to run before you leave, no proprietary format to unpick, and nothing to negotiate with anyone. The tool is disposable on purpose; your data was never inside it. That is not something you can say about a cloud PLM.
 
 ---
 
@@ -169,7 +220,13 @@ A cost view scoped to the iteration you're standing in, so you can see what a gi
 
 **Traceability matrix**
 
-Requirements traced from PRD through architecture, risk, specification, verification and validation — built by reading the markdown you already write. Document type comes from the filename (`PRD.md`, `Architecture.md`, `FMEA.md`, `001_Requirements.md`, `001_Test_Protocol.md`), and items are indexed from IDs written at the head of a line or in the first column of a table. Nothing to configure and no new syntax; a file matching none of the known types is skipped, which is how README and meeting notes stay out of the matrix. Coverage is inherited along the iteration/stage order, so a requirement verified in I3 stays verified at S1. See [AUTHORING.md](files/traceability/AUTHORING.md) for the rules the parser follows.
+Requirements traced from PRD through architecture, risk, specification, verification and validation — built by reading the markdown you already write. Document type comes from the filename (`PRD.md`, `Architecture.md`, `FMEA.md`, `001_Requirements.md`, `001_Test_Protocol.md`), and items are indexed from IDs written at the head of a line or in the first column of a table. Nothing to configure and no new syntax; a file matching none of the known types is skipped, which is how README and meeting notes stay out of the matrix. A container shows only what was uploaded into it — there is deliberately no inheritance from earlier containers, because an iteration's scope diverges from the one before it and showing superseded requirements as current is a worse failure than an empty column. See [AUTHORING.md](files/traceability/AUTHORING.md) for the rules the parser follows.
+
+Hover a card to trace its connectors, or click to pin them so you can scroll to where a link lands without the lines disappearing under the pointer. Clicking opens an inspector with the item's lineage, source excerpt and full document; Escape or a click on empty canvas closes it. Where the parser genuinely can't infer a link, **Link to…** finds any other item by ID or title — click a result or drive the list with ↑ ↓ and Enter — and hand-drawn links render dashed so they stay distinguishable from the ones your documents declare.
+
+**One workspace, three dashboards**
+
+Files, BOM and Traceability share a toolbar and a resizable left panel that stays the width you left it when you switch between them. When the panel is in the way — a wide BOM table, a matrix running off the edge — the expand control in the top right of any of the three hands the whole window to the content, and gives the panel back when you're done.
 
 **Light and dark themes**
 
@@ -222,7 +279,7 @@ The next five milestones, in build order.
 **1. Fix Dashboard 3 — Traceability Matrix**
 
 - [ ] **Doc-type detection coverage:** filename keyword matching misses real-world document names, which then land as unmatched and never reach the matrix. Broaden the keyword set, make deliberate exclusions explicit, and surface unmatched files in the UI instead of only in the server log.
-- [ ] **Edge connections and link parsing:** documents that index correctly but produce no connections between them. Improve reference detection across markdown and spreadsheets, and make manual linking easier where the parser genuinely can't infer a link.
+- [ ] **Edge connections and link parsing:** documents that index correctly but produce no connections between them. Improve reference detection across markdown and spreadsheets. Manual linking is the fallback and is now quick — search, then click or press Enter — so this is about the parser inferring more of them unaided.
 
 **2. Complete Dashboard 4 — Release Gate Control**
 
@@ -256,6 +313,9 @@ Wanted, but not blocking the sequence above.
 
 **Done:**
 
+- [x] **Full-width toggle:** collapse the left panel from the top right of the Files, BOM or Traceability view so wide tables and the matrix get the whole window, and restore it in the same place.
+- [x] **Manual traceability links by search:** find any item by ID or title and link it by click, or by ↑ ↓ and Enter without leaving the keyboard. Hand-drawn links stay dashed so they read differently from parsed ones.
+- [x] **Readable matrix connectors:** connectors persist when a card is clicked so a link can be followed by scrolling, two documents naming each other draw one line rather than two, and links pointing back across the columns no longer loop over the canvas.
 - [x] **Dynamic Iterative BOM:** iteration-scoped cost dashboard with Electronics/Mechanical/Misc bins, spreadsheet extraction that locates the header row inside real BOM exports, row-level categories read from the sheet, missing-price tally, per-table subtotals, iteration total, and CSV export.
 - [x] **Traceability matrix:** PRD → architecture → risk → spec → verification → validation, indexed from the markdown you already write, scoped to the iteration or stage you're viewing.
 - [x] **Light and dark themes:** switchable from the user menu, driven by one CSS-variable token set, persisted, defaulting to the OS preference, with WCAG AA contrast in light mode.

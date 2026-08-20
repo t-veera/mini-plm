@@ -222,13 +222,20 @@ leaves the whole column red, because nothing upstream claims them.
 
 ## 6. Where documents live
 
-Upload a doc into the stage or iteration it belongs to. The matrix walks the continuous
-IIL order — `I1 → I2 → I3 → S1 → I4` — ordered by when each container was created.
+Upload a doc into the stage or iteration it belongs to. **A container shows only the
+documents uploaded into it**, so a doc type with nothing indexed in the container you are
+viewing reads as an empty column.
 
-For each of the six types it uses the newest document **at or before** the container you
-are viewing, and inherits forward otherwise. Re-upload a doc into a later container only
-when it actually changes; until then the earlier one keeps applying, and the matrix shows
-it as *inherited*.
+There is deliberately no inheritance from earlier containers. An iteration's scope
+routinely diverges from the one before it — requirements dropped, a different direction
+taken — so presenting I2's requirements while you are looking at I3 would show superseded
+content as though it were still in force. An empty column is the more honest answer: it
+says the document has not been uploaded here yet. Carry a document forward by uploading it
+into the later container.
+
+The continuous IIL order — `I1 → I2 → I3 → S1 → I4`, by container creation time — still
+matters for status: a passing test older than the item it covers marks that item yellow
+rather than green, because the item has changed since it was last verified.
 
 Re-uploading the same file with the same name creates a revision and reindexes it
 automatically. Byte-identical re-uploads are skipped.
