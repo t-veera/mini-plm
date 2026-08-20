@@ -234,14 +234,25 @@ function Lineage({ nodes, empty, manual, edgeFor, onUnlink }) {
 }
 
 /**
- * Search any other node and link it to this one, upstream or downstream.
+ * Search any other node and link it to this one.
  *
- * Direction is asked for, not inferred: an arrow chosen by document order would quietly
- * reverse a link whenever two nodes share a type, and a reversed edge is exactly the
- * mistake this control exists to fix. One click links; there is no confirm step.
+ * A match is taken however the hand is already moving: click it, or drive the list from
+ * the search box with Up/Down and Enter without leaving the keyboard. Hover and the
+ * keyboard cursor are the same highlight, so the two never disagree about what Enter
+ * would take.
+ *
+ * The link is made in one direction — the picked node becomes downstream of this one,
+ * which is what "link to" reads as from the node you already have open. An earlier
+ * version asked upstream-or-downstream through a pair of small arrow buttons, on the
+ * grounds that a guessed direction could silently reverse an edge. That cost more than
+ * it bought: the buttons read as list reordering rather than as the way to choose
+ * anything, and the canvas draws every edge as a plain undirected line (MatrixCanvas
+ * paths carry no markerEnd), so the distinction they were protecting is never visible
+ * there. Reversing one is still one click, in the Upstream/Downstream lists above.
  */
 function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
   const [query, setQuery] = useState('');
+  const [active, setActive] = useState(0);
 
   const linked = useMemo(() => new Set([
     ...(adjacency.parents.get(node.key) || []),
@@ -262,9 +273,30 @@ function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
     return found;
   }, [query, nodesByKey, linked]);
 
-  const link = (other, asParent) => {
+  // A stale index would point Enter at a row that is no longer under the cursor.
+  useEffect(() => { setActive(0); }, [query]);
+
+  const link = other => {
     setQuery('');
-    onLink(asParent ? other.key : node.key, asParent ? node.key : other.key, true);
+    setActive(0);
+    onLink(node.key, other.key, true);
+  };
+
+  const onKeyDown = event => {
+    if (!matches.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActive(i => Math.min(i + 1, matches.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActive(i => Math.max(i - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (matches[active]) link(matches[active]);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setQuery('');
+    }
   };
 
   return (
@@ -274,6 +306,7 @@ function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
         type="text"
         value={query}
         onChange={event => setQuery(event.target.value)}
+        onKeyDown={onKeyDown}
         placeholder="Search by ID or title"
         style={{
           width: '100%', boxSizing: 'border-box',
@@ -287,44 +320,42 @@ function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
           Nothing else matches — already-linked nodes are not listed.
         </div>
       )}
+      {matches.length > 0 && (
+        <div style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.xs, marginTop: '6px' }}>
+          Click a result, or use ↑ ↓ and Enter. It becomes downstream of {node.tag_id}.
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
-        {matches.map(other => {
+        {matches.map((other, index) => {
           const color = STATUS_COLORS[other.status] || styles.colors.primary;
+          const isActive = index === active;
           return (
-            <div key={other.key} style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              borderLeft: `3px solid ${color}`, paddingLeft: '8px',
-              fontSize: styles.fonts.size.sm, color: styles.colors.text.light,
-            }}>
+            <div
+              key={other.key}
+              role="button"
+              tabIndex={-1}
+              title={`Link ${other.tag_id} downstream of ${node.tag_id}`}
+              onClick={() => link(other)}
+              onMouseEnter={() => setActive(index)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                borderLeft: `3px solid ${color}`, paddingLeft: '8px',
+                paddingTop: '3px', paddingBottom: '3px',
+                fontSize: styles.fonts.size.sm, color: styles.colors.text.light,
+                cursor: 'pointer', userSelect: 'none',
+                background: isActive ? styles.colors.hover : 'transparent',
+                borderRadius: styles.borderRadius.md,
+              }}
+            >
               <span style={{ fontWeight: styles.fonts.weight.bold }}>{other.tag_id}</span>
               <span style={{ flex: 1, minWidth: 0, color: styles.colors.text.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {other.title}
               </span>
-              <DirectionButton label="↑" title={`${other.tag_id} is upstream of ${node.tag_id}`} onClick={() => link(other, true)} />
-              <DirectionButton label="↓" title={`${other.tag_id} is downstream of ${node.tag_id}`} onClick={() => link(other, false)} />
             </div>
           );
         })}
       </div>
     </>
-  );
-}
-
-function DirectionButton({ label, title, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      style={{
-        background: 'transparent', border: `1px solid ${styles.colors.border}`,
-        color: styles.colors.text.light, borderRadius: styles.borderRadius.md,
-        cursor: 'pointer', flexShrink: 0, padding: '0 7px',
-        fontSize: styles.fonts.size.sm, lineHeight: '20px',
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
