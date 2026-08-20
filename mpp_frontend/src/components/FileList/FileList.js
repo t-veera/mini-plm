@@ -390,10 +390,12 @@ function FileList({
                     onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                   >{label}</div>
                 ))}
-                <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
+                {/* Fixed white for the same reason as Remove below: text.dark is
+                    near-black in dark mode and scores 3.04:1 on this red. */}
+                <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: '#FFFFFF', backgroundColor: styles.colors.danger }}
                   onClick={() => onFolderDelete(folder)}
-                  onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
-                  onMouseOut={e => e.currentTarget.style.opacity = '1'}
+                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#B91C1C'}
+                  onMouseOut={e => e.currentTarget.style.backgroundColor = styles.colors.danger}
                 >Delete Folder</div>
               </>
             );

@@ -1381,10 +1381,12 @@ function MainApp() {
             onMouseOver={e => e.currentTarget.style.backgroundColor = styles.colors.darkAlt}
             onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >Rename</div>
-          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.dark, backgroundColor: styles.colors.danger }}
+          {/* Fixed white, not text.dark: that token is near-black in dark mode and
+              scores 3.04:1 on this red. Same fix as the file and folder menus. */}
+          <div style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: '#FFFFFF', backgroundColor: styles.colors.danger }}
             onClick={() => handleDeleteContainer(containerMenu.container, containerMenu.type)}
-            onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
-            onMouseOut={e => e.currentTarget.style.opacity = '1'}
+            onMouseOver={e => e.currentTarget.style.backgroundColor = '#B91C1C'}
+            onMouseOut={e => e.currentTarget.style.backgroundColor = styles.colors.danger}
           >Delete</div>
         </div>
       )}
