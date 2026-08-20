@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import styles from '../../constants/styles';
 import DashboardShell from '../DashboardShell/DashboardShell';
+import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
 import { accentFor, containerDisplayName } from '../ContainerSelect/ContainerSelect';
 import MatrixCanvas from './MatrixCanvas';
 import MatrixControls from './MatrixControls';
@@ -94,13 +95,16 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
                 </span>
               )}
             </div>
-            {graph && counts.total > 0 && (
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <CountPill status="GREEN" value={counts.GREEN} />
-                <CountPill status="YELLOW" value={counts.YELLOW} />
-                <CountPill status="RED" value={counts.RED} />
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+              {graph && counts.total > 0 && (
+                <>
+                  <CountPill status="GREEN" value={counts.GREEN} />
+                  <CountPill status="YELLOW" value={counts.YELLOW} />
+                  <CountPill status="RED" value={counts.RED} />
+                </>
+              )}
+              <FullscreenToggle />
+            </div>
           </div>
 
           <div style={{ flex: 1, minHeight: 0 }}>

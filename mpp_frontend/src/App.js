@@ -20,6 +20,7 @@ import useIconTheme from './hooks/useIconTheme';
 import ResizableColumn from './components/ResizableColumn/ResizableColumn';
 import Toolbar from './components/Toolbar/Toolbar';
 import ErrorBoundary from './components/ErrorBoundary';
+import FullscreenToggle from './components/FullscreenToggle/FullscreenToggle';
 import FileList from './components/FileList/FileList';
 import BOMViewer from './components/BOMViewer/BOMViewer';
 import TraceabilityMatrix from './components/TraceabilityMatrix/TraceabilityMatrix';
@@ -54,7 +55,9 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
     `/media/uploads/${fileObj.name}`;
 
   const revisionSelector = (
-    <div className="mb-3 d-flex align-items-center">
+    // gap so the full-width toggle does not sit flush against the Download button, which
+    // `marginLeft: auto` has already pushed to the right of this row.
+    <div className="mb-3 d-flex align-items-center" style={{ gap: '8px' }}>
       <label className="me-2" style={{ minWidth: 'auto', fontSize: '0.9rem' }}>Revision:</label>
       <Form.Select
         size="sm"
@@ -86,6 +89,7 @@ function renderPreview(fileObj, handleRevisionChange, handleChildRevisionChange)
       >
         <FaDownload size={13} /> Download
       </button>
+      <FullscreenToggle />
     </div>
   );
 

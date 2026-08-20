@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import styles from '../../constants/styles';
 import authenticatedFetch from '../../utils/authenticatedFetch';
 import DashboardShell from '../DashboardShell/DashboardShell';
+import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
 import ContainerSelect, { accentFor, containerDisplayName, containerLabelOf }
   from '../ContainerSelect/ContainerSelect';
 
@@ -757,18 +758,21 @@ function BOMViewer({ prod, updateFile, toolbar, onSelectContainer }) {
               </span>
             )}
           </div>
-          {missingPriceCount > 0 && (
-            <span style={{
-              fontSize: styles.fonts.size.xs,
-              color: styles.colors.warning,
-              border: `1px solid ${styles.colors.warning}`,
-              borderRadius: '10px',
-              padding: '2px 10px',
-              whiteSpace: 'nowrap',
-            }}>
-              {missingPriceCount} {missingPriceCount === 1 ? 'item' : 'items'} missing price
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {missingPriceCount > 0 && (
+              <span style={{
+                fontSize: styles.fonts.size.xs,
+                color: styles.colors.warning,
+                border: `1px solid ${styles.colors.warning}`,
+                borderRadius: '10px',
+                padding: '2px 10px',
+                whiteSpace: 'nowrap',
+              }}>
+                {missingPriceCount} {missingPriceCount === 1 ? 'item' : 'items'} missing price
+              </span>
+            )}
+            <FullscreenToggle />
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}>

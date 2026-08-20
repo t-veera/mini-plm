@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../../constants/styles';
 import useLeftPaneWidth, { CONTAINER_RAIL_WIDTH } from '../../hooks/useLeftPaneWidth';
-import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
+import { FullscreenProvider } from '../FullscreenToggle/FullscreenToggle';
 
 /**
  * Shared dashboard layout: a resizable left panel (toolbar + that dashboard's controls)
@@ -32,7 +32,7 @@ function DashboardShell({ left, children }) {
   }, [isResizing, setWidth]);
 
   return (
-    <div className="d-flex" style={{ height: '100%', overflow: 'hidden', position: 'relative' }}>
+    <div className="d-flex" style={{ height: '100%', overflow: 'hidden' }}>
       {!expanded && (
         <>
           <div style={{ width: `${width}px`, flexShrink: 0, height: '100%', borderRight: `1px solid ${styles.colors.border}` }}>
@@ -52,8 +52,11 @@ function DashboardShell({ left, children }) {
         </>
       )}
 
-      <div style={{ flexGrow: 1, minWidth: 0, height: '100%' }}>{children}</div>
-      <FullscreenToggle expanded={expanded} onToggle={() => setExpanded(v => !v)} />
+      <div style={{ flexGrow: 1, minWidth: 0, height: '100%' }}>
+        <FullscreenProvider value={{ expanded, toggle: () => setExpanded(v => !v) }}>
+          {children}
+        </FullscreenProvider>
+      </div>
     </div>
   );
 }

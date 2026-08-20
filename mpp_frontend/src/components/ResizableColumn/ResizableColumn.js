@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../../constants/styles';
 import useLeftPaneWidth, { CONTAINER_RAIL_WIDTH } from '../../hooks/useLeftPaneWidth';
-import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
+import { FullscreenProvider } from '../FullscreenToggle/FullscreenToggle';
 
 function ResizableColumn({ leftContent, rightContent }) {
   // Same shared width every dashboard uses, so the left pane doesn't jump when you
@@ -32,7 +32,7 @@ function ResizableColumn({ leftContent, rightContent }) {
     // The 80%/60% caps exist to keep the preview from swallowing the window while the
     // file list is up. Expanded, they are exactly what has to go, or "full width" would
     // stop at 60%.
-    <div className="d-flex flex-grow-1" style={{ height: '100%', overflow: 'hidden', padding: 0, margin: 0, maxWidth: expanded ? '100%' : '80%', position: 'relative' }}>
+    <div className="d-flex flex-grow-1" style={{ height: '100%', overflow: 'hidden', padding: 0, margin: 0, maxWidth: expanded ? '100%' : '80%' }}>
       {!expanded && (
         <>
           {/* No percentage cap here: the shared hook already clamps, and a % cap would make
@@ -46,9 +46,10 @@ function ResizableColumn({ leftContent, rightContent }) {
         </>
       )}
       <div style={{ flexGrow: 1, height: '100%', overflowY: 'auto', overflowX: 'auto', padding: '0.75rem', width: 'auto', maxWidth: expanded ? '100%' : '60%' }}>
-        {rightContent}
+        <FullscreenProvider value={{ expanded, toggle: () => setExpanded(v => !v) }}>
+          {rightContent}
+        </FullscreenProvider>
       </div>
-      <FullscreenToggle expanded={expanded} onToggle={() => setExpanded(v => !v)} />
     </div>
   );
 }
