@@ -1,12 +1,14 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from '../../constants/styles';
 import useLeftPaneWidth, { CONTAINER_RAIL_WIDTH } from '../../hooks/useLeftPaneWidth';
+import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
 
 function ResizableColumn({ leftContent, rightContent }) {
   // Same shared width every dashboard uses, so the left pane doesn't jump when you
   // switch between Files and the other views.
   const [leftWidth, setLeftWidth] = useLeftPaneWidth();
   const [isResizing, setIsResizing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const handleMouseDown = (e) => { setIsResizing(true); e.preventDefault(); };
 
@@ -27,18 +29,26 @@ function ResizableColumn({ leftContent, rightContent }) {
   }, [isResizing, setLeftWidth]);
 
   return (
-    <div className="d-flex flex-grow-1" style={{ height: '100%', overflow: 'hidden', padding: 0, margin: 0, maxWidth: '80%' }}>
-      {/* No percentage cap here: the shared hook already clamps, and a % cap would make
-          this pane narrower than the same pane on the other dashboards. */}
-      <div style={{ width: `${leftWidth}px`, flexShrink: 0, height: '100%', overflowY: 'auto', padding: '0.75rem', borderRight: `1px solid ${styles.colors.border}` }}>
-        {leftContent}
-      </div>
-      <div style={{ width: '10px', cursor: 'col-resize', background: 'transparent', position: 'relative', zIndex: 10 }} onMouseDown={handleMouseDown}>
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '4px', background: isResizing ? styles.colors.primary : 'transparent', transition: isResizing ? 'none' : 'background 0.2s' }} />
-      </div>
-      <div style={{ flexGrow: 1, height: '100%', overflowY: 'auto', overflowX: 'auto', padding: '0.75rem', width: 'auto', maxWidth: '60%' }}>
+    // The 80%/60% caps exist to keep the preview from swallowing the window while the
+    // file list is up. Expanded, they are exactly what has to go, or "full width" would
+    // stop at 60%.
+    <div className="d-flex flex-grow-1" style={{ height: '100%', overflow: 'hidden', padding: 0, margin: 0, maxWidth: expanded ? '100%' : '80%', position: 'relative' }}>
+      {!expanded && (
+        <>
+          {/* No percentage cap here: the shared hook already clamps, and a % cap would make
+              this pane narrower than the same pane on the other dashboards. */}
+          <div style={{ width: `${leftWidth}px`, flexShrink: 0, height: '100%', overflowY: 'auto', padding: '0.75rem', borderRight: `1px solid ${styles.colors.border}` }}>
+            {leftContent}
+          </div>
+          <div style={{ width: '10px', cursor: 'col-resize', background: 'transparent', position: 'relative', zIndex: 10 }} onMouseDown={handleMouseDown}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '4px', background: isResizing ? styles.colors.primary : 'transparent', transition: isResizing ? 'none' : 'background 0.2s' }} />
+          </div>
+        </>
+      )}
+      <div style={{ flexGrow: 1, height: '100%', overflowY: 'auto', overflowX: 'auto', padding: '0.75rem', width: 'auto', maxWidth: expanded ? '100%' : '60%' }}>
         {rightContent}
       </div>
+      <FullscreenToggle expanded={expanded} onToggle={() => setExpanded(v => !v)} />
     </div>
   );
 }
