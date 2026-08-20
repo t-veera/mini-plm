@@ -19,7 +19,7 @@ const COLUMN_WIDTH = 248;
  * STYLE difference on purpose: colour already means status, and reusing it here would
  * need a new legend entry and would fight the dark theme.
  */
-function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, onSelect }) {
+function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, onSelect, onBackgroundClick }) {
   const contentRef = useRef(null);
   const cardRefs = useRef(new Map());
   const [lines, setLines] = useState([]);
@@ -113,7 +113,8 @@ function MatrixCanvas({ columns, adjacency, hoveredKey, onHover, selectedKey, on
   columns.forEach(column => column.nodes.forEach(node => statusByKey.set(node.key, node.status)));
 
   return (
-    <div style={{ height: '100%', overflowX: 'auto', overflowY: 'auto' }}>
+    // Cards stop their own clicks, so anything arriving here came from empty canvas.
+    <div style={{ height: '100%', overflowX: 'auto', overflowY: 'auto' }} onClick={() => onBackgroundClick && onBackgroundClick()}>
       <div ref={contentRef} style={{ position: 'relative', display: 'flex', gap: '16px', minWidth: 'min-content', paddingBottom: '8px' }}>
         <svg
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 2 }}
@@ -203,7 +204,9 @@ function NodeCard({ node, dimmed, selected, onHover, onSelect, registerCard }) {
       ref={element => registerCard(node.key, element)}
       onMouseEnter={() => onHover(node.key)}
       onMouseLeave={() => onHover(null)}
-      onClick={() => onSelect(node)}
+      // Otherwise this bubbles to the canvas, which reads any click as "empty space"
+      // and would close the inspector in the same gesture that opened it.
+      onClick={e => { e.stopPropagation(); onSelect(node); }}
       title={STATUS_TITLES[node.status] || ''}
       style={{
         position: 'relative', zIndex: 3,

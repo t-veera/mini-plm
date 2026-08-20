@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from '../../constants/styles';
 import DashboardShell from '../DashboardShell/DashboardShell';
 import FullscreenToggle from '../FullscreenToggle/FullscreenToggle';
@@ -26,6 +26,18 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
   const [search, setSearch] = useState('');
   const [hoveredKey, setHoveredKey] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+
+  // Escape closes the inspector from anywhere, including while the cursor is inside it.
+  // The link search stops the event first when it has a query to abandon, so Escape
+  // there clears the box before it ever closes the panel.
+  useEffect(() => {
+    if (!selectedNode) return undefined;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') setSelectedNode(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selectedNode]);
 
   const accent = accentFor(prod.containerType);
   const containerKey = prod.selectedContainer
@@ -119,6 +131,7 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
               onHover={setHoveredKey}
               selectedNode={selectedNode}
               onSelect={setSelectedNode}
+              onBackgroundClick={() => setSelectedNode(null)}
             />
           </div>
         </div>
@@ -137,7 +150,7 @@ function TraceabilityMatrix({ prod, toolbar, onSelectContainer }) {
   );
 }
 
-function CanvasBody({ prod, loading, error, graph, matrixColumns, adjacency, hoveredKey, onHover, selectedNode, onSelect }) {
+function CanvasBody({ prod, loading, error, graph, matrixColumns, adjacency, hoveredKey, onHover, selectedNode, onSelect, onBackgroundClick }) {
   const message = (text) => (
     <p style={{ color: styles.colors.text.muted, fontSize: styles.fonts.size.sm }}>{text}</p>
   );
@@ -161,6 +174,7 @@ function CanvasBody({ prod, loading, error, graph, matrixColumns, adjacency, hov
       onHover={onHover}
       selectedKey={selectedNode ? selectedNode.key : null}
       onSelect={onSelect}
+      onBackgroundClick={onBackgroundClick}
     />
   );
 }

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Form } from 'react-bootstrap';
 import styles from '../../constants/styles';
 
@@ -31,7 +31,13 @@ export function InputModal({ modal, setModal }) {
           value={modal.value}
           autoFocus
           onChange={e => setModal(prev => ({ ...prev, value: e.target.value }))}
-          onKeyDown={e => { if (e.key === 'Enter') modal.onConfirm(modal.value); if (e.key === 'Escape') modal.onCancel(); }}
+          // Both keys are consumed here: the modal is on top, so its Escape must not
+          // also reach whatever it opened over -- the trace inspector closes on Escape
+          // too, and would otherwise disappear behind this dialog on the same press.
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.stopPropagation(); modal.onConfirm(modal.value); }
+            if (e.key === 'Escape') { e.stopPropagation(); modal.onCancel(); }
+          }}
         />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button className="btn btn-secondary btn-sm" onClick={modal.onCancel}>Cancel</button>

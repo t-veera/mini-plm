@@ -283,6 +283,17 @@ function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
   };
 
   const onKeyDown = event => {
+    // Escape clears a query in progress before it reaches the panel's own Escape
+    // handler, so the first press abandons the search and only the second closes the
+    // inspector. With the box already empty there is nothing to abandon, so it falls
+    // through and closes on the first press.
+    if (event.key === 'Escape') {
+      if (!query) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setQuery('');
+      return;
+    }
     if (!matches.length) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -293,9 +304,6 @@ function LinkPicker({ node, nodesByKey, adjacency, onLink }) {
     } else if (event.key === 'Enter') {
       event.preventDefault();
       if (matches[active]) link(matches[active]);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      setQuery('');
     }
   };
 
