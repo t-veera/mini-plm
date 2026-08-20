@@ -217,23 +217,47 @@ Images are built for **amd64**. ARM support (Oracle Cloud Always Free, Apple Sil
 
 ## Roadmap
 
-**In progress:**
+The next five milestones, in build order.
 
-- [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
+**1. Fix Dashboard 3 — Traceability Matrix**
+
+- [ ] **Doc-type detection coverage:** filename keyword matching misses real-world document names, which then land as unmatched and never reach the matrix. Broaden the keyword set, make deliberate exclusions explicit, and surface unmatched files in the UI instead of only in the server log.
+- [ ] **Edge connections and link parsing:** documents that index correctly but produce no connections between them. Improve reference detection across markdown and spreadsheets, and make manual linking easier where the parser genuinely can't infer a link.
+
+**2. Complete Dashboard 4 — Release Gate Control**
+
 - [ ] **KPI view:** iteration-level metrics tracked across the lifecycle. Time per iteration, cost delta, defects per stage, readiness scores at gate reviews.
 
-**Next:**
+**3. Update Dashboard 2 — BOM**
 
 - [ ] **Editable BOM columns:** edit quantity and price inline in the BOM table, and show/hide columns. Quantity and price are currently set from the file list's right-click menu.
 - [ ] **Row-level BOM overrides:** re-bin an individual spreadsheet row without changing the whole sheet. Rows currently follow the sheet's Category column, and the file-level category is editable from the BOM table.
 - [ ] **Stage roll-up in the BOM:** a stage gate totalling the iterations that feed into it. The BOM is iteration-scoped today.
+
+**4. KiCad and Fusion 360 plugins**
+
+- [ ] **KiCad plugin (Python):** auth dialog, product and iteration picker, upload to `/api/files/`, packaged as a PCM add-on for distribution through KiCad's plugin manager.
+- [ ] **Fusion 360 add-in:** auth dialog, product and iteration picker, `.f3d` and `.step` export, upload to `/api/files/`.
+
+**5. Claude MCP server**
+
+- [ ] **MCP server for mini-plm:** query traceability and gate status from Claude. Not started — in the backlog, design not yet scoped.
+
+**Later / unscheduled:**
+
+Wanted, but not blocking the sequence above.
+
+- [ ] **File sorting:** sort controls by name, type, date, and status within folders and iterations. Folder organisation itself is already done.
 - [ ] **Theme-aware 3D and CAD viewers:** the KiCad and Three.js canvases keep their own palettes and don't follow light/dark yet.
 - [ ] **ARM image builds:** for Oracle Cloud Always Free and Apple Silicon dev machines
+- [ ] **Search and filtering:** search across files; filter by status, file type, or date range within a product.
+- [ ] **Export and reporting:** generate PDF reports from stage gate reviews, and export BOM data to CSV/Excel.
+- [ ] **Role-based access control:** finer-grained permissions beyond admin/non-admin. Read-only for stakeholders, edit access for engineers.
 
 **Done:**
 
 - [x] **Dynamic Iterative BOM:** iteration-scoped cost dashboard with Electronics/Mechanical/Misc bins, spreadsheet extraction that locates the header row inside real BOM exports, row-level categories read from the sheet, missing-price tally, per-table subtotals, iteration total, and CSV export.
-- [x] **Traceability matrix:** PRD → architecture → risk → spec → verification → validation, indexed from the markdown you already write, with coverage inherited along the IIL container order.
+- [x] **Traceability matrix:** PRD → architecture → risk → spec → verification → validation, indexed from the markdown you already write, scoped to the iteration or stage you're viewing.
 - [x] **Light and dark themes:** switchable from the user menu, driven by one CSS-variable token set, persisted, defaulting to the OS preference, with WCAG AA contrast in light mode.
 - [x] **Unified dashboard shell:** one shared toolbar and one resizable left panel across the Files, BOM and Traceability views, at a width that stays put when you switch between them.
 - [x] **Copy and move across iterations and stages:** right-click a file or folder and copy or move it into another iteration or stage, including full folder subtrees.
