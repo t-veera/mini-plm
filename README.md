@@ -36,7 +36,7 @@ hardware development actually works.
 
 ## Contents
 
-**Getting started** · [Installation](#installation) · [Opening it for the first time](#opening-it-for-the-first-time) · [Day to day](#day-to-day) · [Uninstalling](#uninstalling) · [Live Demo](#live-demo) · [Self-hosting notes](#self-hosting-notes)
+**Getting started** · [Installation](#installation) · [Opening it for the first time](#opening-it-for-the-first-time) · [Taskbar icon](#give-it-a-taskbar-icon) · [After a reboot](#after-a-reboot) · [Day to day](#day-to-day) · [Uninstalling](#uninstalling) · [Live Demo](#live-demo)
 
 **Understanding it** · [Why this exists](#why-this-exists) · [The Integrated Innovation Lifecycle](#the-integrated-innovation-lifecycle) · [Features](#features)
 
@@ -165,9 +165,26 @@ curl -sSL https://raw.githubusercontent.com/t-veera/mini-plm/main/install/synolo
 
 ---
 
-Each installer asks for a port (default `8080`) and the IP address people will reach the server on, generates a fresh `SECRET_KEY`, pulls the images and starts everything. When it finishes, open that address and the setup wizard walks you through creating the admin account.
+Each installer asks three things, then generates a fresh `SECRET_KEY`, pulls the images and starts everything:
 
-**Where it lands:**
+1. **Where to keep your files.** Press Enter for the default in the table below, or type any path you like.
+2. **A port**, default `8080`.
+3. **The IP address** people will reach the server on, or `localhost` for this machine only.
+
+**Choosing a location.** This directory holds every file you upload, so put it where you have room
+and where your backups already run. It does not have to be on your system drive:
+
+```
+D:\mini-plm                     Windows, second drive
+/mnt/storage/mini-plm           Linux, a mounted data disk
+/Volumes/Work/mini-plm          macOS, an external drive
+/volume2/docker/mini-plm        Synology, whichever volume has the space
+```
+
+The installer remembers where you put it, so the update script finds it later without asking. Paths
+with spaces are fine, and `~` works.
+
+**Defaults if you just press Enter:**
 
 | Platform | Install directory | Your files |
 |---|---|---|
@@ -179,6 +196,10 @@ Each installer asks for a port (default `8080`) and the IP address people will r
 created, and it is readable with or without Mini-PLM running. The database (revision metadata,
 users, BOM figures) lives in a Docker named volume. See [Self-hosting notes](#self-hosting-notes)
 for how to dump it.
+
+> **On an external drive:** mount it before Docker starts, or the containers come up with an empty
+> folder. On Windows and macOS, also add the location under *Docker Desktop → Settings → Resources →
+> File sharing* if Docker says the path cannot be shared.
 
 ---
 
@@ -196,11 +217,40 @@ background as Docker containers. You use it through a browser.
 
 If the page doesn't load, Docker is usually still starting. Give it thirty seconds and refresh.
 
-### Day to day
+### Give it a taskbar icon
 
-Mini-PLM starts itself with your machine. All four containers are set to `restart: unless-stopped`,
-so once Docker is running they come back on their own after a reboot. On Windows and macOS, make
-sure Docker Desktop is set to start at login, since nothing runs while Docker is closed.
+Since Mini-PLM lives at a URL, your browser can turn it into something that looks and launches like
+a normal desktop app, with the Mini-PLM icon and its own window rather than a tab.
+
+| Browser | How |
+|---|---|
+| **Chrome** | Open Mini-PLM, then ⋮ menu → **Cast, save and share** → **Install page as app**. On older versions: ⋮ → **More tools** → **Create shortcut**, and tick **Open as window**. |
+| **Edge** | Open Mini-PLM, then ⋯ menu → **Apps** → **Install this site as an app**. |
+| **Safari** | Open Mini-PLM, then **File** → **Add to Dock**. |
+| **Firefox** | No app install, so bookmark it, or right-click the tab and choose **Pin Tab**. |
+
+Chrome and Edge then offer to pin it to the taskbar, and it appears in the Start menu or Launchpad
+like any other program. Right-click the taskbar icon and choose **Pin to taskbar** if it doesn't
+offer. The icon comes from the app itself, so you get the torii mark rather than a generic globe.
+
+This only creates a shortcut. Mini-PLM is already running in the background either way, and the
+shortcut does not start or stop it.
+
+### After a reboot
+
+**You do not install or run anything again.** All four containers use `restart: unless-stopped`, so
+Docker brings them back by itself when your machine comes up. Open the same address and carry on.
+
+The one thing it depends on is Docker itself starting. On Windows and macOS that means Docker
+Desktop must be set to launch at login, which is its default: check *Settings → General → Start
+Docker Desktop when you sign in*. On Linux, `sudo systemctl enable docker` does the same. Nothing
+runs while Docker is closed.
+
+If the page doesn't load after a restart, Docker is usually still coming up. Wait, refresh, and if
+it still fails run `docker compose -f docker-compose-prod.yml ps` in your install directory to see
+what state the containers are in.
+
+### Day to day
 
 To control it by hand, open a terminal in your install directory (see the table above) and use:
 
