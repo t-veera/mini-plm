@@ -16,10 +16,13 @@ from collections import namedtuple
 # hardware tokens in these docs — GPIO15, ESP32, TP4056, UC8179, SPI2 — cannot match:
 # their letter runs are longer than any listed prefix. `V` is deliberately absent
 # because V1/V2 version markers are everywhere in product docs.
-# Longest-first so RSK-04 matches RSK and not a bare R.
+# Longest-first so RSK-04 matches RSK and not a bare R. This is an ordering the
+# alternation depends on, not a tidiness convention: REQDEF must precede REQ, or
+# `REQDEF-SYS-01` matches REQ, fails on the `DEF-` that follows, and the id silently
+# does not index at all.
 ID_PREFIXES = [
-    'BLOCK', 'IFACE', 'VERIF', 'RISK', 'TEST', 'ARCH', 'PRD', 'REQ', 'RSK', 'HAZ',
-    'SRS', 'ARC', 'VER', 'VAL', 'TST', 'TC', 'SR', 'OQ', 'R', 'T', 'G',
+    'REQDEF', 'BLOCK', 'IFACE', 'VERIF', 'RISK', 'TEST', 'ARCH', 'PRD', 'REQ', 'RSK',
+    'HAZ', 'SRS', 'ARC', 'VER', 'VAL', 'TST', 'TC', 'SR', 'OQ', 'R', 'T', 'G',
 ]
 
 # Prefixes that only count when a hyphen and a two-digit-or-longer number follow.
@@ -65,6 +68,12 @@ DEFAULT_ID_PATTERN = (
 # rarely keep one doc type per file. A prefix that is absent here inherits the file's
 # type, which is why R001/REQ-01 stay whatever their document is.
 PREFIX_NODE_TYPES = {
+    # A requirement defect is a statement about a requirement, so it indexes as PRD
+    # wherever it is written -- normally in the PRD or SRS that carries the defective
+    # item, since a defect belongs with the thing it is a defect in. PRD itself is
+    # deliberately absent from this map (it inherits its document's type); REQDEF is
+    # here precisely because it has to keep its kind inside an SRS.
+    'REQDEF': 'PRD',
     'ARCH': 'ARCH', 'ARC': 'ARCH',
     'RISK': 'RISK', 'RSK': 'RISK', 'HAZ': 'RISK',
     'SRS': 'SRS', 'SR': 'SRS',

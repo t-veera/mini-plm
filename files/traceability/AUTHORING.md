@@ -98,8 +98,13 @@ The boot path (see T01) is timed separately.  <- mentions T01, declares nothing
 
 ### Recognised prefixes
 
-`PRD` `R` `REQ` `FR` `NFR` `AC` · `ARCH` `ARC` `BLOCK` `IFACE` · `RISK` `RSK` `HAZ` ·
-`SRS` `SR` · `TC` `T` `TEST` `TST` `VER` `VERIF` · `VAL` · `G` `OQ`
+`PRD` `R` `REQ` `FR` `NFR` `AC` `REQDEF` · `ARCH` `ARC` `BLOCK` `IFACE` · `RISK` `RSK`
+`HAZ` · `SRS` `SR` · `TC` `T` `TEST` `TST` `VER` `VERIF` · `VAL` · `G` `OQ`
+
+`REQDEF` marks a **requirement defect** — a requirement or exit criterion found to be
+wrong rather than unmet. It indexes as a requirements-level item wherever it is written,
+including inside an SRS, because a defect belongs in the document that carries the
+defective item rather than in the minutes of the review that found it.
 
 Three shapes are recognised:
 

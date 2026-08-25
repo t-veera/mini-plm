@@ -16,7 +16,7 @@ from rest_framework.test import APITestCase
 from .models import File, Iteration, ManualTraceEdge, Product, TraceEdge, TraceNode
 
 from .traceability.doctypes import AMBIGUOUS, EXCLUDED, MATCHED, UNMATCHED, classify, detect_node_type
-from .traceability.extract import canonical, compile_id_pattern, iter_lines
+from .traceability.extract import canonical, compile_id_pattern, iter_lines, node_type_for_tag
 from .traceability.parse import extract_lines
 from .traceability.sheets import iter_sheet_lines
 
@@ -123,6 +123,25 @@ class IdPatternTests(SimpleTestCase):
     def test_subsystem_shape_still_indexes(self):
         for tag in ('PRD-SYS-09', 'BLOCK-ELE-01', 'RISK-MEC-02'):
             self.assert_matches(tag)
+
+    def test_reqdef_indexes_and_does_not_shadow_req(self):
+        """REQDEF sits before REQ in the prefix list, and both have to survive it.
+
+        Get the order wrong and REQDEF-SYS-01 matches REQ, hits `DEF-`, and drops out
+        with no error anywhere -- so assert the whole tag came back, not just a match.
+        """
+        for tag in ('REQDEF-SYS-01', 'REQDEF-ELE-01', 'REQDEF-014'):
+            self.assert_matches(tag)
+        for tag in ('REQ-01', 'REQ-I2-014'):
+            self.assert_matches(tag)
+
+    def test_a_requirement_defect_keeps_its_kind_inside_an_srs(self):
+        """A defect is written where the defective item lives, which is often an SRS.
+        It still has to index as a requirements-level item, so its prefix overrides the
+        document -- unlike FR, which takes whatever type its document is."""
+        self.assertEqual(node_type_for_tag('REQDEF-SYS-01', 'SRS'), 'PRD')
+        self.assertEqual(node_type_for_tag('REQDEF-ELE-01', 'VERIF'), 'PRD')
+        self.assertEqual(node_type_for_tag('FR-I2-014', 'SRS'), 'SRS')
 
     def test_hardware_vocabulary_is_not_an_id(self):
         """These sit in the same sentences as real IDs in the architecture doc."""
@@ -321,6 +340,16 @@ class ManualEdgeTests(APITestCase):
         edge = self.edge(self.graph(), 'PRD-I2-001', 'FR-I2-014')
         self.assertIsNotNone(edge)
         self.assertTrue(edge['manual'])
+
+    def test_a_requirement_defect_is_red_until_a_passing_test_closes_it(self):
+        """REQDEF indexes as PRD, so the existing PRD orphan rule gives a defect its
+        whole lifecycle: nothing downstream is an open defect, and linking it to the
+        corrected test closes it. No state machine was written for this."""
+        self.node('PRD', 'REQDEF-SYS-01')
+        self.assertEqual(self.status_of('REQDEF-SYS-01'), 'RED')
+
+        self.link('REQDEF-SYS-01', 'T01')
+        self.assertEqual(self.status_of('REQDEF-SYS-01'), 'GREEN')
 
     def test_manual_links_clear_an_orphan_exactly_as_parsed_ones_would(self):
         """An intermediate node needs BOTH sides -- the pre-existing orphan rule, which
