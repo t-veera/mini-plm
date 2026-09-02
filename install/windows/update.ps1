@@ -34,8 +34,8 @@ Write-Host "[1/3] Stopping containers..."
 docker compose -f docker-compose-prod.yml down
 
 Write-Host "[2/3] Pulling latest images..."
-docker rmi ghcr.io/t-veera/mini-plm:main-backend 2>$null
-docker rmi ghcr.io/t-veera/mini-plm:main-frontend 2>$null
+try { docker rmi ghcr.io/t-veera/mini-plm:main-backend 2>$null } catch {}
+try { docker rmi ghcr.io/t-veera/mini-plm:main-frontend 2>$null } catch {}
 docker pull ghcr.io/t-veera/mini-plm:main-backend
 docker pull ghcr.io/t-veera/mini-plm:main-frontend
 
