@@ -29,7 +29,14 @@ function qtyPriceFlags(fileObj) {
   return { showQty, showPrice: hasPrice, showBadges: (hasQtyVal && (eligibleExt || Number(fileObj.quantity) !== 1)) || hasPrice };
 }
 
-const INDENT = 16; // px per nesting level
+const INDENT = 22; // px per nesting level
+const CHEVRON = 16; // width of the expand/collapse arrow column
+
+// One faint vertical line per ancestor folder, drawn through the arrow column, so a
+// subfolder reads as inside its parent rather than as a sibling a few px to the right.
+const guideLines = (depth) => Array.from({ length: depth }, (_, i) => (
+  <span key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${i * INDENT + 4 + CHEVRON / 2}px`, borderLeft: `1px solid ${styles.colors.border}`, pointerEvents: 'none' }} />
+));
 
 function FileList({
   prod,
@@ -154,22 +161,32 @@ function FileList({
     else if (data.kind === 'folder' && data.id !== targetFolderId) onMoveFolder(data.id, targetFolderId);
   };
 
+  // Rows inside an open folder drop into that folder. Without this, a drop landing on
+  // one of its files fell through to the list background and uploaded to the root.
+  const dropIntoFolderProps = (folderId) => ({
+    onDragOver: e => { e.preventDefault(); e.stopPropagation(); setDragOverRoot(folderId === null); setDragOverFolderId(folderId); },
+    onDrop: e => dropOnTarget(e, folderId),
+  });
+
   // --- file row (with its child files) ---
   const renderFileRow = (fileObj, depth) => {
     const icon = <AppFileIcon filename={fileObj.name} />;
     const hasRevisions = fileObj.revisions?.length > 0;
     const childFiles = childrenOf(fileObj);
-    const namePad = depth * INDENT + INDENT + 4; // +INDENT lines file icons up under folder icons (past the chevron)
+    const namePad = depth * INDENT + CHEVRON + 4; // past the arrow column, so file icons line up with sibling folder icons
+    const parentFolderId = fileObj.folder ?? null;
 
     return (
       <React.Fragment key={fileObj.id}>
         <tr
           draggable
           onDragStart={e => dragStartFile(e, fileObj)}
+          {...dropIntoFolderProps(parentFolderId)}
           onClick={() => setSelectedFileObj(fileObj)}
           className={selectedFileObj?.id === fileObj.id ? 'selected-file-row' : ''}
         >
-          <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad}px` }} onContextMenu={e => onFileRightClick(e, fileObj)}>
+          <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad}px`, position: 'relative' }} onContextMenu={e => onFileRightClick(e, fileObj)}>
+            {guideLines(depth)}
             <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '12px' }}>{icon}</span>
               <span title={fileObj.name} style={{ flex: '0 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fileObj.name}</span>
@@ -222,8 +239,9 @@ function FileList({
           const childIcon = <AppFileIcon filename={childFile.name} />;
           const hasChildRevisions = childFile.revisions?.length > 0;
           return (
-            <tr key={childFile.id} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: styles.colors.primaryActive } : {}}>
+            <tr key={childFile.id} {...dropIntoFolderProps(parentFolderId)} onClick={() => setSelectedFileObj(childFile)} style={selectedFileObj?.id === childFile.id ? { backgroundColor: styles.colors.primaryActive } : {}}>
               <td style={{ maxWidth: 0, overflow: 'hidden', paddingLeft: `${namePad + 20}px`, position: 'relative' }} onContextMenu={e => onFileRightClick(e, childFile)}>
+                {guideLines(depth)}
                 <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
                   <span style={{ position: 'absolute', left: `${namePad - 4}px`, color: styles.colors.text.muted, fontSize: '0.7rem' }}>└</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', flexShrink: 0, marginRight: '12px' }}>{childIcon}</span>
@@ -279,7 +297,7 @@ function FileList({
         <tr
           draggable
           onDragStart={e => dragStartFolder(e, folder)}
-          onDragOver={e => { e.preventDefault(); setDragOverFolderId(folder.id); }}
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverRoot(false); setDragOverFolderId(folder.id); }}
           onDragLeave={() => setDragOverFolderId(null)}
           onDrop={e => dropOnTarget(e, folder.id)}
           onClick={() => { setCurrentFolderId(folder.id); toggle(folder.id); }}
@@ -289,11 +307,12 @@ function FileList({
             outline: dragOverFolderId === folder.id ? `1px dashed ${styles.colors.iteration}` : 'none',
           }}
         >
-          <td style={{ whiteSpace: 'nowrap', paddingLeft: `${namePad}px` }}>
+          <td style={{ whiteSpace: 'nowrap', paddingLeft: `${namePad}px`, position: 'relative' }}>
+            {guideLines(depth)}
             <div className="d-flex align-items-center">
               <span
                 onClick={e => { e.stopPropagation(); toggle(folder.id); }}
-                style={{ width: '16px', display: 'inline-flex', justifyContent: 'center', color: styles.colors.text.muted, flexShrink: 0 }}
+                style={{ width: `${CHEVRON}px`, display: 'inline-flex', justifyContent: 'center', color: styles.colors.text.muted, flexShrink: 0 }}
               >
                 {hasChildren || filesInFolder(folder.id).length > 0 ? (isOpen ? <FaChevronDown size={9} /> : <FaChevronRight size={9} />) : null}
               </span>
@@ -358,7 +377,7 @@ function FileList({
             {!foldersLoading && isEmpty && (
               <tr>
                 <td colSpan="3" style={{ color: styles.colors.text.light, fontSize: styles.fonts.size.sm, padding: '12px 8px' }}>
-                  No folders or files yet. Right-click to add a folder, or use the upload buttons above.
+                  No folders or files yet. Right-click or press Alt+N to add a folder, or use the upload buttons above.
                 </td>
               </tr>
             )}
@@ -402,7 +421,7 @@ function FileList({
           })()}
 
           {contextMenu.type === 'background' && [
-            { label: 'New Folder', action: onBackgroundNewFolder },
+            { label: 'New Folder (Alt+N)', action: onBackgroundNewFolder },
             { label: 'Upload File', action: onBackgroundUpload },
           ].map(({ label, action }) => (
             <div key={label} style={{ padding: '0.375rem 1rem', cursor: 'pointer', color: styles.colors.text.light }}

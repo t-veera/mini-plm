@@ -589,6 +589,24 @@ function MainApp() {
     await handleCreateFolder(currentFolderId, name);
   }
 
+  // Alt+N: new folder in the selected folder (or root). Not Ctrl+Shift+N -- browsers
+  // reserve that for a private window and never deliver it to the page. e.code, not
+  // e.key, because Option+N on a Mac types a dead key instead of "n".
+  const newFolderShortcutRef = useRef(null);
+  newFolderShortcutRef.current = viewMode === 'normal' ? handleBackgroundNewFolder : null;
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.code !== 'KeyN') return;
+      const el = document.activeElement;
+      if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return;
+      if (!newFolderShortcutRef.current) return;
+      e.preventDefault();
+      newFolderShortcutRef.current();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   async function handleFolderRenamePrompt(folder) {
     hideContextMenu();
     const name = await showInputModal('Rename Folder', 'Enter new name', folder.name);
