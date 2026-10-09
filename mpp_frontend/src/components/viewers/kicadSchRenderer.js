@@ -215,6 +215,24 @@ const esc = (s) =>
 
 const f = (n) => (Math.round(n * 1000) / 1000).toString();
 
+/* KiCad 7+ escapes reserved characters in net/label text as {slash}, {lt}, ... */
+const KICAD_ESCAPES = {
+  slash: '/', backslash: '\\', lt: '<', gt: '>', colon: ':', dblquote: '"', quote: "'",
+  brl: '{', brr: '}', tab: '\t', return: '\n', space: ' ', dollar: '$', tilde: '~',
+};
+const unescapeKicad = (s) => String(s).replace(/\{(\w+)\}/g, (m, k) => (k in KICAD_ESCAPES ? KICAD_ESCAPES[k] : m));
+
+/* escape for SVG, then turn KiCad overbar markup ~{X} into an overlined tspan */
+// split() with a capture group alternates plain text (even) and overbar text (odd)
+const markup = (s) =>
+  String(s)
+    .split(/~\{([^}]*)\}/)
+    .map((part, k) => {
+      const t = esc(unescapeKicad(part));
+      return k % 2 ? `<tspan text-decoration="overline">${t}</tspan>` : t;
+    })
+    .join('');
+
 function line(sink, x1, y1, x2, y2, color, width) {
   sink.grow(x1, y1, width);
   sink.grow(x2, y2, width);
@@ -270,9 +288,9 @@ function text(sink, s, x, y, opts = {}) {
   const body =
     lines.length > 1
       ? lines
-          .map((ln, k) => `<tspan x="${f(x)}" dy="${k === 0 ? '0' : f(size * 1.2)}">${esc(ln)}</tspan>`)
+          .map((ln, k) => `<tspan x="${f(x)}" dy="${k === 0 ? '0' : f(size * 1.2)}">${markup(ln)}</tspan>`)
           .join('')
-      : esc(s);
+      : markup(s);
   sink.push(
     `<text x="${f(x)}" y="${f(y)}" fill="${color}" font-family="'DejaVu Sans','Helvetica',sans-serif" font-size="${f(
       size
@@ -638,6 +656,31 @@ function drawText(sink, node) {
   });
 }
 
+/* KiCad 7+ text box: (text_box "txt" (at x y a) (size w h) ...) */
+function drawTextBox(sink, node) {
+  const at = getAt(node);
+  const sizeNode = findChild(node, 'size');
+  if (!at || !sizeNode) return;
+  const w = num(sizeNode[1]);
+  const h = num(sizeNode[2]);
+  const x2 = at.x + w;
+  const y2 = at.y + h;
+  const pts = [[at.x, at.y], [x2, at.y], [x2, y2], [at.x, y2], [at.x, at.y]];
+  polyline(sink, pts, C.text, strokeWidth(node, W_WIRE), fillType(node));
+  const ef = effects(node);
+  if (!ef.hide) {
+    const m = ef.size * 0.6;
+    text(sink, str(node[1]), at.x + m, at.y + m, {
+      color: C.text,
+      size: ef.size,
+      anchor: 'start',
+      baseline: 'text-before-edge',
+      bold: ef.bold,
+      italic: ef.italic,
+    });
+  }
+}
+
 function drawSheet(sink, node) {
   const at = getAt(node);
   const sizeNode = findChild(node, 'size');
@@ -670,6 +713,103 @@ function drawSheet(sink, node) {
  *  Top-level render
  * ============================================================= */
 
+/* ---- drawing sheet: page border, zone markers, title block ---- */
+
+// Landscape sizes in mm, as KiCad defines them.
+const PAPER_SIZES = {
+  A5: [210, 148], A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841],
+  A: [279.4, 215.9], B: [431.8, 279.4], C: [558.8, 431.8], D: [863.6, 558.8], E: [1117.6, 863.6],
+  USLetter: [279.4, 215.9], USLegal: [355.6, 215.9], USLedger: [431.8, 279.4],
+};
+
+function pageSize(root) {
+  const paper = findChild(root, 'paper');
+  if (!paper) return null;
+  const vals = scalars(paper).map(str);
+  let size;
+  if (vals[0] === 'User') size = [num(vals[1]), num(vals[2])];
+  else size = PAPER_SIZES[vals[0]];
+  if (!size || !(size[0] > 0 && size[1] > 0)) return null;
+  const [w, h] = size;
+  return { name: vals[0], w: vals.includes('portrait') ? h : w, h: vals.includes('portrait') ? w : h };
+}
+
+// Approximates KiCad's default page layout: double border with numbered/lettered
+// zones, and the title block in the bottom-right corner.
+function drawPageFrame(sink, root) {
+  const page = pageSize(root);
+  if (!page) return null;
+  const col = C.sheet;
+  const lw = 0.15;
+  const m = 10; // page margin
+  const gap = 2; // band between outer and inner border, holds the zone labels
+  const x0 = m, y0 = m, x1 = page.w - m, y1 = page.h - m;
+  const rect = (ax, ay, bx, by) => polyline(sink, [[ax, ay], [bx, ay], [bx, by], [ax, by], [ax, ay]], col, lw, 'none');
+  rect(x0, y0, x1, y1);
+  rect(x0 + gap, y0 + gap, x1 - gap, y1 - gap);
+
+  // zones: columns numbered 1..n, rows lettered A..n, roughly 50 mm each
+  const zoneText = { color: col, size: 1.3 };
+  const cols = Math.max(1, Math.round((x1 - x0) / 50));
+  const cw = (x1 - x0) / cols;
+  for (let i = 0; i < cols; i += 1) {
+    const cx = x0 + cw * (i + 0.5);
+    text(sink, String(i + 1), cx, y0 + gap / 2, zoneText);
+    text(sink, String(i + 1), cx, y1 - gap / 2, zoneText);
+    if (i > 0) {
+      const tx = x0 + cw * i;
+      line(sink, tx, y0, tx, y0 + gap, col, lw);
+      line(sink, tx, y1 - gap, tx, y1, col, lw);
+    }
+  }
+  const rows = Math.max(1, Math.round((y1 - y0) / 50));
+  const rh = (y1 - y0) / rows;
+  for (let i = 0; i < rows; i += 1) {
+    const cy = y0 + rh * (i + 0.5);
+    const letter = String.fromCharCode(65 + (i % 26));
+    text(sink, letter, x0 + gap / 2, cy, zoneText);
+    text(sink, letter, x1 - gap / 2, cy, zoneText);
+    if (i > 0) {
+      const ty = y0 + rh * i;
+      line(sink, x0, ty, x0 + gap, ty, col, lw);
+      line(sink, x1 - gap, ty, x1, ty, col, lw);
+    }
+  }
+
+  // title block, anchored to the inner border's bottom-right corner
+  const tb = findChild(root, 'title_block');
+  const field = (tag) => (tb && findChild(tb, tag) ? unescapeKicad(str(scalars(findChild(tb, tag))[0])) : '');
+  const comments = tb
+    ? findChildren(tb, 'comment').map((c) => [num(scalars(c)[0]), unescapeKicad(str(scalars(c)[1]))])
+    : [];
+  const R = x1 - gap, B = y1 - gap, L = R - 108, T = B - 32;
+  rect(L, T, R, B);
+  const hl = (y) => line(sink, L, y, R, y, col, lw);
+  const rowId = B - 3.5, rowSize = B - 7, rowTitle = B - 15, rowFile = B - 18.5;
+  hl(rowId);
+  hl(rowSize);
+  hl(rowTitle);
+  line(sink, R - 18, rowSize, R - 18, rowId, col, lw); // Rev cell
+  line(sink, R - 18, B, R - 18, rowId, col, lw); // Id cell
+  line(sink, L + 30, rowSize, L + 30, rowId, col, lw); // Size | Date
+  const t = (s, x, y, size = 1.27, opts = {}) =>
+    text(sink, s, x, y, { color: col, size, anchor: 'start', ...opts });
+  t('KiCad E.D.A.', L + 1, B - 1.75, 1.1);
+  t('Id: 1/1', R - 17, B - 1.75, 1.1);
+  t(`Size: ${page.name}`, L + 1, B - 5.25);
+  t(`Date: ${field('date')}`, L + 31, B - 5.25);
+  t(`Rev: ${field('rev')}`, R - 17, B - 5.25);
+  t('Title:', L + 1, B - 11);
+  t(field('title'), L + 12, B - 11, 2, { bold: true });
+  t('Sheet: /', L + 1, rowFile + 1.75, 1.1);
+  t(field('company'), L + 1, T + 2.5, 1.5, { bold: true });
+  comments
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, 4)
+    .forEach(([, s], k) => t(s, L + 1, rowFile - 2 - k * 2.6, 1.1));
+  return page;
+}
+
 function looksLikeLegacy(text) {
   return /^\s*EESchema\s+Schematic\s+File/i.test(text) || /^\s*LIBS:/m.test(text);
 }
@@ -700,7 +840,8 @@ export function parseAndRender(rawText) {
   const libs = buildLibSymbols(root);
   const sink = makeSink();
 
-  // Draw order roughly matches KiCad: wires/buses, then symbols, then labels on top.
+  // Draw order roughly matches KiCad: page frame, wires/buses, then symbols, then labels on top.
+  const page = drawPageFrame(sink, root);
   for (const w of findChildren(root, 'bus')) drawWireLike(sink, w, C.bus, W_BUS);
   for (const w of findChildren(root, 'wire')) drawWireLike(sink, w, C.wire, W_WIRE);
   for (const s of findChildren(root, 'sheet')) drawSheet(sink, s);
@@ -711,12 +852,23 @@ export function parseAndRender(rawText) {
   for (const l of findChildren(root, 'global_label')) drawGlobalLabel(sink, l, C.glabel);
   for (const l of findChildren(root, 'hierarchical_label')) drawGlobalLabel(sink, l, C.hlabel);
   for (const t of findChildren(root, 'text')) drawText(sink, t);
+  // Sheet-level graphics (dashed boxes, notes) — KiCad 7 added text_box and the
+  // rectangle/circle/arc shapes; polyline has been around since 6. Coordinates are
+  // already schematic space, so no Y-flip.
+  const sheetSpace = (x, y) => [x, y];
+  for (const tag of ['polyline', 'rectangle', 'circle', 'arc']) {
+    for (const g of findChildren(root, tag)) drawGraphic(sink, g, sheetSpace, C.text);
+  }
+  for (const tb of findChildren(root, 'text_box')) drawTextBox(sink, tb);
 
   let { minX, minY, maxX, maxY } = sink.bbox();
   if (!Number.isFinite(minX)) {
     return { ok: false, reason: 'Schematic is empty (nothing to draw).', raw: text };
   }
-  const pad = 5;
+  // With a page defined, fit to the sheet like KiCad does; the text bbox estimate
+  // is loose enough to leave wide margins otherwise.
+  if (page) [minX, minY, maxX, maxY] = [0, 0, page.w, page.h];
+  const pad = page ? 2 : 5;
   minX -= pad;
   minY -= pad;
   maxX += pad;
