@@ -10,7 +10,7 @@ currently holding it together with shared drives, spreadsheets and Slack threads
 No subscriptions, no cloud lock-in, and a structure that reflects how cross-domain
 hardware development actually works.
 
-**The methodology, architecture and system design are mine. The code is written with [Claude Code](https://claude.com/claude-code).**
+**The methodology, architecture and system design are mine. The code is written with [Claude Code](https://claude.com/claude-code). Looking for developers for contribution**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/t-veera/mini-plm/docker-publish.yml?branch=main&label=build&logo=github)](https://github.com/t-veera/mini-plm/actions/workflows/docker-publish.yml)
 [![License](https://img.shields.io/github/license/t-veera/mini-plm?color=blue)](LICENSE)
