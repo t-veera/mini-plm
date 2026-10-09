@@ -535,6 +535,20 @@ export function parseAndRenderPcb(rawText) {
       const p = tf(pat.x, pat.y);
       text(sink, str(prop[2]), p[0], p[1], sz, LAYER_COLORS[layer] || '#e6e6e6', fat.a + pat.a);
     }
+    // KiCad 6/7 keep the reference in (fp_text reference ...) instead of a property;
+    // its angle is already absolute, like a pad's.
+    for (const ft of findChildren(fpn, 'fp_text')) {
+      if (str(ft[1]) !== 'reference') continue;
+      const eff = findChild(ft, 'effects') || [];
+      if (scalars(ft).map(str).includes('hide') || scalars(eff).map(str).includes('hide')) continue;
+      const pat = getAt(ft);
+      const layer = layerOf(ft);
+      if (!pat || !RENDER_LAYERS.has(layer)) continue;
+      const font = findChild(eff, 'font');
+      const sz = font && findChild(font, 'size') ? num(findChild(font, 'size')[1], 1) : 1;
+      const p = tf(pat.x, pat.y);
+      text(sink, str(ft[2]), p[0], p[1], sz, LAYER_COLORS[layer] || '#e6e6e6', pat.a);
+    }
   }
 
   // 5) vias on top
