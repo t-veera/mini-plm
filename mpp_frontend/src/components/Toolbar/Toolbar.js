@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form } from 'react-bootstrap';
-import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaFolderPlus, FaProjectDiagram } from 'react-icons/fa';
+import { FaPlus, FaUpload, FaEye, FaTable, FaChartLine, FaToriiGate, FaDrumSteelpan, FaProjectDiagram } from 'react-icons/fa';
+import { MdDriveFolderUpload } from 'react-icons/md';
 import styles from '../../constants/styles';
 
 /** One toolbar button. Exported so other surfaces can add icons with the same look. */
@@ -88,7 +89,7 @@ function Toolbar({
           <ToolbarIcon label="Add iteration" onClick={onAddIteration} color={styles.colors.iteration} icon={<FaDrumSteelpan size={16} />} />
           <ToolbarIcon label="Add stage" onClick={onAddStage} color={styles.colors.stage} icon={<FaToriiGate size={16} />} />
           <ToolbarIcon label="Upload file" onClick={onUploadFile} icon={<FaUpload size={15} />} />
-          <ToolbarIcon label="Upload folder" onClick={onUploadFolder} icon={<FaFolderPlus size={15} />} />
+          <ToolbarIcon label="Upload folder" onClick={onUploadFolder} icon={<MdDriveFolderUpload size={18} />} />
           <div style={{ width: '1px', height: '18px', background: styles.colors.border, margin: '0 5px' }} />
           <ToolbarIcon label="Files" onClick={() => setViewMode('normal')} active={viewMode === 'normal'} icon={<FaEye size={16} />} />
           <ToolbarIcon label="BOM" onClick={() => setViewMode('bom')} active={viewMode === 'bom'} icon={<FaTable size={15} />} />
